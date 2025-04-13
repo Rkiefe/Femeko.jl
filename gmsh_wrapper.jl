@@ -3,7 +3,7 @@
     for Finite Element Simulations
 
     This includes adding a cuboid based on its center position
-    Adding spheres 
+    Adding spheres and import step files
 =#
 
 function save2file(fileName,input)
