@@ -1,6 +1,16 @@
 # FEMjl
-Currently, this is just a wrapper for Gmsh, that simplifies the code required to create a Finite Element environment. Create your own models with cuboids and spheres, or import CAD files directly. Extract all the required information into simple matrices such as element connectivity, node coordinates, surface triangles of the 3D tetrahedral mesh of both inside objects and the outer container and more.
-It also allows for a simplified local refinement of the mesh. It automatically selects the volumes inside and creates a local mesh refinement set by the user.
+Make a high quality 3D mesh of your 3D model and get all the properties you need, easily accessible in a simple MESH() object, powered by Gmsh. 
 
+Automatically create a bounding shell for your 3D model, simplifying magnetic field simulations. You can define the scale of your bounding shell directly in import phase of you .step file, or keep the default "5x larger".
+
+Both internal and bounding shell surfaces are preserved. You can access the surface ID of each surface triangle of your mesh directly.
+
+You can make your own simple models with cuboids and spheres. Each cell ID you add is tracked for you. Just "addCuboid" or "addSphere" and you are set.
+
+Automatically get the mesh element volumes, surface triangle normals and the area of each surface triangle.
+
+The output mesh object is optimized for Finite-Element simulations. The main.jl includes an example of creating the stiffness matrix.
+
+### Installation
 To install, make sure you add Gmsh and include the gmsh_wrapper.jl. That's it.
 ![twoBalls](https://github.com/user-attachments/assets/3b9549ba-3968-40f1-94a4-5c21ce37ca9e)
