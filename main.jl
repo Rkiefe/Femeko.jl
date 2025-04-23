@@ -107,7 +107,7 @@ function main(meshSize=0,localSize=0,saveMesh=false)
     # Build the stiffness matrix considering each cell to be a magnetic material
     # with linear susceptibility
     chi = zeros(mesh.nt,1);
-    chi[mesh.InsideElements] .= suscetibility
+    chi[mesh.InsideElements] .= 3 # Magnetic susceptibility of the cells inside the bounding shell
     
     # Stiffness matrix
     A = @inbounds stiffnessMatrix(mesh,chi)
