@@ -153,6 +153,8 @@ function Mesh(cells,meshSize=0,localSize=0,saveMesh=false)
             localSize   -> Local mesh refinement
     =#
 
+    # Make a mesh object
+    mesh = MESH()
 
     # Get the volume IDs of the cells inside the container
     volumeID = []
@@ -178,46 +180,116 @@ function Mesh(cells,meshSize=0,localSize=0,saveMesh=false)
 
     # Get all tetrahedral elements (4 - tetrahedrons)
     t_tags, t = gmsh.model.mesh.getElementsByType(4)
-    t = reshape(t,4,Int(size(t,1)/4))
+    mesh.t = reshape(t,4,Int(size(t,1)/4))
+    mesh.nt = size(mesh.t,2)
 
     # Get node coordinates
     _,p,_ = gmsh.model.mesh.getNodes()
-    p = reshape(p, 3, Int(size(p,1)/3))
-    
+    mesh.p = reshape(p, 3, Int(size(p,1)/3))
+    mesh.nv = size(mesh.p,2)
+
     # Get all surface triangles
     surfaceT_tags, surfaceT = gmsh.model.mesh.getElementsByType(2)
     surfaceT = reshape(surfaceT, 3, Int(size(surfaceT,1)/3))
-    
+
     # Expand surface triangles to include boundary id
-    surfaceT = [surfaceT;zeros(1,size(surfaceT,2))]
+    surfaceT = [surfaceT;UInt.(zeros(1,size(surfaceT,2)))]
     for i in 1:size(surfaceT,2)
         # Get ID of the element of the current surface triangle
         _,_,_, id = gmsh.model.mesh.getElement(surfaceT_tags[i])
         surfaceT[end,i] = id; # Set the surface triangle boundary id
     end
 
+    mesh.surfaceT = surfaceT
+    mesh.ne = size(mesh.surfaceT,2)
+
     # Mesh elements inside the container
-    InsideElements = zeros(size(t,2),1)
-    for k in 1:size(t,2)
+    InsideElements = zeros(mesh.nt,1)
+    for k in 1:mesh.nt
         etype,nodeTags,dim, id = gmsh.model.mesh.getElement(t_tags[k])
         # element type , nodes of the element , dimension , id
         if id in volumeID
             InsideElements[k] = k
         end
     end
-    InsideElements = Int.(InsideElements[InsideElements.!=0])
+    mesh.InsideElements = Int.(InsideElements[InsideElements.!=0])
 
     # Inside nodes
-    InsideNodes = t[:,InsideElements]
-    InsideNodes = unique(InsideNodes[:])
-    
-    if saveMesh
-        save2file("mesh_output/t.txt",t) # Save connectivity list to a .txt file
-        save2file("mesh_output/p.txt",p)
-        save2file("mesh_output/InsideNodes.txt",InsideNodes)
-        save2file("mesh_output/surfaceT.txt",surfaceT)
-        save2file("mesh_output/InsideElements.txt",InsideElements)
+    mesh.InsideNodes = mesh.t[:,mesh.InsideElements]
+    mesh.InsideNodes = unique(mesh.InsideNodes[:])
+
+    # Element volumes
+    mesh.VE = zeros(mesh.nt,1)
+    for k in 1:mesh.nt
+        mesh.VE[k] = elementVolume(mesh.p,mesh.t[:,k])
     end
 
-    return p,t,surfaceT,InsideNodes,InsideElements
+    # Save mesh 
+    if saveMesh
+        save2file("t.txt",mesh.t) # Save connectivity list to a .txt file
+        save2file("p.txt",mesh.p)
+        save2file("InsideNodes.txt",mesh.InsideNodes)
+        save2file("surfaceT.txt",mesh.surfaceT)
+        save2file("InsideElements.txt",mesh.InsideElements)
+        save2file("VE.txt",mesh.VE)
+    end
+
+    return mesh
 end
+
+function normal_surface(p,nds)
+    # Reshape coords into 3 points (x,y,z)
+    p1 = p[:,nds[1]]
+    p2 = p[:,nds[2]]
+    p3 = p[:,nds[3]]
+    # Edge vectors
+    v1 = p2 - p1
+    v2 = p3 - p1
+    # Cross product (normal vector)
+    n = [v1[2]*v2[3] - v1[3]*v2[2],
+         v1[3]*v2[1] - v1[1]*v2[3],
+         v1[1]*v2[2] - v1[2]*v2[1]]
+    # Normalize
+    norm_n = sqrt(n[1]^2 + n[2]^2 + n[3]^2)
+    return n ./ norm_n
+end
+
+function elementVolume(p,nds)
+    # Extract the four nodes (columns of p)
+    A = p[:, nds[1]]
+    B = p[:, nds[2]]
+    C = p[:, nds[3]]
+    D = p[:, nds[4]]
+
+    # Compute vectors AB, AC, AD
+    AB = B - A
+    AC = C - A
+    AD = D - A
+
+    # Compute the scalar triple product (AB ⋅ (AC × AD))
+    cross_AC_AD = [AC[2]*AD[3] - AC[3]*AD[2],
+                   AC[3]*AD[1] - AC[1]*AD[3],
+                   AC[1]*AD[2] - AC[2]*AD[1]]
+    triple_product = AB[1] * cross_AC_AD[1] + AB[2] * cross_AC_AD[2] + AB[3] * cross_AC_AD[3]
+
+    # Volume = (1/6) * |triple_product|
+    volume = abs(triple_product) / 6.0
+    return volume
+end
+
+mutable struct MESH
+    # Holds the mesh information needed for FEM simulations
+    p               # Node coordinates
+    t               # Connectivity list
+    surfaceT        # Surface triangles
+    InsideElements  # Elements inside material
+    InsideNodes     # Nodes inside material
+    VE              # Volume of each mesh element
+    nv              # Number of nodes
+    nt              # Number of elements
+    ne              # Number of surface elements
+
+    # Constructor
+    MESH() = new()
+end
+
