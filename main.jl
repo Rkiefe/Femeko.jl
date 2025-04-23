@@ -12,6 +12,47 @@
 using Gmsh
 include("gmsh_wrapper.jl")
 
+# Linear basis function, f = a + bx + cy + dz
+function abcd(p,nodes,nd)
+    n1,n2,n3 = nodes[nodes .!= nd]
+    x = @view p[1, [nd, n1, n2, n3]]
+    y = @view p[2, [nd, n1, n2, n3]]
+    z = @view p[3, [nd, n1, n2, n3]]
+
+    M = [1.0 x[1] y[1] z[1];
+         1.0 x[2] y[2] z[2];
+         1.0 x[3] y[3] z[3];
+         1.0 x[4] y[4] z[4]]
+    r = M\[1;0;0;0]
+
+    return r[1],r[2],r[3],r[4] # a b c d
+end # Basis function coef.
+
+function stiffnessMatrix(mesh,chi)
+    A = zeros(mesh.nv,mesh.nv)
+    for k in 1:mesh.nt
+        nds = @view mesh.t[:,k]
+
+        b = zeros(4,1); c = zeros(4,1); d = zeros(4,1);
+        for i in 1:length(nds)
+            _,b[i],c[i],d[i] = abcd(mesh.p,nds,nds[i])
+        end
+        # A[nds,nds] += chi[k].*mesh.VE[k].*(b*b' + c*c' + d*d')
+    
+        # Calculate the local matrix contribution
+        local_mat = chi[k] * mesh.VE[k] * (b*b' + c*c' + d*d')
+        
+        # Add to the global sparse matrix
+        for i in 1:length(nds)
+            for j in 1:length(nds)
+                A[nds[i], nds[j]] += local_mat[i,j]
+            end
+        end
+    end
+
+    return A
+end # Stiffness matrix
+
 function main(meshSize=0,localSize=0,saveMesh=false)
     #=
         Makes a model with cubes and spheres and refines the mesh on the spheres
