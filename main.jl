@@ -103,6 +103,15 @@ function main(meshSize=0,localSize=0,saveMesh=false)
 
     gmsh.fltk.run()
     gmsh.finalize()
+
+    # Build the stiffness matrix considering each cell to be a magnetic material
+    # with linear susceptibility
+    chi = zeros(mesh.nt,1);
+    chi[mesh.InsideElements] .= suscetibility
+    
+    # Stiffness matrix
+    A = @inbounds stiffnessMatrix(mesh,chi)
+    
 end
 
 function testCAD(meshSize=0,localSize=0,saveMesh=false)
