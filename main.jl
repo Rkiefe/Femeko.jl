@@ -150,5 +150,9 @@ function testCAD(meshSize=0,localSize=0,saveMesh=false)
     gmsh.finalize()
 end
 
-main(10,0.1,true)        # Create your own model and mesh with local refinement
-testCAD(20,1,false)      # Import step file and make mesh with local refinement
+meshSize    =   10  # Target mesh element size
+localSize   =   0   # Local target mesh element sie
+saveMesh    = false # Save the mesh properties to .txt files
+
+main(meshSize,localSize,saveMesh)    # Create your own model and mesh with local refinement
+testCAD(20,1,false)                  # Import step file and make mesh with local refinement
