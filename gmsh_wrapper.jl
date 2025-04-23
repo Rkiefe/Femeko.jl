@@ -224,6 +224,12 @@ function Mesh(cells,meshSize=0,localSize=0,saveMesh=false)
         mesh.VE[k] = elementVolume(mesh.p,mesh.t[:,k])
     end
 
+    # List of all surface triangle normals
+    mesh.normal = zeros(3,mesh.ne);
+    for i in 1:mesh.ne
+        mesh.normal[:,i] = normal_surface(mesh.p,@view mesh.surfaceT[1:3,i]);
+    end
+
     # Save mesh 
     if saveMesh
         save2file("t.txt",mesh.t) # Save connectivity list to a .txt file
@@ -237,6 +243,7 @@ function Mesh(cells,meshSize=0,localSize=0,saveMesh=false)
     return mesh
 end
 
+# Normal to surface triangle
 function normal_surface(p,nds)
     # Reshape coords into 3 points (x,y,z)
     p1 = p[:,nds[1]]
@@ -252,8 +259,15 @@ function normal_surface(p,nds)
     # Normalize
     norm_n = sqrt(n[1]^2 + n[2]^2 + n[3]^2)
     return n ./ norm_n
-end
+end # Normal to surface triangle
 
+# Area of the 3D triangle
+function areaTriangle(xt,yt,zt)
+    Atr = 0.5*sqrt(det([xt';yt';[1 1 1]])^2 + det([yt';zt';[1 1 1]])^2 + det([zt';xt';[1 1 1]])^2);
+    return Atr
+end # Area of the 3D triangle
+
+# Mesh element volume
 function elementVolume(p,nds)
     # Extract the four nodes (columns of p)
     A = p[:, nds[1]]
@@ -275,16 +289,18 @@ function elementVolume(p,nds)
     # Volume = (1/6) * |triple_product|
     volume = abs(triple_product) / 6.0
     return volume
-end
+end # Mesh element volume
 
+
+# Holds the mesh information needed for FEM simulations
 mutable struct MESH
-    # Holds the mesh information needed for FEM simulations
     p               # Node coordinates
     t               # Connectivity list
     surfaceT        # Surface triangles
     InsideElements  # Elements inside material
     InsideNodes     # Nodes inside material
     VE              # Volume of each mesh element
+    normal          # Normal of each surface triangle
     nv              # Number of nodes
     nt              # Number of elements
     ne              # Number of surface elements
