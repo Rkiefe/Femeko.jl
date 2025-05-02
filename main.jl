@@ -3,7 +3,7 @@
 
     Summary:
     A finite element implementation in Julia, demonstrating the calculation of
-    the stiffness matrix in Julia and how it can be done with C++ instead, within
+    the stiffness matrix and how it can be done with C++ instead, called within
     the Julia environment.
 
     Description:
