@@ -16,15 +16,14 @@ And/or spheres as
 ```
 addSphere(position_center,sphere_radius,cells)
 ```
-Where `cells` is an array of volume ID's inside the bounding shell (considering you have solids inside a defined space by a bounding shell, such as with open boundary problems).
-You can generate a mesh for you volume simply by
+Where `cells` is an array of volume ID's inside the bounding shell (considering you have solids inside a defined space by a bounding shell, such as with open boundary problems). Each cell ID you add is tracked for you.
+You can generate a mesh for your volume simply by
 ```
 mesh = Mesh(cells,meshSize,localSize,saveMesh)
 ```
 
 Both internal and bounding shell surfaces are preserved. You can access the surface ID of each surface triangle of your mesh directly.
 
-You can make your own simple models with cuboids and spheres. Each cell ID you add is tracked for you. Just "addCuboid" or "addSphere" and you are set.
 
 Automatically get the mesh element volumes, surface triangle normals and the area of each surface triangle.
 
