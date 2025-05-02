@@ -8,13 +8,13 @@ You can import your geometry (and automatically create a bounding shell for open
 importCAD(file)
 ```
 
-Or make your own geomtry with cuboids
+Or make your own geometry with cuboids
 ```
-box = addCuboid([0,0,0],[W,D,H])
+box = addCuboid(position_center,[W,D,H])
 ```
 And/or spheres as
 ```
-addSphere([0,0,0],0.5,cells)
+addSphere(position_center,sphere_radius,cells)
 ```
 Where `cells` is an array of volume ID's inside the bounding shell (considering you have solids inside a defined space by a bounding shell, such as with open boundary problems).
 You can generate a mesh for you volume simply by
