@@ -12,5 +12,9 @@ Automatically get the mesh element volumes, surface triangle normals and the are
 The output mesh object is optimized for Finite-Element simulations. The main.jl includes an example of creating the stiffness matrix.
 
 ### Installation
-To install, make sure you add Gmsh and include the gmsh_wrapper.jl. That's it.
+To install, go to your Julia repl and add Gmsh, LinearAlgebra and SparseArrays. That's it.
 ![twoBalls](https://github.com/user-attachments/assets/3b9549ba-3968-40f1-94a4-5c21ce37ca9e)
+
+### Running C++ variants withing the Julia environment
+Recently, this repository was updated to include an example of how you can add C++ functions to speed up calculations within Julia. The example demonstrates how to calculate the local, dense stiffness matrix in C++ within Julia.
+To install,  just compile the FEMc.cpp file as a shared library (-fPIC -shared -o FEMc.so) and it is good to go.
