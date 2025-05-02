@@ -8,7 +8,7 @@ You can import your geometry (and automatically create a bounding shell for open
 importCAD(file)
 ```
 
-Or add make your own geomtry with cuboids
+Or make your own geomtry with cuboids
 ```
 box = addCuboid([0,0,0],[W,D,H])
 ```
