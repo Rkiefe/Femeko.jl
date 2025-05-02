@@ -33,6 +33,6 @@ The output mesh object is optimized for Finite-Element simulations. The main.jl 
 To install, go to your Julia repl and add Gmsh, LinearAlgebra and SparseArrays. That's it.
 ![twoBalls](https://github.com/user-attachments/assets/3b9549ba-3968-40f1-94a4-5c21ce37ca9e)
 
-### Running C++ variants withing the Julia environment
+### Running C++ variants within the Julia environment
 Recently, this repository was updated to include an example of how you can add C++ functions to speed up calculations within Julia. The example demonstrates how to calculate the local, dense stiffness matrix in C++ within Julia.
 To install, first make sure you have Eigen https://eigen.tuxfamily.org/index.php?title=Main_Page, update the FEMc.cpp in the `#include` to point to your Eigen directory and then compile the FEMc.cpp file as a shared library (`g++ -O3 -fPIC -shared -o FEMc.so FEMc.cpp`) and it is good to go.
