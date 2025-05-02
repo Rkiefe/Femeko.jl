@@ -3,6 +3,25 @@ Make a high quality 3D mesh of your 3D model and get all the properties you need
 
 Automatically create a bounding shell for your 3D model, simplifying magnetic field simulations. You can define the scale of your bounding shell directly in import phase of you .step file, or keep the default "5x larger". The local refinement is automatically set for every cell that isn't the container volume.
 
+You can import your geometry (and automatically create a bounding shell for open boundary problems) with
+```
+importCAD(file)
+```
+
+Or add make your own geomtry with cuboids
+```
+box = addCuboid([0,0,0],[W,D,H])
+```
+And/or spheres as
+```
+addSphere([0,0,0],0.5,cells)
+```
+Where `cells` is an array of volume ID's inside the bounding shell (considering you have solids inside a defined space by a bounding shell, such as with open boundary problems).
+You can generate a mesh for you volume simply by
+```
+mesh = Mesh(cells,meshSize,localSize,saveMesh)
+```
+
 Both internal and bounding shell surfaces are preserved. You can access the surface ID of each surface triangle of your mesh directly.
 
 You can make your own simple models with cuboids and spheres. Each cell ID you add is tracked for you. Just "addCuboid" or "addSphere" and you are set.
