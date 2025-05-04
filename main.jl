@@ -17,8 +17,13 @@
     In both scenarios, Julia benefits from calling the C++ variants of the same functions.
 =#
 
+# For the solver
 using Gmsh, LinearAlgebra, SparseArrays
 include("gmsh_wrapper.jl")
+
+# For plots
+using GLMakie
+
 
 # FEM linear basis function
 function abcd(p::Matrix{Float64},nodes::Vector{Int32},nd::Int32)
@@ -266,6 +271,34 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
 
         M[ik] = chi[k]*H[k]
     end
+
+    # Element centroids
+    centroids::Matrix{Float64} = zeros(3,mesh.nt)
+    for k in 1:mesh.nt
+        nds = mesh.t[:,k]
+        centroids[1,k] = sum(mesh.p[1,nds])/4
+        centroids[2,k] = sum(mesh.p[2,nds])/4
+        centroids[3,k] = sum(mesh.p[3,nds])/4
+    end
+
+    # Plot result | Uncomment "using GLMakie"
+    fig = Figure()
+    ax = Axis3(fig[1, 1], aspect = :equal, title="Magnetic field H")
+    scatterPlot = scatter!(ax, 
+        centroids[1,mesh.InsideElements],
+        centroids[2,mesh.InsideElements],
+        centroids[3,mesh.InsideElements], 
+        color = H[mesh.InsideElements], 
+        colormap=:rainbow, 
+        markersize=20 .* mesh.VE[mesh.InsideElements]./maximum(mesh.VE[mesh.InsideElements]))
+
+    Colorbar(fig[1, 2], scatterPlot, label="H field strength") # Add a colorbar
+    
+    # Display the figure (this will open an interactive window)
+    display(fig) # This is required only if runing outside the repl
+    
+    sleep(10)    # Pause for 10 seconds before the terminal is closed
+                 # This is required only if runing outside the repl
 
 end # end of main
 
