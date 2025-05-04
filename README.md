@@ -1,6 +1,9 @@
 # FEMjl
 The philosophy of this repository is to serve as a kickstart to anyone who wants to make their own Finite-Element implementation, without worrying about mesh generation or 3D modeling. Julia with some C++ interop shows high performance capabilities, with simple syntax and flexibility.
 
+Here is a direct output of main(), the internal magnetic field of a sphere under a uniform magnetic field.
+![magneticfield_example](https://github.com/user-attachments/assets/86fc8c7c-7e8a-4f6b-a807-0df6720f1a1b)
+
 ## Functionality
 Make a high quality 3D mesh of your 3D model and get all the properties you need, easily accessible in a simple MESH() object, powered by Gmsh. Make a local refinement of your model, based on the volume ID, or just set a target mesh size.
 
