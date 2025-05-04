@@ -231,6 +231,42 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     
     =#
 
+    # Magnetic field
+    H_vectorField::Matrix{Float64} = zeros(mesh.nt,3)
+    for k in 1:mesh.nt
+        nds = mesh.t[:,k];
+
+        # Sum the contributions
+        for nd in nds
+            # obtain the element parameters
+            _,b,c,d = abcd(mesh.p,nds,nd)
+
+            H_vectorField[k,1] = H_vectorField[k,1] - u[nd]*b;
+            H_vectorField[k,2] = H_vectorField[k,2] - u[nd]*c;
+            H_vectorField[k,3] = H_vectorField[k,3] - u[nd]*d;
+        end
+    end
+
+    # Magnetic field intensity
+    H::Vector{Float64} = zeros(mesh.nt)
+    for k in 1:mesh.nt
+        H[k] = sqrt(H_vectorField[k,1]^2+H_vectorField[k,2]^2+H_vectorField[k,3]^2)
+    end
+
+    # Magnetization
+    chi::Vector{Float64} = mu .- 1;
+    M_vectorField::Matrix{Float64} = zeros(mesh.nInside,3)
+    M::Vector{Float64} = zeros(mesh.nInside)
+    for ik in 1:mesh.nInside
+        k = mesh.InsideElements[ik]
+        
+        M_vectorField[ik,1] = chi[k]*H_vectorField[k,1]
+        M_vectorField[ik,2] = chi[k]*H_vectorField[k,2]
+        M_vectorField[ik,3] = chi[k]*H_vectorField[k,3]
+
+        M[ik] = chi[k]*H[k]
+    end
+
 end # end of main
 
 meshSize = 10
