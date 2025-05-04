@@ -1,4 +1,7 @@
 # FEMjl
+The philosophy of this repository is to serve as a kickstart to anyone who wants to make their own Finite-Element implementation, without worrying about mesh generation or 3D modeling. Julia with some C++ interop shows high performance capabilities, with simple syntax and flexibility.
+
+## Functionality
 Make a high quality 3D mesh of your 3D model and get all the properties you need, easily accessible in a simple MESH() object, powered by Gmsh. Make a local refinement of your model, based on the volume ID, or just set a target mesh size.
 
 Automatically create a bounding shell for your 3D model, simplifying magnetic field simulations. You can define the scale of your bounding shell directly in import phase of your .step file, or keep the default "5x larger". The local refinement is automatically set for every cell that isn't the container volume.
