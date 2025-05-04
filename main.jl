@@ -21,8 +21,8 @@
 using Gmsh, LinearAlgebra, SparseArrays
 include("gmsh_wrapper.jl")
 
-# For plots
-using GLMakie
+# For plots | Uncomment the plot section of "main()"
+# using GLMakie
 
 
 # FEM linear basis function
@@ -282,23 +282,24 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     end
 
     # Plot result | Uncomment "using GLMakie"
-    fig = Figure()
-    ax = Axis3(fig[1, 1], aspect = :equal, title="Magnetic field H")
-    scatterPlot = scatter!(ax, 
-        centroids[1,mesh.InsideElements],
-        centroids[2,mesh.InsideElements],
-        centroids[3,mesh.InsideElements], 
-        color = H[mesh.InsideElements], 
-        colormap=:rainbow, 
-        markersize=20 .* mesh.VE[mesh.InsideElements]./maximum(mesh.VE[mesh.InsideElements]))
+    # fig = Figure()
+    # ax = Axis3(fig[1, 1], aspect = :equal, title="Magnetic field H")
+    # scatterPlot = scatter!(ax, 
+    #     centroids[1,mesh.InsideElements],
+    #     centroids[2,mesh.InsideElements],
+    #     centroids[3,mesh.InsideElements], 
+    #     color = H[mesh.InsideElements], 
+    #     colormap=:rainbow, 
+    #     markersize=20 .* mesh.VE[mesh.InsideElements]./maximum(mesh.VE[mesh.InsideElements]))
 
-    Colorbar(fig[1, 2], scatterPlot, label="H field strength") # Add a colorbar
+    # Colorbar(fig[1, 2], scatterPlot, label="H field strength") # Add a colorbar
     
-    # Display the figure (this will open an interactive window)
-    display(fig) # This is required only if runing outside the repl
+    # # Display the figure (this will open an interactive window)
+    # display(fig) # This is required only if runing outside the repl
     
-    sleep(10)    # Pause for 10 seconds before the terminal is closed
-                 # This is required only if runing outside the repl
+    # sleep(10)    # Pause for 10 seconds before the terminal is closed
+    #              # This is required only if runing outside the repl
+    # save("H.png",fig)
 
 end # end of main
 
