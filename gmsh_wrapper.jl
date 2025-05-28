@@ -1,22 +1,69 @@
 #=
-    My wrapper around gmsh functionalities to do only what I need
-    for Finite Element Simulations
-
-    Users can quickly and easily add cuboids and sphere,
-    and import step files.
-
-    It also lets users generate locally refined meshes, with automatic
-    local refinement set for the imported geometry.
+    A wrapper to simplify gmsh interactions. 
+    It helps users with:
+        . Create simple geometries
+        . Combine them into a unified model
+        . Create a local refinement field using a single scalar value (localSize)
+        . Convert the gmsh mesh to a more user friendly MESH() struct
+        . Make a bounding shell for open boundary problems
+        . Manage surface triangles and surface ID's
 =#
 
-function save2file(fileName,input)
-    # Saves matrix to a .txt file
-    open(fileName, "w") do io
-        for row in eachrow(input)
-            println(io, join(row, " , "))  # Space-separated
-        end
-    end
-end # Save matrix to .txt file
+using Gmsh
+
+# Holds the mesh information needed for FEM simulations
+mutable struct MESH
+    # Node coordinates
+    p::Matrix{Float64}
+
+    # Connectivity list
+    t::Matrix{Int32}
+    
+    # Surface triangles
+    surfaceT::Matrix{Int32}
+    
+    # Elements inside material
+    InsideElements::Vector{Int32}
+    
+    # Nodes inside material
+    InsideNodes::Vector{Int32}
+    
+    # Volume of each mesh element
+    VE::Vector{Float64}
+    
+    # Normal of each surface triangle
+    normal::Matrix{Float64}
+    
+    nv::Int32           # Number of nodes
+    nt::Int32           # Number of elements
+    ne::Int32           # Number of surface elements
+    nInside::Int32      # Number of elements for the inside cells
+    nInsideNodes::Int32 # Numberf of nodes for the inside cells
+
+    shell_id # Id of the surface boundaries of the bounding shell
+
+    # Constructor
+    MESH() = new()
+end
+
+# View the mesh using Makie
+function viewMesh(mesh::MESH)
+    fig = Figure()
+    ax = Axis3(fig[1, 1], aspect=:data, title="")
+    
+    # Convert surface triangles to Makie format
+    faces = [GLMakie.GLTriangleFace(mesh.surfaceT[1,i], 
+                                    mesh.surfaceT[2,i], 
+                                    mesh.surfaceT[3,i]) for i in 1:size(mesh.surfaceT,2)]
+    
+    # Create mesh plot using surface triangles
+    mesh!(ax, mesh.p', faces,
+            color=:lightblue,
+            transparency=true,
+            alpha=0.3)
+
+    wait(display(fig))
+end # View the mesh using Makie
 
 # Local mesh refinement on target cell
 function refineCell(cell,localSize,meshSize)
@@ -61,11 +108,14 @@ function addCuboid(position,dimensions,cells=[],updateCells=false)
         cells = append!(cells,[(3,box)])
     end
 
+    # Sync kernel before exiting
+    gmsh.model.occ.synchronize()
+
     return box
 end # Make a cuboid based on its center
 
 # Make a sphere
-function addSphere(position,radius,cells=[],updateCells=true)
+function addSphere(position,radius,cells=[],updateCells=false)
     #=
         Inputs:
             Position vector
@@ -81,6 +131,9 @@ function addSphere(position,radius,cells=[],updateCells=true)
         cells = append!(cells,[(3,sphere)])
     end
 
+    # Sync kernel before exiting
+    gmsh.model.occ.synchronize()
+    
     return sphere
 end # Make a sphere
 
@@ -109,11 +162,17 @@ function makeContainer(scale=5)
         z_max = max(z_max, bb[6])
     end
 
+    Lx = x_max-x_min
+    Ly = y_max-y_min
+    Lz = z_max-z_min
+    L = maximum([Lx,Ly,Lz])
+
     # Container position and dimensions
     center = [(x_min + x_max)/2, (y_min + y_max)/2, (z_min + z_max)/2]
-    dimensions = scale*[x_max - x_min, y_max - y_min, z_max - z_min]
+    dimensions = scale*L
 
-    box = addCuboid(center,dimensions)
+    box = addSphere(center,dimensions)
+    # box = addCuboid(center,dimensions)
 
     # Update model
     gmsh.model.occ.synchronize()
@@ -145,6 +204,52 @@ function importCAD(file,cells=[],box=[],scale=5)
     return box
 end # Import cad geometry file
 
+function findNodes(mesh::MESH,region::String,id)
+    # region    - face | volume
+    # id        - Int or vector of Int 
+
+    nodesFound::Vector{Int32} = zeros(mesh.nv)
+    n::Int32 = 0 # Number of nodes found
+    
+    if region == "face" || region == "Face" # added "Face" to handle variations
+
+        # Go to each surface triangle
+        for s in 1:mesh.ne
+            # Get the surface id of current triangle
+            current_Id::Int32 = mesh.surfaceT[end,s]
+            if current_Id in id
+                # Nodes of current triangle
+                nds = @view mesh.surfaceT[1:3,s]
+
+                # Update number of nodes found
+                for nd in nds
+                    if nodesFound[nd] < 1   # Only count those who were not found yet
+                        n += 1                  # count it
+                    end
+                end
+
+                # Update the nodes found with desired face ID
+                nodesFound[nds] .= 1
+            end
+        end
+
+        # Prepare the output
+        nodes::Vector{Int32} = zeros(n)
+        j::Int32 = 0
+        for nd in 1:mesh.nv
+            if nodesFound[nd] > 0
+                j += 1
+                nodes[j] = nd
+            end
+        end
+
+    else # volume
+        # not implemented yet
+    end
+
+    return nodes
+end
+
 function Mesh(cells,meshSize=0,localSize=0,saveMesh=false)
     #=
         Generates a 3d tetrahedral mesh considering that the model is made of 
@@ -161,14 +266,16 @@ function Mesh(cells,meshSize=0,localSize=0,saveMesh=false)
 
     # Get the volume IDs of the cells inside the container
     volumeID = []
-    for i in cells
-        append!(volumeID,i[2])
+    if !isempty(cells)
+        for i in cells
+            append!(volumeID,i[2])
+        end
     end
 
     # >> Mesh settings
     
     # Set local mesh size
-    if localSize>0
+    if localSize>0 && !isempty(cells)
         refineCell(cells,localSize,meshSize) # Set local refinement on the sphere Cell
     end
 
@@ -179,8 +286,13 @@ function Mesh(cells,meshSize=0,localSize=0,saveMesh=false)
 
     # Generate mesh
     gmsh.model.mesh.generate(3)
-    gmsh.model.mesh.optimize("Netgen") # Optimize the mesh
-
+    
+    # -- Optimize the mesh --
+    # "" (default is empty), "NetGen", "HighOrder", 
+    # "Relocate3D", "HighOrderElastic", "UntangleMeshGeometry"
+    # gmsh.model.mesh.optimize()
+    gmsh.model.mesh.optimize("UntangleMeshGeometry")
+    
     # Get all tetrahedral elements (4 - tetrahedrons)
     t_tags, t = gmsh.model.mesh.getElementsByType(4)
     mesh.t = reshape(t,4,Int(size(t,1)/4))
@@ -207,20 +319,26 @@ function Mesh(cells,meshSize=0,localSize=0,saveMesh=false)
     mesh.ne = size(mesh.surfaceT,2)
 
     # Mesh elements inside the container
-    InsideElements = zeros(mesh.nt,1)
-    for k in 1:mesh.nt
-        etype,nodeTags,dim, id = gmsh.model.mesh.getElement(t_tags[k])
-        # element type , nodes of the element , dimension , id
-        if id in volumeID
-            InsideElements[k] = k
+    if !isempty(cells)
+            InsideElements = zeros(mesh.nt,1)
+            for k in 1:mesh.nt
+                etype,nodeTags,dim, id = gmsh.model.mesh.getElement(t_tags[k])
+                # element type , nodes of the element , dimension , id
+                if id in volumeID
+                    InsideElements[k] = k
+                end
+            end
+            mesh.InsideElements = Int.(InsideElements[InsideElements.!=0])
+            mesh.nInside = length(mesh.InsideElements)
+        else
+            mesh.InsideElements = []
+            mesh.nInside = 0
         end
-    end
-    mesh.InsideElements = Int.(InsideElements[InsideElements.!=0])
-    mesh.nInside = length(mesh.InsideElements)
 
-    # Inside nodes
-    aux::Matrix{Int32} = mesh.t[:,mesh.InsideElements]
-    mesh.InsideNodes = unique(vec(aux))
+        # Inside nodes
+        aux::Matrix{Int32} = mesh.t[:,mesh.InsideElements]
+        mesh.InsideNodes = unique(vec(aux))
+        mesh.nInsideNodes = length(mesh.InsideNodes)
 
     # Element volumes
     mesh.VE = zeros(mesh.nt)
@@ -229,7 +347,7 @@ function Mesh(cells,meshSize=0,localSize=0,saveMesh=false)
     end
 
     # List of all surface triangle normals
-    mesh.normal = zeros(3,mesh.ne);
+    mesh.normal = zeros(3,mesh.ne)
     for i in 1:mesh.ne
         mesh.normal[:,i] = normal_surface(mesh.p,@view mesh.surfaceT[1:3,i]);
     end
@@ -268,7 +386,7 @@ end # Normal to surface triangle
 
 # Area of the 3D triangle
 function areaTriangle(xt,yt,zt)
-    Atr = 0.5*sqrt(det([xt';yt';[1 1 1]])^2 + det([yt';zt';[1 1 1]])^2 + det([zt';xt';[1 1 1]])^2);
+    Atr::Float64 = 0.5*sqrt(det([xt';yt';[1 1 1]])^2 + det([yt';zt';[1 1 1]])^2 + det([zt';xt';[1 1 1]])^2)
     return Atr
 end # Area of the 3D triangle
 
@@ -296,40 +414,11 @@ function elementVolume(p,nds)
     return volume
 end # Mesh element volume
 
-function areaTriangle(xt,yt,zt)
-    Atr = 0.5*sqrt(det([xt';yt';[1 1 1]])^2 + det([yt';zt';[1 1 1]])^2 + det([zt';xt';[1 1 1]])^2);
-    return Atr
-end # Area of the 3D triangle
-
-# Holds the mesh information needed for FEM simulations
-mutable struct MESH
-    # Node coordinates
-    p::Matrix{Float64}
-
-    # Connectivity list
-    t::Matrix{Int32}
-    
-    # Surface triangles
-    surfaceT::Matrix{Int32}
-    
-    # Elements inside material
-    InsideElements::Vector{Int32}
-    
-    # Nodes inside material
-    InsideNodes::Vector{Int32}
-    
-    # Volume of each mesh element
-    VE::Vector{Float64}
-    
-    # Normal of each surface triangle
-    normal::Matrix{Float64}
-    
-    nv::Int32       # Number of nodes
-    nt::Int32       # Number of elements
-    ne::Int32       # Number of surface elements
-    nInside::Int32  # Number of elements for the inside cells
-
-    # Constructor
-    MESH() = new()
-end
-
+function save2file(fileName,input)
+    # Saves matrix to a .txt file
+    open(fileName, "w") do io
+        for row in eachrow(input)
+            println(io, join(row, " , "))  # Space-separated
+        end
+    end
+end # Save matrix to .txt file
