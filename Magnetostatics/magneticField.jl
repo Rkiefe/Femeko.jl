@@ -142,8 +142,6 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
         H[k] = norm(H_vectorField[k,:])
     end
 
-    save2file("H.txt",H_vectorField)
-
     # Magnetization
     chi::Vector{Float64} = mu .- 1;
     M_vectorField::Matrix{Float64} = zeros(mesh.nInside,3)
@@ -189,7 +187,7 @@ end # end of main
 
 meshSize = 4
 localSize = 0.1
-showGmsh = false
+showGmsh = true
 saveMesh = false
 
 main(meshSize,localSize,showGmsh,saveMesh)
