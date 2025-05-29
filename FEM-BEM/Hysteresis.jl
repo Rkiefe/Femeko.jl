@@ -114,7 +114,6 @@ function main()
         
         M_H[:,iB] = M_avg[:,end]    
     end
-    
 
     time::Vector{Float64} = 1:size(M_avg,2)
 
@@ -134,7 +133,6 @@ function main()
     # save("M_time_Sphere.png",fig)
     wait(display(fig))
 
-    save("M_time_permalloy.png",fig)
 end
 
 main()
