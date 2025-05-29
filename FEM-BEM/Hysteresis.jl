@@ -119,7 +119,7 @@ function main()
 
     fig = Figure()
     ax = Axis(  fig[1,1],
-                xlabel = "Time (ns)", 
+                xlabel = "Time (ns)",
                 ylabel = "Energy")
 
     scatter!(ax, time, E_time)
