@@ -1,5 +1,5 @@
 # For plots
-using GLMakie
+using CairoMakie
 
 include("../gmsh_wrapper.jl")
 include("SteepestDescent.jl")
@@ -130,8 +130,9 @@ function main()
 
     scatter!(ax, time, log.(10,torque_time))
 
-    # save("M_time_Sphere.png",fig)
-    wait(display(fig))
+    save("M_H_"*string(mesh.nv)*".png",fig)
+    display(fig)
+
 
 end
 
