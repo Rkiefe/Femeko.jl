@@ -92,17 +92,7 @@ function main()
     # Initial magnetization field
     m::Matrix{Float64} = zeros(3,mesh.nv)
     m[1,:] .= 1
-    # begin # Random initial magnetization
-    #     theta::Vector{Float64} = 2*pi.*rand(mesh.nv)
-    #     phi::Vector{Float64} = pi.*rand(mesh.nv)
-    #     for i in 1:mesh.nv
-    #         m[:,i] = [sin(theta[i])*cos(phi[i]), sin(theta[i])*sin(phi[i]), cos(theta[i])]
-    #         m[:,i] = m[:,i]./norm(m[:,i])
-
-    #         # m[1,i] = mesh.p[1,i]^2
-    #     end
-    # end # Random initial magnetization
-
+    
     # Landau Lifshitz
     m, Heff, M_avg, E_time, torque_time = LandauLifshitz(mesh, m, Ms,
                                                         Hap, Aexc, Aan,
