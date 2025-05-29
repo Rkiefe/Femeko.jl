@@ -84,7 +84,7 @@ function refineCell(cell,localSize,meshSize)
     gmsh.model.mesh.field.setNumber(threshold_field, "LcMin", localSize)
     gmsh.model.mesh.field.setNumber(threshold_field, "LcMax", meshSize)
     gmsh.model.mesh.field.setNumber(threshold_field, "DistMin", 0)
-    gmsh.model.mesh.field.setNumber(threshold_field, "DistMax", meshSize)
+    gmsh.model.mesh.field.setNumber(threshold_field, "DistMax", 5*localSize)
 
     gmsh.model.mesh.field.setNumber(threshold_field, "Sigmoid", 1)
 
@@ -293,8 +293,7 @@ function Mesh(cells,meshSize=0,localSize=0,saveMesh=false)
     # -- Optimize the mesh --
     # "" (default is empty), "NetGen", "HighOrder", 
     # "Relocate3D", "HighOrderElastic", "UntangleMeshGeometry"
-    # gmsh.model.mesh.optimize()
-    gmsh.model.mesh.optimize("UntangleMeshGeometry")
+    gmsh.model.mesh.optimize()
     
     # Get all tetrahedral elements (4 - tetrahedrons)
     t_tags, t = gmsh.model.mesh.getElementsByType(4)
