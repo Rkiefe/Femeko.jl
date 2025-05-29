@@ -84,6 +84,9 @@ function refineCell(cell,localSize,meshSize)
     gmsh.model.mesh.field.setNumber(threshold_field, "LcMin", localSize)
     gmsh.model.mesh.field.setNumber(threshold_field, "LcMax", meshSize)
     gmsh.model.mesh.field.setNumber(threshold_field, "DistMin", 0)
+    gmsh.model.mesh.field.setNumber(threshold_field, "DistMax", meshSize)
+
+    gmsh.model.mesh.field.setNumber(threshold_field, "Sigmoid", 1)
 
     # Use the minimum of all the fields as the background mesh field
     min_field = gmsh.model.mesh.field.add("Min")
