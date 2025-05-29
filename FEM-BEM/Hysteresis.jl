@@ -120,7 +120,7 @@ function main()
                 xlabel = "B applied",
                 ylabel = "<M>")
 
-    scatter!(ax, Bext, M_H)
+    scatter!(ax, Bext, M_H[1,:])
 
     save("M_H_"*string(mesh.nv)*".png",fig)
     display(fig)
