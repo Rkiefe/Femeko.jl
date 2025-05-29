@@ -125,7 +125,7 @@ function main()
 
     # save("M_time_Sphere.png",fig)
     wait(display(fig))
-
+    save("M_time_Sphere.png",fig)
 end
 
 main()
