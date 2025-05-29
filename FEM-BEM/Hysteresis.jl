@@ -102,7 +102,7 @@ function main()
                                                         dt, precession, maxTorque,
                                                         maxAtt, totalTime)
 
-    Bext::Vector{Float64} = [0.0:1e-3:0.1,0.1:-1e-3:-0.1,-0.1:1e-3:0.1]
+    Bext::Vector{Float64} = vcat(0:1e-3:0.1,0.1:-1e-3:-0.1,-0.1:1e-3:0.1)
     M_H::Matrix{Float64} = zeros(3,length(Bext))
     for iB in 1:length(Bext)
         Hap[1] = Bext[iB]/mu0
