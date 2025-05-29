@@ -115,20 +115,12 @@ function main()
         M_H[:,iB] = M_avg[:,end]    
     end
 
-    time::Vector{Float64} = 1:size(M_avg,2)
-
     fig = Figure()
     ax = Axis(  fig[1,1],
-                xlabel = "Time (ns)",
-                ylabel = "Energy")
+                xlabel = "B applied",
+                ylabel = "<M>")
 
-    scatter!(ax, time, E_time)
-
-    ax = Axis(  fig[1,2],
-                xlabel = "Time (ns)", 
-                ylabel = "<|dm/dt|>")
-
-    scatter!(ax, time, log.(10,torque_time))
+    scatter!(ax, Bext, M_H)
 
     save("M_H_"*string(mesh.nv)*".png",fig)
     display(fig)
