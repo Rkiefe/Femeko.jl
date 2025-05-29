@@ -5,8 +5,7 @@
         The plate has a uniform, constant magnetic permeability
     
     Output:
-        Expect a 3D tetrahedral mesh as a MESH() struct and two figure. One for the mesh
-        and one for the internal magnetic field of the plate. 
+        Expect a 3D tetrahedral mesh as a MESH() struct and one figure.
 
     Note:
         You can replace the local stiffness matrix with a C++ version by adding
@@ -34,7 +33,11 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
 
     # Applied field
     mu0 = pi*4e-7      # vacuum magnetic permeability
-    Hext = [1,0,0]     # T
+    Hext::Vector{Float64} = [1,0,0]     # T
+
+    # Dimensions
+    L::Vector{Float64} = [1.65,1.65,0.04]
+    # L::Vector{Float64} = [1,1,1]
     
     # Relative magnetic permeability
     permeability::Float64 = 3
@@ -44,7 +47,8 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
 
     # >> Model
     # Create an empty container
-    box = addCuboid([0,0,0],[4,4,4])
+    # box = addCuboid([0,0,0],5*maximum(L)*[1,1,1])
+    box = addSphere([0,0,0],5*maximum(L))
 
     # Get how many surfaces compose the bounding shell
     temp = gmsh.model.getEntities(2)            # Get all surfaces of current model
@@ -54,7 +58,7 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     cells = []
 
     # addSphere([0,0,0],0.5,cells)
-    addCuboid([0,0,0],[1.65,1.65,0.04],cells,true)
+    addCuboid([0,0,0],L,cells,true)
 
     # Fragment to make a unified geometry
     _, fragments = gmsh.model.occ.fragment([(3, box)], cells)
@@ -96,7 +100,7 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     Lag = lagrange(mesh)
 
     # Stiffness matrix
-    A = @time stiffnessMatrix(mesh,mu) 
+    A = stiffnessMatrix(mesh,mu) 
     
     # Extend the matrix for the Lagrange multiplier technique
     mat = [A Lag;Lag' 0]
@@ -137,6 +141,8 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     for k in 1:mesh.nt
         H[k] = norm(H_vectorField[k,:])
     end
+
+    save2file("H.txt",H_vectorField)
 
     # Magnetization
     chi::Vector{Float64} = mu .- 1;
@@ -181,9 +187,10 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
 
 end # end of main
 
-meshSize = 10
+meshSize = 4
 localSize = 0.1
 showGmsh = false
 saveMesh = false
 
 main(meshSize,localSize,showGmsh,saveMesh)
+
