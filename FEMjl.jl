@@ -1,7 +1,7 @@
 using LinearAlgebra, SparseArrays
 
 # FEM linear basis function
-function abcd(p::Matrix{Float64},nodes::Vector{Int32},nd::Int32)
+function abcd(p::Matrix{Float64},nodes,nd::Int32)
     n1,n2,n3 = nodes[nodes .!= nd]
     x = @view p[1, [nd, n1, n2, n3]]
     y = @view p[2, [nd, n1, n2, n3]]
@@ -18,7 +18,7 @@ function abcd(p::Matrix{Float64},nodes::Vector{Int32},nd::Int32)
 end # Basis function coef.
 
 # Sparse, global stiffness matrix
-function stiffnessMatrix(mesh, f::Vector{Float64}=ones(mesh.nt))
+function stiffnessMatrix(mesh::MESH, f::Vector{Float64}=ones(mesh.nt))
     A = spzeros(mesh.nv,mesh.nv)
 
     # Local stiffness matrix
@@ -57,7 +57,7 @@ function localStiffnessMatrix(mesh::MESH,f::Vector{Float64})
 end # Local stiffnessmatrix in 100% Julia
 
 # Lagrange multiplier technique
-function lagrange(mesh)
+function lagrange(mesh::MESH)
     C = zeros(mesh.nv,1);
     for k in 1:mesh.nt
         nds::AbstractVector{Int32} = @view mesh.t[:,k];   # Nodes of that element
@@ -67,7 +67,7 @@ function lagrange(mesh)
 end # Lagrange multiplier technique
 
 # Boundary condition
-function BoundaryIntegral(mesh,F,shell_id)
+function BoundaryIntegral(mesh::MESH,F::Vector{Float64},shell_id)
     RHS = zeros(mesh.nv,1);
     for s in 1:mesh.ne
 
