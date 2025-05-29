@@ -12,6 +12,4 @@ The FEM implementation of the magnetostatic field in FEMjl scales ~ O(n) (n - nu
 BEM is, in my opinion, quite a bit harder than FEM, both in concept and in implementation.
 
 ### Conclusion
-Here is a implementation of the mixed FEM/BEM method, to calculate the magnetostatic field of a magnetized object. The implementation follows this article: https://doi.org/10.1016/j.jmmm.2012.01.016. 
-
-It is then implemented for improving the micromagnetic framework in `Micromagnetics`.
+Here is a implementation of the mixed FEM/BEM method, to calculate the magnetostatic field of a magnetized object, which is then used for micromagnetic simulations. The implementation of BEM follows this article: https://doi.org/10.1016/j.jmmm.2012.01.016, but addapted to this use case, as the article shows a material with some magnetic permeability, while my implementation calculates the magnetostatic field of a magnetized object.
