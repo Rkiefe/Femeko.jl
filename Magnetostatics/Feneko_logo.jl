@@ -14,7 +14,7 @@
 =#
 
 include("../gmsh_wrapper.jl")
-include("../FEMjl.jl")
+include("../FEM.jl")
 
 # For plots | Uncomment the plot section of "main()"
 using GLMakie
