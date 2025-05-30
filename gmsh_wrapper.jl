@@ -201,10 +201,15 @@ function importCAD(file,cells=[],box=[],scale=5)
     # Make a container for the stl file
     if isempty(box)
         box = makeContainer(scale)
+
+        temp = gmsh.model.getEntities(2)            # Get all surfaces of current model
+        bounding_shell_n_surfaces = 1:length(temp)    # Get the number of surfaces in the bounding shell
+
         gmsh.model.geo.synchronize()
+
+        return box, bounding_shell_n_surfaces
     end
 
-    return box
 end # Import cad geometry file
 
 function findNodes(mesh::MESH,region::String,id)
