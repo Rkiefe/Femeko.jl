@@ -76,9 +76,9 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     # Must remove the surface Id of the interior surfaces
     shell_id = shell_id[bounding_shell_n_surfaces] # All other, are interior surfaces
 
-    if showGmsh
+    # if showGmsh
         gmsh.fltk.run()
-    end
+    # end
     gmsh.finalize()
 
     println("Number of elements ",size(mesh.t,2))
@@ -187,7 +187,7 @@ end # end of main
 
 meshSize = 4
 localSize = 0.1
-showGmsh = true
+showGmsh = false
 saveMesh = false
 
 main(meshSize,localSize,showGmsh,saveMesh)
