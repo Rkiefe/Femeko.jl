@@ -1,4 +1,4 @@
-# Feneko.jl
+# Femeko.jl
 The philosophy of this repository is to serve as a kickstart to anyone who wants to make their own Finite-Element implementation, without worrying about mesh generation or 3D modeling. Julia with some C++ interop shows high performance capabilities, with simple syntax and flexibility.
 
 ## Table of Contents
