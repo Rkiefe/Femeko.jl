@@ -1,9 +1,7 @@
 #=
     Uses the mixed Finite-Element / Boundary Element Method
-    
-    Solves the time dependent Landau-Lifshitz equation
-    Considering a permalloy like in the Fig. 2 of this article
-        https://doi.org/10.1109/TMAG.2008.2001666
+
+    Includes a thermal field to the Landau-Lifshitz equation
 =#
 
 # For plots
@@ -18,10 +16,13 @@ function main()
     # Constants
     mu0::Float64 = pi*4e-7          # vacuum magnetic permeability
     giro::Float64 = 2.210173e5 /mu0 # Gyromagnetic ratio (rad T-1 s-1)
-    dt::Float64 = 0.67e-13           # Time step (s)
-    totalTime::Float64 = 0.4        # Total time of spin dynamics simulation (ns)
+    dt::Float64 = 0.67e-13          # Time step (s)
+    totalTime::Float64 = Inf        # Total time of spin dynamics simulation (ns)
     damp::Float64 = 0.1             # Damping parameter (dimensionless [0,1])
     precession::Float64 = 1.0       # Include precession or not (0 or 1)
+
+    # Temperature
+    T::Float64  = 0.0 # K
 
     # Dimension of the magnetic material 
     L::Vector{Float64} = [100,100,5] # [512,128,30]
@@ -32,11 +33,11 @@ function main()
     Aexc::Float64 = 13e-12              # Exchange   (J/m)
     Aan::Float64  = 0                   # Anisotropy (J/m3)
     uan::Vector{Float64}  = [1,0,0]     # easy axis direction
-    Hap::Vector{Float64}  = [0,50e3,0] # A/m
+    Hap::Vector{Float64}  = [0,50e3,0]  # A/m
 
     # Convergence criteria | Only used when totalTime != Inf
-    maxTorque::Float64 = 0              # Maximum difference between current and previous <M>
-    maxAtt::Int32 = 15_000              # Maximum number of iterations in the solver
+    maxTorque::Float64 = 1e-10              # Maximum difference between current and previous <M>
+    maxAtt::Int32 = 5_000              # Maximum number of iterations in the solver
     
     # -- Create a geometry --
     gmsh.initialize()
@@ -54,11 +55,11 @@ function main()
         
     # -----------------------
 
-    println("Number of elements ",size(mesh.t,2))
-    println("Number of Inside elements ",length(mesh.InsideElements))
-    println("Number of nodes ",size(mesh.p,2))
-    println("Number of Inside nodes ",length(mesh.InsideNodes))
-    println("Number of surface elements ",size(mesh.surfaceT,2))
+    println("Number of nodes ",mesh.nv)
+    println("Number of surface elements ",mesh.ne)
+    println("Number of elements ",mesh.nt)
+    println("Number of Inside elements ",mesh.nInside)
+    println("Number of Inside nodes ",mesh.nInsideNodes)
     # viewMesh(mesh)
     # return
 
@@ -90,34 +91,52 @@ function main()
 
     # Initial magnetization field
     m::Matrix{Float64} = zeros(3,mesh.nv)
-    m[1,:] .= 1
+    # m[1,:] .= 1
+    begin # Random initial magnetization
+        theta::Vector{Float64} = 2*pi.*rand(mesh.nv)
+        phi::Vector{Float64} = pi.*rand(mesh.nv)
+        for i in 1:mesh.nv
+            m[:,i] = [sin(theta[i])*cos(phi[i]), sin(theta[i])*sin(phi[i]), cos(theta[i])]
+            m[:,i] = m[:,i]./norm(m[:,i])
+        end
+    end # Random initial magnetization
 
-    # Landau Lifshitz
-    m, Heff, M_avg, E_time, torque_time = LandauLifshitz(mesh, m, Ms,
-                                                        Hap, Aexc, Aan,
-                                                        uan, scl, damp, giro,
-                                                        A, LHS, Vn, nodeVolume, areaT,
-                                                        dt, precession, maxTorque,
-                                                        maxAtt, totalTime)
+    # M(T)
+    mOld::Matrix{Float64} = deepcopy(m)
+    Tspan::Vector{Float64} = range(0.0,0.15,50)
+    M_T::Matrix{Float64} = zeros(3,length(Tspan))
+    for iT in 1:length(Tspan)
+        T = Tspan[iT]
 
-    time::Vector{Float64} = 1e9*dt .* (1:size(M_avg,2))
+        # Reset m
+        m = deepcopy(mOld)
+
+        # Landau Lifshitz
+        _, _, M_avg = LandauLifshitz(mesh, m, Ms,
+                                    Hap, Aexc, Aan,
+                                    uan, scl, damp, giro,
+                                    A, LHS, Vn, nodeVolume, areaT,
+                                    dt, precession, maxTorque,
+                                    maxAtt, totalTime, T)
+
+        M_T[:,iT] = M_avg[:,end]
+    end
+
+    # time::Vector{Float64} = (1e9*dt) * (1:size(M_avg,2))
 
     fig = Figure()
     ax = Axis(  fig[1,1],
-                xlabel = "Time (ns)", 
+                xlabel = "T (K)", 
                 ylabel = "<M> (kA/m)",
-                title = "Micromagnetic simulation",
-                yticks = range(-1500,1500,5))
+                title = "Thermal noise")
 
-    scatter!(ax,time,Ms/1000 .*M_avg[1,:], label = "M_x")
-    scatter!(ax,time,Ms/1000 .*M_avg[2,:], label = "M_y")
-    scatter!(ax,time,Ms/1000 .*M_avg[3,:], label = "M_z")
+    scatter!(ax, Tspan, M_T[1,:], label = "M_x")
+    scatter!(ax, Tspan, M_T[2,:], label = "M_y")
+    scatter!(ax, Tspan, M_T[3,:], label = "M_z")
     axislegend()
 
-    # save("M_time_Sphere.png",fig)
+    save("M_T.png",fig)
     wait(display(fig))
-
-    save("M_time_permalloy.png",fig)
 end
 
 main()

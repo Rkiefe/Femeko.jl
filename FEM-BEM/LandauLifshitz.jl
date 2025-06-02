@@ -6,6 +6,10 @@
 # Include FEM functions
 include("BEM.jl")
 
+# For the thermal field
+using Random
+import Distributions as Dist
+
 # Find new magnetization after time iteration
 function timeStep(m::Vector{Float64},H::Vector{Float64},Hold::Vector{Float64},
                   Heff::Vector{Float64},
@@ -66,11 +70,17 @@ function LandauLifshitz(mesh::MESH, m::Matrix{Float64}, Ms::Float64,
                         uan::Vector{Float64}, scl::Float64, damp::Float64, giro::Float64,
                         A::Matrix{Float64}, LHS::Matrix{Float64}, Vn::Vector{Float64}, nodeVolume::Vector{Float64}, areaT::Vector{Float64},
                         dt::Float64, precession::Float64, maxTorque::Float64,
-                        maxAtt::Int32, totalTime::Float64=Inf)
+                        maxAtt::Int32, totalTime::Float64=Inf, T::Float64=0.0)
 
     mu0::Float64 = pi*4e-7
 
+    # Thermal constant
+    Kb::Float64 = 1.380649e-23   # J/K, Boltzmann constant
+    Cth::Float64 = sqrt(2*damp*Kb*T/(mu0*Ms*giro*dt*scl^3))
+    rng = Dist.Normal(0.0,1.0) # Normal distribution for the thermal noise
+
     # -- Initial Magnetic Field --
+    
     # Applied field
     Hext::Matrix{Float64} = zeros(3,mesh.nv) .+ mu0.*Hap
 
@@ -80,10 +90,14 @@ function LandauLifshitz(mesh::MESH, m::Matrix{Float64}, Ms::Float64,
     # Exchange field
     Hexc::Matrix{Float64} = -2*Aexc.* (A * m')'
 
-    # Correct units of Demag and Exchange fields
+    # Thermal field
+    Hth::Matrix{Float64} = Cth*rand(rng,3,mesh.nv)
+
+    # Correct units of Demag, Exchange and Thermal fields
     @simd for i in 1:3
         Hd[i,:]     .*= mu0*Ms./Vn
         Hexc[i,:]   ./= Ms*scl^2 .*nodeVolume
+        Hth[i,:]    ./= sqrt.(Vn)
     end
 
     # Anisotropy field
@@ -93,10 +107,10 @@ function LandauLifshitz(mesh::MESH, m::Matrix{Float64}, Ms::Float64,
     end
 
     # Effective field
-    Heff::Matrix{Float64} = Hext + Hd + Hexc + Han
+    Heff::Matrix{Float64} = Hext + Hd + Hexc + Han + Hth
     H::Matrix{Float64} = zeros(3,mesh.nv)
     for i in 1:mesh.nv
-        H[:,i] = Heff[:,i] + damp*cross(m[:,i],Heff[:,i])
+        H[:,i] = precession*Heff[:,i] + damp*cross(m[:,i],Heff[:,i])
     end
 
     # -- Energy density --
@@ -129,7 +143,7 @@ function LandauLifshitz(mesh::MESH, m::Matrix{Float64}, Ms::Float64,
         att += 1
 
         # New magnetization
-        for i in 1:mesh.nv
+        Threads.@threads for i in 1:mesh.nv
             m[:,i] = timeStep(m[:,i], H[:,i], Hold[:,i],
                   Heff[:,i],
                   dt, giro, damp,
@@ -150,10 +164,14 @@ function LandauLifshitz(mesh::MESH, m::Matrix{Float64}, Ms::Float64,
         # Exchange field
         Hexc = -2*Aexc.* (A * m')'
 
-        # Correct units of Demag and Exchange fields
+        # Thermal field
+        Hth = Cth*rand(rng,3,mesh.nv)
+
+        # Correct units of Demag, Exchange and Thermal fields
         @simd for i in 1:3
             Hd[i,:]     .*= mu0*Ms./Vn
             Hexc[i,:]   ./= Ms*scl^2 .*nodeVolume
+            Hth[i,:]    ./= sqrt.(Vn)
         end
 
         # Anisotropy field
@@ -162,9 +180,9 @@ function LandauLifshitz(mesh::MESH, m::Matrix{Float64}, Ms::Float64,
         end
 
         # Effective field
-        Heff = Hext + Hd + Hexc + Han
+        Heff = Hext + Hd + Hexc + Han + Hth
         for i in 1:mesh.nv
-            H[:,i] = Heff[:,i] + damp*cross(m[:,i],Heff[:,i])
+            H[:,i] = precession*Heff[:,i] + damp*cross(m[:,i],Heff[:,i])
         end
 
         # -- Energy density --
