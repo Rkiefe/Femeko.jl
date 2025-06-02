@@ -107,21 +107,6 @@ function main()
     # Magnetization field
     m::Matrix{Float64} = zeros(3,mesh.nv)
     m[1,mesh.InsideNodes] .= 1
-    # begin
-    #     theta::Vector{Float64} = 2*pi.*rand(mesh.nInsideNodes)
-    #     phi::Vector{Float64} = pi.*rand(mesh.nInsideNodes)
-    
-    #     for i in 1:mesh.nInsideNodes
-    #         nd = mesh.InsideNodes[i]
-    #         m[:,nd] =   [
-    #                         sin(theta[i])*cos(phi[i])
-    #                         sin(theta[i])*sin(phi[i])
-    #                         cos(theta[i])
-    #                     ]
-
-    #         m[:,nd] = m[:,nd]./norm(m[:,nd])
-    #     end
-    # end # Random initial magnetization
 
     # Dirichlet boundary condition
     fixed::Vector{Int32} = findNodes(mesh,"face",mesh.shell_id)
@@ -132,7 +117,6 @@ function main()
 
     # Stiffness matrix | Exchange field
     A = spzeros(mesh.nv,mesh.nv)
-
     begin
         Ak::Matrix{Float64} = zeros(4*4,mesh.nt)
         b::Vector{Float64} = zeros(4)
@@ -160,7 +144,6 @@ function main()
         
         # Remove all exterior nodes
         A = A[mesh.InsideNodes,mesh.InsideNodes]
-
     end # End of Stiffness Matrix of Exchange field
 
     # Landau Lifshitz

@@ -1,5 +1,6 @@
 #=
-    Steepest descent
+    Magnetic hysteresis loop with Landaul-Lifshitz equation and steepest descent energy
+    minimization
 =#
 
 
@@ -104,7 +105,6 @@ function main()
 
     # Magnetization field
     m::Matrix{Float64} = zeros(3,mesh.nv)
-    # m[1,mesh.InsideNodes] .= 1
     begin
         theta::Vector{Float64} = 2*pi.*rand(mesh.nInsideNodes)
         phi::Vector{Float64} = pi.*rand(mesh.nInsideNodes)
