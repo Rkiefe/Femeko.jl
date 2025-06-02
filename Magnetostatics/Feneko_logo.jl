@@ -1,18 +1,3 @@
-#=
-    Simulation:
-        Simulates the magnetostatic interaction between a magnetic plate
-        and a uniform external magnetic field
-        The plate has a uniform, constant magnetic permeability
-    
-    Output:
-        Expect a 3D tetrahedral mesh as a MESH() struct and one figure.
-
-    Note:
-        You can replace the local stiffness matrix with a C++ version by adding
-        the FEMc.cpp file to the directory and replacing the function call by the
-        C++ wrapper function
-=#
-
 include("../gmsh_wrapper.jl")
 include("../FEM.jl")
 
