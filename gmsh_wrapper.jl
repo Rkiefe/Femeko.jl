@@ -97,7 +97,7 @@ function refineCell(cell,localSize,meshSize)
 end # Local mesh refinement on target cell
 
 # Make a cuboid based on its center
-function addCuboid(position,dimensions,cells=[],updateCells=false)
+function addCuboid(position,dimensions,cells=[],updateCells::Bool=false)
     #=
         Makes a cuboid based on its centroid position
         Updates the cells list in case this cuboid is not meant to be
@@ -118,7 +118,7 @@ function addCuboid(position,dimensions,cells=[],updateCells=false)
 end # Make a cuboid based on its center
 
 # Make a sphere
-function addSphere(position,radius,cells=[],updateCells=false)
+function addSphere(position,radius,cells=[],updateCells::Bool=false)
     #=
         Inputs:
             Position vector
@@ -141,7 +141,7 @@ function addSphere(position,radius,cells=[],updateCells=false)
 end # Make a sphere
 
 # Create container based on current model surface
-function makeContainer(scale=5)
+function makeContainer(scale::Float64=5.0)
 
     # Get all surface entities
     surfaces = gmsh.model.getEntities(2)
@@ -184,7 +184,7 @@ function makeContainer(scale=5)
 end # Create container based on current model surface
 
 # Import cad geometry file
-function importCAD(file,cells=[],box=[],scale=5)
+function importCAD(file::String, cells, setContainer::Bool=true, scale::Float64=5.0)
     #= 
         Import cad geometry file and create a container
         if there is none
@@ -199,7 +199,7 @@ function importCAD(file,cells=[],box=[],scale=5)
     cells = append!(cells,[(3,volume)])
 
     # Make a container for the stl file
-    if isempty(box)
+    if setContainer
         box = makeContainer(scale)
 
         temp = gmsh.model.getEntities(2)            # Get all surfaces of current model
@@ -258,7 +258,7 @@ function findNodes(mesh::MESH,region::String,id)
     return nodes
 end
 
-function Mesh(cells,meshSize=0,localSize=0,saveMesh=false)
+function Mesh(cells,meshSize=0,localSize=0,saveMesh::Bool=false)
     #=
         Generates a 3d tetrahedral mesh considering that the model is made of 
         1 container and every other volume beyond the container is listed in the 'cells'
