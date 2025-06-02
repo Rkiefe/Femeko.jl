@@ -103,35 +103,6 @@ function CstiffnessMatrix(p::Matrix{Float64}, t::Matrix{Int32}, VE::Vector{Float
     return Ak
 end # Wrapper for C++ function to get local stiffness matrix 
 
-# Mean function
-function mean(arr::Vector,dimension=1)
-    m::Real = 0
-    for x in arr
-        m += x
-    end
-
-    return m/length(arr)
-end # End of mean for vectors
-
-function mean(arr::Matrix,dimension=1)
-    if dimension == 1 
-        d = size(arr,1)
-        m = 0 .*arr[1,:]
-        for i in 1:d
-            m .+= arr[i,:]
-        end
-
-    else
-        d = size(arr,2)
-        m = 0 .*arr[:,1]
-        for i in 1:d
-            m .+= arr[:,i]
-        end
-    end
-
-    return m./d
-end # End of mean for 2D matrices
-
 # Demagnetizing field
 function demagField(mesh::MESH,fixed::Vector{Int32},free::Vector{Int32},A,m::Matrix{Float64})
     #= 
@@ -193,3 +164,65 @@ function demagField(mesh::MESH,fixed::Vector{Int32},free::Vector{Int32},A,m::Mat
 
     return Hd
 end
+
+# Mean function
+function mean(arr::Vector,dimension=1)
+    m::Real = 0
+    for x in arr
+        m += x
+    end
+
+    return m/length(arr)
+end # End of mean for vectors
+
+function mean(arr::Matrix,dimension=1)
+    if dimension == 1 
+        d = size(arr,1)
+        m = 0 .*arr[1,:]
+        for i in 1:d
+            m .+= arr[i,:]
+        end
+
+    else
+        d = size(arr,2)
+        m = 0 .*arr[:,1]
+        for i in 1:d
+            m .+= arr[:,i]
+        end
+    end
+
+    return m./d
+end # End of mean for 2D matrices
+
+# Linear interp function
+function interp1(x::Vector, y::Vector, xq::Real)
+    if minimum(x) > xq || maximum(x) < xq
+        error("Interp1 | xq is out of bounds of x")
+        return
+    end
+
+    yq::Real = NaN
+    if xq == x[1]
+        yq = y[1]
+        return yq
+    elseif xq == x[end]
+        yq = y[end]
+        return y[end]
+    end
+
+    for i in 2:length(x)
+        if x[i] > xq && x[i-1] < xq
+            yq = y[i-1] + (y[i]-y[i-1])/(x[i]-x[i-1]) *(xq-x[i-1])
+            return yq
+        end
+    end
+end # Interp a single value in a dataset
+
+# Linear interp over an array
+function interp1(x::Vector, y::Vector, xq::Vector)
+    yq::Vector = zeros(length(xq))
+    for i in 1:length(xq)
+        yq[i] = interp1(x, y, xq[i])
+    end
+    return yq
+end # Interp over the entire input array
