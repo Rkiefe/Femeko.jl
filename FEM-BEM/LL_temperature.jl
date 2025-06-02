@@ -130,9 +130,9 @@ function main()
                 ylabel = "<M> (kA/m)",
                 title = "Thermal noise")
 
-    scatter!(ax, Tspan, M_T[1,:], label = "M_x")
-    scatter!(ax, Tspan, M_T[2,:], label = "M_y")
-    scatter!(ax, Tspan, M_T[3,:], label = "M_z")
+    scatter!(ax, Tspan, Ms/1000 .* M_T[1,:], label = "M_x")
+    scatter!(ax, Tspan, Ms/1000 .* M_T[2,:], label = "M_y")
+    scatter!(ax, Tspan, Ms/1000 .* M_T[3,:], label = "M_z")
     axislegend()
 
     save("M_T.png",fig)
