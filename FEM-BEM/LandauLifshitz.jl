@@ -34,10 +34,6 @@ function timeStep(m::Vector{Float64},H::Vector{Float64},Hold::Vector{Float64},
     att::Int32 = 0
     while err > 1e-6
         att += 1
-        
-        # if att > 1_000
-        #     break # Stop iterative solver if stuck
-        # end
 
         # 2) m (n+1) from m (n) and H (n+1/2)
         mat::Matrix{Float64} = [1 d*H12[3] -d*H12[2];
@@ -56,10 +52,10 @@ function timeStep(m::Vector{Float64},H::Vector{Float64},Hold::Vector{Float64},
         # println(err)
 
         aux = deepcopy(m2)
-        # if att > 100
-        #     println("Time step did not converge in ",att," steps")
-        #     break
-        # end
+        if att > 1_000
+            println("Time step did not converge in ",att," steps")
+            break
+        end
     end
 
     return m2

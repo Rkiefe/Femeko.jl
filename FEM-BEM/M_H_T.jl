@@ -1,43 +1,36 @@
-#=
-    Uses the mixed Finite-Element / Boundary Element Method
-
-    Includes a thermal field to the Landau-Lifshitz equation
-=#
-
 # For plots
-using GLMakie
+using CairoMakie
 
 include("../gmsh_wrapper.jl")
 include("LandauLifshitz.jl")
-
 function main()
     meshSize::Float64 = 0
 
     # Constants
     mu0::Float64 = pi*4e-7          # vacuum magnetic permeability
     giro::Float64 = 2.210173e5 /mu0 # Gyromagnetic ratio (rad T-1 s-1)
-    dt::Float64 = 0.67e-13          # Time step (s)
+    dt::Float64 = 1e-12             # Time step (s)
     totalTime::Float64 = Inf        # Total time of spin dynamics simulation (ns)
-    damp::Float64 = 0.1             # Damping parameter (dimensionless [0,1])
-    precession::Float64 = 1.0       # Include precession or not (0 or 1)
+    damp::Float64 = 1.0             # Damping parameter (dimensionless [0,1])
+    precession::Float64 = 0.0       # Include precession or not (0 or 1)
 
     # Temperature
     T::Float64  = 0.0 # K
 
     # Dimension of the magnetic material 
-    L::Vector{Float64} = [100,100,5] # [512,128,30]
+    L::Vector{Float64} = [512,128,30]
     scl::Float64 = 1e-9                 # scale of the geometry | (m -> nm)
     
     # Conditions
-    Ms::Float64   = 860e3               # Magnetic saturation (A/m)
+    Ms::Float64   = 800e3               # Magnetic saturation (A/m)
     Aexc::Float64 = 13e-12              # Exchange   (J/m)
     Aan::Float64  = 0                   # Anisotropy (J/m3)
     uan::Vector{Float64}  = [1,0,0]     # easy axis direction
-    Hap::Vector{Float64}  = [0,50e3,0]  # A/m
+    Hap::Vector{Float64}  = [0,0,0]     # A/m
 
     # Convergence criteria | Only used when totalTime != Inf
-    maxTorque::Float64 = 1e-14         # Maximum difference between current and previous <M>
-    maxAtt::Int32 = 5_000              # Maximum number of iterations in the solver
+    maxTorque::Float64 = 1e-14          # Maximum difference between current and previous <M>
+    maxAtt::Int32 = 15_000               # Maximum number of iterations in the solver
     
     # -- Create a geometry --
     gmsh.initialize()
@@ -55,9 +48,9 @@ function main()
         
     # -----------------------
 
+    println("Number of elements ",mesh.nt)
     println("Number of nodes ",mesh.nv)
     println("Number of surface elements ",mesh.ne)
-    println("Number of elements ",mesh.nt)
     println("Number of Inside elements ",mesh.nInside)
     println("Number of Inside nodes ",mesh.nInsideNodes)
     # viewMesh(mesh)
@@ -81,6 +74,7 @@ function main()
         nodeVolume[mesh.t[:,k]] .+= mesh.VE[k]/4
     end
 
+    println("Running BEM matrices")
     # FEM/BEM matrices
     A = denseStiffnessMatrix(mesh)  # ij
     B = Bmatrix(mesh, areaT)        # in
@@ -101,42 +95,35 @@ function main()
         end
     end # Random initial magnetization
 
-    # M(T)
-    mOld::Matrix{Float64} = deepcopy(m)
-    Tspan::Vector{Float64} = range(0.0,0.15,50)
-    M_T::Matrix{Float64} = zeros(3,length(Tspan))
-    for iT in 1:length(Tspan)
-        T = Tspan[iT]
+    Heff::Matrix{Float64} = Matrix{Float64}(undef,0,0)
 
-        # Reset m
-        m = deepcopy(mOld)
-
-        # Landau Lifshitz
-        _, _, M_avg = LandauLifshitz(mesh, m, Ms,
+    println("Running M(H,T)")
+    # Hysteresis curve with temperature
+    Bext::Vector{Float64} = vcat(0:1e-3:0.1,0.1:-1e-3:-0.1,-0.1:1e-3:0.1)
+    M_H::Matrix{Float64} = zeros(3,length(Bext))
+    for iB in 1:length(Bext)
+        Hap[1] = Bext[iB]/mu0
+        m, _, M_avg = LandauLifshitz(mesh, m, Ms,
                                     Hap, Aexc, Aan,
                                     uan, scl, damp, giro,
                                     A, LHS, Vn, nodeVolume, areaT,
                                     dt, precession, maxTorque,
                                     maxAtt, totalTime, T)
-
-        M_T[:,iT] = M_avg[:,end]
+        
+        M_H[:,iB] = M_avg[:,end]    
     end
-
-    # time::Vector{Float64} = (1e9*dt) * (1:size(M_avg,2))
 
     fig = Figure()
     ax = Axis(  fig[1,1],
-                xlabel = "T (K)", 
-                ylabel = "<M> (kA/m)",
-                title = "Thermal noise")
+                xlabel = "B applied",
+                ylabel = "<M>")
 
-    scatter!(ax, Tspan, Ms/1000 .* M_T[1,:], label = "M_x")
-    scatter!(ax, Tspan, Ms/1000 .* M_T[2,:], label = "M_y")
-    scatter!(ax, Tspan, Ms/1000 .* M_T[3,:], label = "M_z")
-    axislegend()
+    scatter!(ax, Bext, M_H[1,:])
 
-    save("M_T.png",fig)
-    wait(display(fig))
+    save("M_H_"*string(mesh.nv)*"_T"*string(T)*".png",fig)
+    display(fig)
+
+
 end
 
 main()
