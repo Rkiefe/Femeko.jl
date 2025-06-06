@@ -1,3 +1,7 @@
+#=
+    Temperature dependent hysteresis loop
+=#
+
 # For plots
 using CairoMakie
 
