@@ -81,7 +81,7 @@ function SteepestDescent(mesh::MESH, m::Matrix{Float64}, Ms::Float64, Heff::Matr
 
     # New magnetization
     mOld::Matrix{Float64} = deepcopy(m)
-    Threads.@threads for i in 1:mesh.nv
+    for i in 1:mesh.nv
         m[:,i] = timeStep(m[:,i], H[:,i], H[:,i], Heff[:,i],
                           0.03, 1.0, 1.0, 0.0)
     end
@@ -168,7 +168,7 @@ function SteepestDescent(mesh::MESH, m::Matrix{Float64}, Ms::Float64, Heff::Matr
         dt::Float64 = mod(att,2) > 0 ? tau1 : tau2
 
         # New magnetization
-        Threads.@threads for i in 1:mesh.nv
+        for i in 1:mesh.nv
             m[:,i], mOld[:,i] = nextM(m[:,i],Heff[:,i],dt)
         end
 

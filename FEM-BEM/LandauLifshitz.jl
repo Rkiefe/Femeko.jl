@@ -139,7 +139,7 @@ function LandauLifshitz(mesh::MESH, m::Matrix{Float64}, Ms::Float64,
         att += 1
 
         # New magnetization
-        Threads.@threads for i in 1:mesh.nv
+        for i in 1:mesh.nv
             m[:,i] = timeStep(m[:,i], H[:,i], Hold[:,i],
                   Heff[:,i],
                   dt, giro, damp,
