@@ -1,3 +1,8 @@
+#=
+    An example of how you can add a step file, create a bounding shell
+    and a mesh of the object using Femeko.jl
+=#
+
 include("gmsh_wrapper.jl")
 
 function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
@@ -8,7 +13,6 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
             meshSize  - Mesh size (0 = let gmsh choose)
             localSize - Size of mesh in every volume beyond the container (0 for no local refinement)
             saveMesh  - Save mesh to a FEMCE compatible format 
-
     =#
     
     # Create a geometry
