@@ -13,7 +13,8 @@ function userMade(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     gmsh.initialize()
 
     # Cuboid dimensions
-    L::Vector{Float64} = [4, 4, 1]
+    L::Vector{Float64} = [1.65, 1.65, 0.04]
+    # L::Vector{Float64} = [26, 0.2, 250]
 
     # >> Model
     # Create an empty container | Bounding shell
@@ -105,7 +106,7 @@ function meshCAD(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
 
 end # end of main
 
-meshSize = 20
+meshSize = 4
 localSize = 0.1
 showGmsh = true
 saveMesh = false
