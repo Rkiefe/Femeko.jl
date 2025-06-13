@@ -80,27 +80,15 @@ function refineCell(cell,localSize,meshSize)
 
     # Create a threshold field that defines the refinement region
     threshold_field = gmsh.model.mesh.field.add("Threshold")
-    gmsh.model.mesh.field.setNumber(threshold_field, "IField", distance_field)
-    gmsh.model.mesh.field.setNumber(threshold_field, "LcMin", localSize)
-    gmsh.model.mesh.field.setNumber(threshold_field, "LcMax", meshSize)
-    
-    # !! Note: Removed DistM** because it was limiting Gmsh. By not setting this values
-    # the overall mesh refinement was improved.
 
-    # gmsh.model.mesh.field.setNumber(threshold_field, "DistMin", 0)
-    # gmsh.model.mesh.field.setNumber(threshold_field, "DistMax", 20*localSize)
+    gmsh.model.mesh.field.setNumber(threshold_field, "InField", distance_field)
+    gmsh.model.mesh.field.setNumber(threshold_field, "SizeMin", localSize)
+    gmsh.model.mesh.field.setNumber(threshold_field, "SizeMax", meshSize)
+    gmsh.model.mesh.field.setNumber(threshold_field, "DistMin", 0.0)
+    gmsh.model.mesh.field.setNumber(threshold_field, "DistMax", max(0.1*meshSize,10*localSize))
 
     gmsh.model.mesh.field.setNumber(threshold_field, "Sigmoid", true)
     gmsh.model.mesh.field.setAsBackgroundMesh(threshold_field)
-
-    # !! Note: The Min field is not required as there is only a Threshold field
-    # # Use the minimum of all the fields as the background mesh field
-    # min_field = gmsh.model.mesh.field.add("Min")
-    # gmsh.model.mesh.field.setNumbers(min_field, "FieldsList", [threshold_field])
-
-    # # Set the background mesh field
-    # gmsh.model.mesh.field.setAsBackgroundMesh(min_field)
-
 
 end # Local mesh refinement on target cell
 
