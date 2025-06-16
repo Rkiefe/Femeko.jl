@@ -13,8 +13,8 @@
         C++ wrapper function
 =#
 
-include("../gmsh_wrapper.jl")
-include("../FEM.jl")
+include("../src/gmsh_wrapper.jl")
+include("../src/FEM.jl")
 
 # For plots | Uncomment the plot section of "main()"
 using GLMakie

@@ -4,7 +4,7 @@
 =#
 
 # Include FEM functions
-include("../FEM.jl")
+include("../src/FEM.jl")
 
 # Find new magnetization after time iteration
 function timeStep(m::Vector{Float64},H::Vector{Float64},Hold::Vector{Float64},

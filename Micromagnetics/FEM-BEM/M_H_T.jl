@@ -1,9 +1,12 @@
+#=
+    Temperature dependent hysteresis loop
+=#
+
 # For plots
 using CairoMakie
 
 include("../gmsh_wrapper.jl")
-include("SteepestDescent.jl")
-
+include("LandauLifshitz.jl")
 function main()
     meshSize::Float64 = 0
 
@@ -15,6 +18,9 @@ function main()
     damp::Float64 = 1.0             # Damping parameter (dimensionless [0,1])
     precession::Float64 = 0.0       # Include precession or not (0 or 1)
 
+    # Temperature
+    T::Float64  = 0.0 # K
+
     # Dimension of the magnetic material 
     L::Vector{Float64} = [512,128,30]
     scl::Float64 = 1e-9                 # scale of the geometry | (m -> nm)
@@ -24,11 +30,11 @@ function main()
     Aexc::Float64 = 13e-12              # Exchange   (J/m)
     Aan::Float64  = 0                   # Anisotropy (J/m3)
     uan::Vector{Float64}  = [1,0,0]     # easy axis direction
-    Hap::Vector{Float64}  = [0.1/mu0,0,0]     # A/m
+    Hap::Vector{Float64}  = [0,0,0]     # A/m
 
     # Convergence criteria | Only used when totalTime != Inf
     maxTorque::Float64 = 1e-14          # Maximum difference between current and previous <M>
-    maxAtt::Int32 = 5_000               # Maximum number of iterations in the solver
+    maxAtt::Int32 = 15_000               # Maximum number of iterations in the solver
     
     # -- Create a geometry --
     gmsh.initialize()
@@ -72,6 +78,7 @@ function main()
         nodeVolume[mesh.t[:,k]] .+= mesh.VE[k]/4
     end
 
+    println("Running BEM matrices")
     # FEM/BEM matrices
     A = denseStiffnessMatrix(mesh)  # ij
     B = Bmatrix(mesh, areaT)        # in
@@ -82,7 +89,7 @@ function main()
 
     # Initial magnetization field
     m::Matrix{Float64} = zeros(3,mesh.nv)
-    m[1,:] .= 1
+    # m[1,:] .= 1
     theta::Vector{Float64} = 2*pi.*rand(mesh.nv)
     phi::Vector{Float64} = pi.*rand(mesh.nv)
     for i in 1:mesh.nv
@@ -92,24 +99,18 @@ function main()
 
     Heff::Matrix{Float64} = Matrix{Float64}(undef,0,0)
 
-    # Landau Lifshitz
-    m, Heff, M_avg, E_time, torque_time = LandauLifshitz(mesh, m, Ms,
-                                                        Hap, Aexc, Aan,
-                                                        uan, scl, damp, giro,
-                                                        A, LHS, Vn, nodeVolume, areaT,
-                                                        dt, precession, maxTorque,
-                                                        maxAtt, totalTime)
-
-    # Bext::Vector{Float64} = vcat(0:1e-3:0.1,0.1:-1e-3:-0.1,-0.1:1e-3:0.1)
-    Bext::Vector{Float64} = vcat(0.1:-1e-3:-0.1,-0.1:1e-3:0.1)
+    println("Running M(H,T)")
+    # Hysteresis curve with temperature
+    Bext::Vector{Float64} = vcat(0:1e-3:0.1,0.1:-1e-3:-0.1,-0.1:1e-3:0.1)
     M_H::Matrix{Float64} = zeros(3,length(Bext))
     for iB in 1:length(Bext)
         Hap[1] = Bext[iB]/mu0
-        m, Heff, M_avg = SteepestDescent(mesh, m, Ms, Heff,
-                                        Hap, Aexc, Aan,
-                                        uan, scl,
-                                        A, LHS, Vn, nodeVolume, areaT,
-                                        maxTorque, maxAtt)
+        m, _, M_avg = LandauLifshitz(mesh, m, Ms,
+                                    Hap, Aexc, Aan,
+                                    uan, scl, damp, giro,
+                                    A, LHS, Vn, nodeVolume, areaT,
+                                    dt, precession, maxTorque,
+                                    maxAtt, totalTime, T)
         
         M_H[:,iB] = M_avg[:,end]    
     end
@@ -121,9 +122,10 @@ function main()
 
     scatter!(ax, Bext, M_H[1,:])
 
-    # save("M_H_"*string(mesh.nv)*".png",fig)
-    save("with_exchange_Ms_800.png",fig)
+    save("M_H_"*string(mesh.nv)*"_T"*string(T)*".png",fig)
     display(fig)
+
+
 end
 
 main()

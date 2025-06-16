@@ -7,12 +7,12 @@
 # For plots
 using CairoMakie
 
-include("../gmsh_wrapper.jl")
+include("../src/gmsh_wrapper.jl")
 include("SteepestDescent.jl")
 
 function main()
     meshSize::Float64 = 2500  # 2500
-    localSize::Float64 = 10  # 5
+    localSize::Float64 = 5  # 5
 
     # Constants
     mu0::Float64 = pi*4e-7          # vacuum magnetic permeability
@@ -85,7 +85,7 @@ function main()
     println("Number of Inside elements ",mesh.nInside)
     println("Number of Inside nodes ",mesh.nInsideNodes)
     # println("Bounding shell: ",mesh.shell_id)
-    return
+    # return
 
     # viewMesh(mesh)
     
@@ -203,7 +203,7 @@ function main()
     # scatter!(ax, mu0.*Hext, M_H[3,:], label = "M_z")
     axislegend()
 
-    save("test.png",fig)
+    save("M_H_"*string(mesh.nInsideNodes)*".png",fig)
     display(fig)
     # wait(display(fig))
 end

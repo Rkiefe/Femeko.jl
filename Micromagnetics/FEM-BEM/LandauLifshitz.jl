@@ -4,7 +4,7 @@
 =#
 
 # Include FEM functions
-include("BEM.jl")
+include("../../src/BEM.jl")
 
 # For the thermal field
 using Random

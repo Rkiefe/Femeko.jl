@@ -8,7 +8,7 @@
 # For plots
 using GLMakie
 
-include("../gmsh_wrapper.jl")
+include("../src/gmsh_wrapper.jl")
 include("LandauLifshitz.jl")
 
 function main()

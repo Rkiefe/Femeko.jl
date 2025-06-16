@@ -3,7 +3,7 @@
     with the mixed FEM-BEM formulation
 =#
 
-include("../FEM.jl")
+include("FEM.jl")
 
 # Demagntizing field with FEM/BEM
 function BEMdmag(mesh::MESH,m::Matrix{Float64},areaT::Vector{Float64},LHS::Matrix{Float64})

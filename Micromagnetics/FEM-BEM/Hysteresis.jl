@@ -1,16 +1,8 @@
-#=
-    Uses the mixed Finite-Element / Boundary Element Method
-    
-    Solves the time dependent Landau-Lifshitz equation
-    Considering a permalloy like in the Fig. 2 of this article
-        https://doi.org/10.1109/TMAG.2008.2001666
-=#
-
 # For plots
-using GLMakie
+using CairoMakie
 
-include("../gmsh_wrapper.jl")
-include("LandauLifshitz.jl")
+include("../../src/gmsh_wrapper.jl")
+include("SteepestDescent.jl")
 
 function main()
     meshSize::Float64 = 0
@@ -18,25 +10,25 @@ function main()
     # Constants
     mu0::Float64 = pi*4e-7          # vacuum magnetic permeability
     giro::Float64 = 2.210173e5 /mu0 # Gyromagnetic ratio (rad T-1 s-1)
-    dt::Float64 = 0.67e-13           # Time step (s)
-    totalTime::Float64 = 0.4        # Total time of spin dynamics simulation (ns)
-    damp::Float64 = 0.1             # Damping parameter (dimensionless [0,1])
-    precession::Float64 = 1.0       # Include precession or not (0 or 1)
+    dt::Float64 = 1e-12             # Time step (s)
+    totalTime::Float64 = Inf        # Total time of spin dynamics simulation (ns)
+    damp::Float64 = 1.0             # Damping parameter (dimensionless [0,1])
+    precession::Float64 = 0.0       # Include precession or not (0 or 1)
 
     # Dimension of the magnetic material 
-    L::Vector{Float64} = [100,100,5] # [512,128,30]
+    L::Vector{Float64} = [512,128,30]
     scl::Float64 = 1e-9                 # scale of the geometry | (m -> nm)
     
     # Conditions
-    Ms::Float64   = 860e3               # Magnetic saturation (A/m)
+    Ms::Float64   = 800e3               # Magnetic saturation (A/m)
     Aexc::Float64 = 13e-12              # Exchange   (J/m)
     Aan::Float64  = 0                   # Anisotropy (J/m3)
     uan::Vector{Float64}  = [1,0,0]     # easy axis direction
-    Hap::Vector{Float64}  = [0,50e3,0] # A/m
+    Hap::Vector{Float64}  = [0.1/mu0,0,0]     # A/m
 
     # Convergence criteria | Only used when totalTime != Inf
-    maxTorque::Float64 = 0              # Maximum difference between current and previous <M>
-    maxAtt::Int32 = 15_000              # Maximum number of iterations in the solver
+    maxTorque::Float64 = 1e-14          # Maximum difference between current and previous <M>
+    maxAtt::Int32 = 5_000               # Maximum number of iterations in the solver
     
     # -- Create a geometry --
     gmsh.initialize()
@@ -54,11 +46,11 @@ function main()
         
     # -----------------------
 
-    println("Number of elements ",size(mesh.t,2))
-    println("Number of Inside elements ",length(mesh.InsideElements))
-    println("Number of nodes ",size(mesh.p,2))
-    println("Number of Inside nodes ",length(mesh.InsideNodes))
-    println("Number of surface elements ",size(mesh.surfaceT,2))
+    println("Number of elements ",mesh.nt)
+    println("Number of nodes ",mesh.nv)
+    println("Number of surface elements ",mesh.ne)
+    println("Number of Inside elements ",mesh.nInside)
+    println("Number of Inside nodes ",mesh.nInsideNodes)
     # viewMesh(mesh)
     # return
 
@@ -91,6 +83,14 @@ function main()
     # Initial magnetization field
     m::Matrix{Float64} = zeros(3,mesh.nv)
     m[1,:] .= 1
+    theta::Vector{Float64} = 2*pi.*rand(mesh.nv)
+    phi::Vector{Float64} = pi.*rand(mesh.nv)
+    for i in 1:mesh.nv
+        m[:,i] = [sin(theta[i])*cos(phi[i]), sin(theta[i])*sin(phi[i]), cos(theta[i])]
+        m[:,i] = m[:,i]./norm(m[:,i])
+    end
+
+    Heff::Matrix{Float64} = Matrix{Float64}(undef,0,0)
 
     # Landau Lifshitz
     m, Heff, M_avg, E_time, torque_time = LandauLifshitz(mesh, m, Ms,
@@ -100,24 +100,29 @@ function main()
                                                         dt, precession, maxTorque,
                                                         maxAtt, totalTime)
 
-    time::Vector{Float64} = 1e9*dt .* (1:size(M_avg,2))
+    # Bext::Vector{Float64} = vcat(0:1e-3:0.1,0.1:-1e-3:-0.1,-0.1:1e-3:0.1)
+    Bext::Vector{Float64} = vcat(0.1:-1e-3:-0.1,-0.1:1e-3:0.1)
+    M_H::Matrix{Float64} = zeros(3,length(Bext))
+    for iB in 1:length(Bext)
+        Hap[1] = Bext[iB]/mu0
+        m, Heff, M_avg = SteepestDescent(mesh, m, Ms, Heff,
+                                        Hap, Aexc, Aan,
+                                        uan, scl,
+                                        A, LHS, Vn, nodeVolume, areaT,
+                                        maxTorque, maxAtt)
+        
+        M_H[:,iB] = M_avg[:,end]    
+    end
 
     fig = Figure()
     ax = Axis(  fig[1,1],
-                xlabel = "Time (ns)", 
-                ylabel = "<M> (kA/m)",
-                title = "Micromagnetic simulation",
-                yticks = range(-1500,1500,5))
+                xlabel = "B applied",
+                ylabel = "<M>")
 
-    scatter!(ax,time,Ms/1000 .*M_avg[1,:], label = "M_x")
-    scatter!(ax,time,Ms/1000 .*M_avg[2,:], label = "M_y")
-    scatter!(ax,time,Ms/1000 .*M_avg[3,:], label = "M_z")
-    axislegend()
+    scatter!(ax, Bext, M_H[1,:])
 
-    # save("M_time_Sphere.png",fig)
-    wait(display(fig))
-
-    save("M_time_permalloy.png",fig)
+    save("M_H_"*string(mesh.nv)*".png",fig)
+    display(fig)
 end
 
 main()
