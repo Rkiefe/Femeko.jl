@@ -3,7 +3,7 @@
     and a mesh of the object using Femeko.jl
 =#
 
-include("gmsh_wrapper.jl")
+include("src/gmsh_wrapper.jl")
 
 
 function userMade(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
