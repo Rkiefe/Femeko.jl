@@ -7,7 +7,7 @@
 #include <omp.h>
 
 // Eigen for linear algebra
-#include "extern/eigen/Eigen/Dense"
+#include "../extern/eigen/Eigen/Dense"
 
 // FEM basis function
 Eigen::Vector4d abcd(Eigen::MatrixXd p,Eigen::Vector4i nodes,int nd){
