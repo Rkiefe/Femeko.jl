@@ -1,5 +1,18 @@
 # Femeko.jl
-The philosophy of this repository is to serve as a kickstart to anyone who wants to make their own Finite-Element implementation, without worrying about mesh generation or 3D modeling. Julia with some C++ interop shows high performance capabilities, with simple syntax and flexibility.
+This repository aims to be as user-friendly and readable as possible so that people can adapt Femeko.jl to their needs or learn how to make their own implementations from a friendly starting point.
+
+The mesh generation is handled by Gmsh. Femeko.jl has a wrapper to Gmsh, to facilitate model creation and mesh generation (with straight forward local refinement). The plots are powered by Makie.jl. That's it, everything else is Femeko.
+
+## Femeko.jl currently has full fledged implementations for
+- Magnetostatic fields from permanent magnets
+- Calculate the magnetic field of paramagnets under an external field
+- Full fledged micromagnetic simulations (both in time and steepest descent energy minimization)
+
+## Femeko.jl aims to have the following, in the future
+- Full Heat equation (with convection to a passing fluid)
+- Viscous fluid dynamics (in-compressible)
+- Elastostatics (stress)
+
 
 ## Table of Contents
 - [Fully featured examples](#examples)
