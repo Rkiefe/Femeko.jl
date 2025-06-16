@@ -90,7 +90,7 @@ function LandauLifshitz(mesh::MESH, m::Matrix{Float64}, Ms::Float64,
     Hth::Matrix{Float64} = Cth*rand(rng,3,mesh.nv)
 
     # Correct units of Demag, Exchange and Thermal fields
-    @simd for i in 1:3
+    for i in 1:3
         Hd[i,:]     .*= mu0*Ms./Vn
         Hexc[i,:]   ./= Ms*scl^2 .*nodeVolume
         Hth[i,:]    ./= sqrt.(Vn)
@@ -164,7 +164,7 @@ function LandauLifshitz(mesh::MESH, m::Matrix{Float64}, Ms::Float64,
         Hth = Cth*rand(rng,3,mesh.nv)
 
         # Correct units of Demag, Exchange and Thermal fields
-        @simd for i in 1:3
+        for i in 1:3
             Hd[i,:]     .*= mu0*Ms./Vn
             Hexc[i,:]   ./= Ms*scl^2 .*nodeVolume
             Hth[i,:]    ./= sqrt.(Vn)

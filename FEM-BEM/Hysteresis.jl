@@ -24,7 +24,7 @@ function main()
     Aexc::Float64 = 13e-12              # Exchange   (J/m)
     Aan::Float64  = 0                   # Anisotropy (J/m3)
     uan::Vector{Float64}  = [1,0,0]     # easy axis direction
-    Hap::Vector{Float64}  = [0,0,0]     # A/m
+    Hap::Vector{Float64}  = [0.1/mu0,0,0]     # A/m
 
     # Convergence criteria | Only used when totalTime != Inf
     maxTorque::Float64 = 1e-14          # Maximum difference between current and previous <M>
@@ -82,15 +82,13 @@ function main()
 
     # Initial magnetization field
     m::Matrix{Float64} = zeros(3,mesh.nv)
-    # m[1,:] .= 1
-    begin # Random initial magnetization
-        theta::Vector{Float64} = 2*pi.*rand(mesh.nv)
-        phi::Vector{Float64} = pi.*rand(mesh.nv)
-        for i in 1:mesh.nv
-            m[:,i] = [sin(theta[i])*cos(phi[i]), sin(theta[i])*sin(phi[i]), cos(theta[i])]
-            m[:,i] = m[:,i]./norm(m[:,i])
-        end
-    end # Random initial magnetization
+    m[1,:] .= 1
+    theta::Vector{Float64} = 2*pi.*rand(mesh.nv)
+    phi::Vector{Float64} = pi.*rand(mesh.nv)
+    for i in 1:mesh.nv
+        m[:,i] = [sin(theta[i])*cos(phi[i]), sin(theta[i])*sin(phi[i]), cos(theta[i])]
+        m[:,i] = m[:,i]./norm(m[:,i])
+    end
 
     Heff::Matrix{Float64} = Matrix{Float64}(undef,0,0)
 
@@ -102,7 +100,8 @@ function main()
                                                         dt, precession, maxTorque,
                                                         maxAtt, totalTime)
 
-    Bext::Vector{Float64} = vcat(0:1e-3:0.1,0.1:-1e-3:-0.1,-0.1:1e-3:0.1)
+    # Bext::Vector{Float64} = vcat(0:1e-3:0.1,0.1:-1e-3:-0.1,-0.1:1e-3:0.1)
+    Bext::Vector{Float64} = vcat(0.1:-1e-3:-0.1,-0.1:1e-3:0.1)
     M_H::Matrix{Float64} = zeros(3,length(Bext))
     for iB in 1:length(Bext)
         Hap[1] = Bext[iB]/mu0
@@ -122,10 +121,9 @@ function main()
 
     scatter!(ax, Bext, M_H[1,:])
 
-    save("M_H_"*string(mesh.nv)*".png",fig)
+    # save("M_H_"*string(mesh.nv)*".png",fig)
+    save("with_exchange_Ms_800.png",fig)
     display(fig)
-
-
 end
 
 main()

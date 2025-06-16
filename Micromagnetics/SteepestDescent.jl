@@ -57,7 +57,7 @@ function SteepestDescent(mesh::MESH, m::Matrix{Float64}, Ms::Float64, Heff::Matr
             Hexc = -2*Aexc.* (A*m[:,mesh.InsideNodes]')'
 
             # Correct units of Demag and Exchange fields
-            @simd for i in 1:3
+            for i in 1:3
                 Hd[i,:]     .*= mu0*Ms./Vn
                 Hexc[i,:]   ./= Ms*scl^2 .*nodeVolume
             end
@@ -84,7 +84,7 @@ function SteepestDescent(mesh::MESH, m::Matrix{Float64}, Ms::Float64, Heff::Matr
 
     # New magnetization
     mOld::Matrix{Float64} = deepcopy(m)
-    Threads.@threads for i in 1:mesh.nInsideNodes
+    for i in 1:mesh.nInsideNodes
         nd = mesh.InsideNodes[i]
         m[:,nd] = timeStep(m[:,nd], H[:,i], H[:,i],
                           Heff[:,i],
@@ -119,7 +119,7 @@ function SteepestDescent(mesh::MESH, m::Matrix{Float64}, Ms::Float64, Heff::Matr
             Hexc = -2*Aexc.* (A*m[:,mesh.InsideNodes]')'
 
             # Correct units of Demag and Exchange fields
-            @simd for i in 1:3
+            for i in 1:3
                 Hd[i,:]     .*= mu0*Ms./Vn
                 Hexc[i,:]   ./= Ms*scl^2 .*nodeVolume
             end
@@ -178,7 +178,7 @@ function SteepestDescent(mesh::MESH, m::Matrix{Float64}, Ms::Float64, Heff::Matr
         dt::Float64 = mod(att,2) > 0 ? tau1 : tau2
 
         # New magnetization
-        Threads.@threads for i in 1:mesh.nInsideNodes
+        for i in 1:mesh.nInsideNodes
             nd::Int32 = mesh.InsideNodes[i]
             m[:,nd], mOld[:,nd] = nextM(m[:,nd],Heff[:,i],dt)
         end

@@ -83,7 +83,7 @@ function LandauLifshitz(mesh::MESH, m::Matrix{Float64}, Ms::Float64,
         Hexc::Matrix{Float64} = -2*Aexc.* (A*m[:,mesh.InsideNodes]')'
 
         # Correct units of Demag and Exchange fields
-        @simd for i in 1:3
+        for i in 1:3
             Hd[i,:]     .*= mu0*Ms./Vn
             Hexc[i,:]   ./= Ms*scl^2 .*nodeVolume
         end
@@ -134,7 +134,7 @@ function LandauLifshitz(mesh::MESH, m::Matrix{Float64}, Ms::Float64,
         att += 1
 
         # New magnetization
-        Threads.@threads for i in 1:mesh.nInsideNodes
+        for i in 1:mesh.nInsideNodes
             nd = mesh.InsideNodes[i]
             m[:,nd] = timeStep(m[:,nd], H[:,i], Hold[:,i],
                   Heff[:,i],
@@ -157,7 +157,7 @@ function LandauLifshitz(mesh::MESH, m::Matrix{Float64}, Ms::Float64,
             Hexc = -2*Aexc.* (A*m[:,mesh.InsideNodes]')'
 
             # Correct units of Demag and Exchange fields
-            @simd for i in 1:3
+            for i in 1:3
                 Hd[i,:]     .*= mu0*Ms./Vn
                 Hexc[i,:]   ./= Ms*scl^2 .*nodeVolume
             end

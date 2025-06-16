@@ -56,7 +56,7 @@ function SteepestDescent(mesh::MESH, m::Matrix{Float64}, Ms::Float64, Heff::Matr
         Hexc = -2*Aexc.* (A * m')'
 
         # Correct units of Demag and Exchange fields
-        @simd for i in 1:3
+        for i in 1:3
             Hd[i,:]     .*= mu0*Ms./Vn
             Hexc[i,:]   ./= Ms*scl^2 .*nodeVolume
         end
@@ -107,6 +107,7 @@ function SteepestDescent(mesh::MESH, m::Matrix{Float64}, Ms::Float64, Heff::Matr
         Hold::Matrix{Float64} = deepcopy(H)
 
         # -- New magnetic field --
+        
         # Demagnetizing field
         Hd = BEMdmag(mesh,m,areaT,LHS)
 
@@ -114,7 +115,7 @@ function SteepestDescent(mesh::MESH, m::Matrix{Float64}, Ms::Float64, Heff::Matr
         Hexc = -2*Aexc.* (A * m')'
 
         # Correct units of Demag and Exchange fields
-        @simd for i in 1:3
+        for i in 1:3
             Hd[i,:]     .*= mu0*Ms./Vn
             Hexc[i,:]   ./= Ms*scl^2 .*nodeVolume
         end
