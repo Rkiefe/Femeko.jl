@@ -5,6 +5,7 @@
 #include <iostream>	
 #include <vector>
 #include <omp.h>
+// #include <algorithm> // For std::find
 
 // Eigen for linear algebra
 #include "../extern/eigen/Eigen/Dense"
@@ -36,7 +37,19 @@ Eigen::Vector4d abcd(Eigen::MatrixXd p,Eigen::Vector4i nodes,int nd){
 	return r;
 } // FEM basis function
 
+// Area of surface triangle
+double areaTriangle(Eigen::Ref<Eigen::MatrixXd> p, int i0, int i1, int i2){
+	// Area by cross product 
+	Eigen::Vector3d AB = p.col(i1) - p.col(i0);
+	Eigen::Vector3d AC = p.col(i2) - p.col(i0);
 
+	Eigen::Vector3d cross = AB.cross(AC);
+	double area = 0.5 * cross.norm();
+
+    return area;
+} // Area of the 3D triangle
+
+// Dense, element-wise stiffness matrix
 void localStiffnessMatrix(Eigen::Ref<Eigen::MatrixXd> Ak, Eigen::Ref<Eigen::MatrixXd> p, Eigen::Ref<Eigen::MatrixXi> t, double* VE, double* mu){
 	#pragma omp parallel for
 	for(int k = 0; k<t.cols(); k++){
@@ -51,6 +64,64 @@ void localStiffnessMatrix(Eigen::Ref<Eigen::MatrixXd> Ak, Eigen::Ref<Eigen::Matr
 		Ak.col(k) = Eigen::Map<Eigen::VectorXd>(aux.data(), 16);
 	}
 } // Local stiffness matrix
+
+
+/*
+	-- In progress --
+*/
+// // Boundary integral | Vector field boundary conditions
+// Eigen::VectorXd BoundaryIntegral(Eigen::Ref<Eigen::MatrixXd> p, Eigen::Ref<Eigen::MatrixXd> surfaceT, Eigen::Ref<Eigen::MatrixXd> normal, Eigen::Ref<Eigen::Vector3d> F, std::vector<int>& shell_id){
+
+// 	int nv = p.cols(); 			// Number of mesh nodes
+// 	int ne = surfaceT.cols(); 	// Number of surface elements
+
+// 	Eigen::VectorXd RHS = Eigen::VectorXd::Zero(nv);
+
+// 	for (int s = 0; s < ne; s++)
+// 	{
+// 		// Only integrate over the outer shell (shell_id)
+// 		if (!( surfaceT(3,s) == shell_id[0] || surfaceT(3,s) == shell_id[1] || surfaceT(3,s) == shell_id[2] )) {
+// 		    continue;
+// 		}
+		
+// 		// Area of surface triangle
+// 		double areaT = areaTriangle(p, surfaceT(0,s), surfaceT(1,s), surfaceT(2,s));
+// 		std::cout << areaT << std::endl;
+		
+// 		return RHS; 
+// 	}
+
+// 	return RHS;
+// }
+
+// int main(int argc, char const *argv[])
+// {
+
+// 	int nv = 4;
+// 	int ne = 4;
+// 	Eigen::MatrixXd p = Eigen::MatrixXd::Zero(3,nv);
+
+// 	p.row(0) << 0,1,0,0;
+// 	p.row(1) << 0,0,1,0;
+// 	p.row(2) << 0,0,0,1;
+
+// 	Eigen::MatrixXd surfaceT = Eigen::MatrixXd::Zero(4,ne);
+	
+// 	surfaceT.col(0) << 0,1,2,0;
+// 	surfaceT.col(1) << 0,1,3,0;
+// 	surfaceT.col(2) << 0,2,3,0;
+// 	surfaceT.col(3) << 1,2,3,0;
+
+// 	Eigen::MatrixXd normal = Eigen::MatrixXd::Zero(3,ne);
+// 	Eigen::Vector3d F(1.0,2.0,3.0);
+// 	std::vector<int> shell_id = {0,1,2};
+
+// 	Eigen::VectorXd RHS = BoundaryIntegral(p, surfaceT, normal, F, shell_id);
+
+// 	std::cout << "Working" << std::endl;
+// 	return 0;
+// }
+
 
 // Wrapper to the C++ code, to be called in Julia
 extern "C"{
