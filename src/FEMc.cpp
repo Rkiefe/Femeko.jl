@@ -69,31 +69,41 @@ void localStiffnessMatrix(Eigen::Ref<Eigen::MatrixXd> Ak, Eigen::Ref<Eigen::Matr
 /*
 	-- In progress --
 */
-// // Boundary integral | Vector field boundary conditions
-// Eigen::VectorXd BoundaryIntegral(Eigen::Ref<Eigen::MatrixXd> p, Eigen::Ref<Eigen::MatrixXd> surfaceT, Eigen::Ref<Eigen::MatrixXd> normal, Eigen::Ref<Eigen::Vector3d> F, std::vector<int>& shell_id){
+// Boundary integral | Vector field boundary conditions
+Eigen::VectorXd BoundaryIntegral(Eigen::Ref<Eigen::MatrixXd> p, Eigen::Ref<Eigen::MatrixXd> surfaceT, Eigen::Ref<Eigen::MatrixXd> normal, Eigen::Ref<Eigen::Vector3d> F, std::vector<int>& shell_id){
 
-// 	int nv = p.cols(); 			// Number of mesh nodes
-// 	int ne = surfaceT.cols(); 	// Number of surface elements
+	/*
+		This function has only seen preliminary testing. 
+		No tests on real implementations yet.
+	*/
 
-// 	Eigen::VectorXd RHS = Eigen::VectorXd::Zero(nv);
+	int nv = p.cols(); 			// Number of mesh nodes
+	int ne = surfaceT.cols(); 	// Number of surface elements
 
-// 	for (int s = 0; s < ne; s++)
-// 	{
-// 		// Only integrate over the outer shell (shell_id)
-// 		if (!( surfaceT(3,s) == shell_id[0] || surfaceT(3,s) == shell_id[1] || surfaceT(3,s) == shell_id[2] )) {
-// 		    continue;
-// 		}
+	Eigen::VectorXd RHS = Eigen::VectorXd::Zero(nv);
+
+	for (int s = 0; s < ne; s++)
+	{
+		// Only integrate over the outer shell (shell_id)
+		if (!( surfaceT(3,s) == shell_id[0] || surfaceT(3,s) == shell_id[1] || surfaceT(3,s) == shell_id[2] )) {
+		    continue;
+		}
 		
-// 		// Area of surface triangle
-// 		double areaT = areaTriangle(p, surfaceT(0,s), surfaceT(1,s), surfaceT(2,s));
-// 		std::cout << areaT << std::endl;
+		// Area of surface triangle
+		double areaT = areaTriangle(p, surfaceT(0,s), surfaceT(1,s), surfaceT(2,s));
 		
-// 		return RHS; 
-// 	}
+		for(int i = 0; i<3; i++){
+			RHS((int)surfaceT(i,s)) += (normal(0,s)*F(0) + normal(1,s)*F(1) + normal(2,s)*F(2))*areaT/3; 
+		} // Update RHS
 
-// 	return RHS;
-// }
+	} // End of loop of surface elements
 
+	return RHS;
+} // Boundary integral (vector field)
+
+
+
+// // For testing
 // int main(int argc, char const *argv[])
 // {
 
