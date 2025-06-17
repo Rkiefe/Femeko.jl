@@ -22,25 +22,27 @@ function timeStep(m::AbstractVector{Float64},H::AbstractVector{Float64},Hold::Ab
 
     d::Float64 = dt*giro/2
 
-    # Preapare the output
+    # m (n+1)
     m2::Vector{Float64} = zeros(3)
 
     # 1) Initial guess of the new magnetic field
     H12::Vector{Float64} = 3/2 *H - 0.5 *Hold
 
-    # Repeat m12 = H12(m12) until m12 doesnt change
+    # Find new m(n+1) until it doesn't change
     aux::Vector{Float64} = zeros(3)
     aux .= m
 
     err::Float64 = 1.0
     att::Int32 = 0
+    mat::Matrix{Float64} = zeros(3,3)
     while err > 1e-6
         att += 1
 
         # 2) m (n+1) from m (n) and H (n+1/2)
-        mat::Matrix{Float64} = [1 d*H12[3] -d*H12[2];
-                                -d*H12[3] 1 d*H12[1];
-                                d*H12[2] -d*H12[1] 1]
+        mat[1,1] = 1; mat[1,2] = d*H12[3]; mat[1,3] = -d*H12[2] 
+        mat[2,1] = -d*H12[3]; mat[2,2] = 1; mat[2,3] = d*H12[1]
+        mat[3,1] = d*H12[2];  mat[3,2] = -d*H12[1];  mat[3,3] = 1;
+
         m2 = mat\(m - d*cross(m,H12))
 
         # 3) m (n + 1/2)
@@ -91,13 +93,15 @@ function LandauLifshitz(mesh::MESH, m::Matrix{Float64}, Ms::Float64,
     Hexc::Matrix{Float64} = -2*Aexc.* (A * m')'
 
     # Thermal field
-    Hth::Matrix{Float64} = Cth*rand(rng,3,mesh.nv)
-
+    Hth::Matrix{Float64} = zeros(3, mesh.nv)
+    rand!(rng,Hth)
+    Hth .*= Cth
+    
     # Correct units of Demag, Exchange and Thermal fields
     for i in 1:3
-        Hd[i,:]     .*= mu0*Ms./Vn
-        Hexc[i,:]   ./= Ms*scl^2 .*nodeVolume
-        Hth[i,:]    ./= sqrt.(Vn)
+        @view(Hd[i,:])     .*= mu0*Ms./Vn
+        @view(Hexc[i,:])   ./= Ms*scl^2 .*nodeVolume
+        @view(Hth[i,:])    ./= sqrt.(Vn)
     end
 
     # Anisotropy field
@@ -144,17 +148,16 @@ function LandauLifshitz(mesh::MESH, m::Matrix{Float64}, Ms::Float64,
 
         # New magnetization
         for i in 1:mesh.nv
-            timeStep(@view m[:,i], @view H[:,i], @view Hold[:,i],
-                  @view Heff[:,i],
+            timeStep(@view(m[:,i]), @view(H[:,i]), @view(Hold[:,i]),
+                  @view(Heff[:,i]),
                   dt, giro, damp,
                   precession)
         end
 
 
         # -- New magnetic field --
-            
-        Hold = deepcopy(H) # Store the old magnetic field
-            
+        copyto!(Hold,H)    # Store the old magnetic field
+
         # Applied field | Is constant so don't update
         # Hext = zeros(3,mesh.nv) .+ mu0.*Hap
 
@@ -165,13 +168,14 @@ function LandauLifshitz(mesh::MESH, m::Matrix{Float64}, Ms::Float64,
         Hexc = -2*Aexc.* (A * m')'
 
         # Thermal field
-        Hth = Cth*rand(rng,3,mesh.nv)
+        rand!(rng,Hth)
+        Hth .*= Cth
 
         # Correct units of Demag, Exchange and Thermal fields
         for i in 1:3
-            Hd[i,:]     .*= mu0*Ms./Vn
-            Hexc[i,:]   ./= Ms*scl^2 .*nodeVolume
-            Hth[i,:]    ./= sqrt.(Vn)
+            @view(Hd[i,:])     .*= mu0*Ms./Vn
+            @view(Hexc[i,:])   ./= Ms*scl^2 .*nodeVolume
+            @view(Hth[i,:])    ./= sqrt.(Vn)
         end
 
         # Anisotropy field
@@ -208,7 +212,8 @@ function LandauLifshitz(mesh::MESH, m::Matrix{Float64}, Ms::Float64,
         torque_time[att] = dtau
 
         # Average magnetization
-        M_avg[:,att] = mean(m,2)
+        # M_avg[:,att] = mean(m,2)
+        M_avg[:,att] .= sum(m, dims=2) ./ size(m, 2)
 
         # Check if <|dm/dt|> is less than maxTorque 
         if dtau < maxTorque
