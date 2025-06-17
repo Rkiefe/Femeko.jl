@@ -144,7 +144,7 @@ function LandauLifshitz(mesh::MESH, m::Matrix{Float64}, Ms::Float64,
 
         # New magnetization
         for i in 1:mesh.nv
-            m[:,i] = timeStep(@view m[:,i], @view H[:,i], @view Hold[:,i],
+            timeStep(@view m[:,i], @view H[:,i], @view Hold[:,i],
                   @view Heff[:,i],
                   dt, giro, damp,
                   precession)
