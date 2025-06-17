@@ -1,11 +1,15 @@
 #=
     Temperature dependent hysteresis loop
+    
+    Using a thermal field described by a white noise proportional to the temperature. 
+    as defined in mumax3:
+        https://doi.org/10.1088/1361-6463/aaab1c
 =#
 
 # For plots
 using CairoMakie
 
-include("../gmsh_wrapper.jl")
+include("../../src/gmsh_wrapper.jl")
 include("LandauLifshitz.jl")
 function main()
     meshSize::Float64 = 0
@@ -13,13 +17,13 @@ function main()
     # Constants
     mu0::Float64 = pi*4e-7          # vacuum magnetic permeability
     giro::Float64 = 2.210173e5 /mu0 # Gyromagnetic ratio (rad T-1 s-1)
-    dt::Float64 = 1e-12             # Time step (s)
-    totalTime::Float64 = Inf        # Total time of spin dynamics simulation (ns)
-    damp::Float64 = 1.0             # Damping parameter (dimensionless [0,1])
-    precession::Float64 = 0.0       # Include precession or not (0 or 1)
+    dt::Float64 = 0.67e-13          # Time step (s)
+    totalTime::Float64 = 0.4        # Total time of spin dynamics simulation (ns)
+    damp::Float64 = 0.1             # Damping parameter (dimensionless [0,1])
+    precession::Float64 = 1.0       # Include precession or not (0 or 1)
 
     # Temperature
-    T::Float64  = 0.0 # K
+    T::Float64  = 0.1 # K
 
     # Dimension of the magnetic material 
     L::Vector{Float64} = [512,128,30]
@@ -34,7 +38,7 @@ function main()
 
     # Convergence criteria | Only used when totalTime != Inf
     maxTorque::Float64 = 1e-14          # Maximum difference between current and previous <M>
-    maxAtt::Int32 = 15_000               # Maximum number of iterations in the solver
+    maxAtt::Int32 = 5_000               # Maximum number of iterations in the solver
     
     # -- Create a geometry --
     gmsh.initialize()
@@ -97,9 +101,6 @@ function main()
         m[:,i] = m[:,i]./norm(m[:,i])
     end
 
-    Heff::Matrix{Float64} = Matrix{Float64}(undef,0,0)
-
-    println("Running M(H,T)")
     # Hysteresis curve with temperature
     Bext::Vector{Float64} = vcat(0:1e-3:0.1,0.1:-1e-3:-0.1,-0.1:1e-3:0.1)
     M_H::Matrix{Float64} = zeros(3,length(Bext))
@@ -117,15 +118,17 @@ function main()
 
     fig = Figure()
     ax = Axis(  fig[1,1],
-                xlabel = "B applied",
+                xlabel = "Time",
                 ylabel = "<M>")
-
+    
+    scatter!(ax, dt*1e9 .*(1:size(M_avg,2)), M_avg[1,:])
+    scatter!(ax, dt*1e9 .*(1:size(M_avg,2)), M_avg[2,:])
+    scatter!(ax, dt*1e9 .*(1:size(M_avg,2)), M_avg[3,:])
+    
     scatter!(ax, Bext, M_H[1,:])
-
     save("M_H_"*string(mesh.nv)*"_T"*string(T)*".png",fig)
-    display(fig)
 
-
+    # wait(display(fig))
 end
 
 main()
