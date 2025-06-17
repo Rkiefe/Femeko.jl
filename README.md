@@ -57,18 +57,29 @@ You can generate a mesh for your volume simply by
 mesh = Mesh(cells,meshSize,localSize,saveMesh)
 ```
 
-Both internal and bounding shell surfaces are preserved. You can access the surface ID of each surface triangle of your mesh directly.
+![twoBalls](https://github.com/user-attachments/assets/3b9549ba-3968-40f1-94a4-5c21ce37ca9e)
 
+Both internal and bounding shell surfaces are preserved. You can access the surface ID of each surface triangle of your mesh directly.
 
 Automatically get the mesh element volumes, surface triangle normals and the area of each surface triangle.
 
-The output mesh object is optimized for Finite-Element simulations. The main.jl includes an example of creating the stiffness matrix.
+The output mesh object is optimized for Finite-Element simulations, see ´meshExample.jl´ for two simple examples of a) importing a cad file and b) making your own model with simple shapes.
 
 ### Installation
-To install, go to your Julia repl and add Gmsh, LinearAlgebra and SparseArrays. That's it.
-![twoBalls](https://github.com/user-attachments/assets/3b9549ba-3968-40f1-94a4-5c21ce37ca9e)
+Main install:
+- Open the Repl
+- Press ']' key to switch to the package manager "pkg >"
+- `add Gmsh LinearAlgebra SparseArrays`
+If you want the built in plots:
+- `add GLMakie` or/and `add CairoMakie`
 
-If you wish to make plots directly from this repository, run "add GLMakie" to install this plots package, and to run the plotting functions presented, such as `viewMesh()` 
+Compiling C++ alternative implementation:
+- First update your clone of the repository to include eigen by going to the terminal and run `git submodule update --init --recursive` while in the Femeko.jl folder
+- Move to the `src/` folder and compile FEMc.cpp with `g++ -O3 -fPIC -shared -o FEMc.so FEMc.cpp`
+- Note that additional flags are available such as `-fopenmp`
+
+
+
 
 ### Running C++ variants within the Julia environment
 Recently, this repository was updated to include an example of how you can add C++ functions to speed up calculations within Julia. The example demonstrates how to calculate the local, dense stiffness matrix in C++ within Julia.
