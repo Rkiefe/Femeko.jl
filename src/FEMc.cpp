@@ -65,10 +65,6 @@ void localStiffnessMatrix(Eigen::Ref<Eigen::MatrixXd> Ak, Eigen::Ref<Eigen::Matr
 	}
 } // Local stiffness matrix
 
-
-/*
-	-- In progress --
-*/
 // Boundary integral | Vector field boundary conditions
 Eigen::VectorXd BoundaryIntegral(Eigen::Ref<Eigen::MatrixXd> p, Eigen::Ref<Eigen::MatrixXd> surfaceT, Eigen::Ref<Eigen::MatrixXd> normal, Eigen::Ref<Eigen::Vector3d> F, std::vector<int>& shell_id){
 
@@ -100,6 +96,11 @@ Eigen::VectorXd BoundaryIntegral(Eigen::Ref<Eigen::MatrixXd> p, Eigen::Ref<Eigen
 
 	return RHS;
 } // Boundary integral (vector field)
+
+// Lagrange multiplier technique | Volume integral of basis function
+// Eigen::VectorXd lagrange(t, VE){
+// }
+
 
 
 
