@@ -12,7 +12,7 @@ include("SteepestDescent.jl")
 
 function main()
     meshSize::Float64 = 2500  # 2500
-    localSize::Float64 = 5  # 5
+    localSize::Float64 = 1  # 5
 
     # Constants
     mu0::Float64 = pi*4e-7          # vacuum magnetic permeability
