@@ -26,6 +26,9 @@ function main()
     uan::Vector{Float64}  = [1,0,0]     # easy axis direction
     Hap::Vector{Float64}  = [0.1/mu0,0,0]     # A/m
 
+    Hext::Vector{Float64} = vcat(0:1e-3:0.1,0.1:-1e-3:-0.1,-0.1:1e-3:0.1)./mu0
+    Hap[1] = Hext[1]
+
     # Convergence criteria | Only used when totalTime != Inf
     maxTorque::Float64 = 1e-14          # Maximum difference between current and previous <M>
     maxAtt::Int32 = 5_000               # Maximum number of iterations in the solver
@@ -100,18 +103,16 @@ function main()
                                                         dt, precession, maxTorque,
                                                         maxAtt, totalTime)
 
-    # Bext::Vector{Float64} = vcat(0:1e-3:0.1,0.1:-1e-3:-0.1,-0.1:1e-3:0.1)
-    Bext::Vector{Float64} = vcat(0.1:-1e-3:-0.1,-0.1:1e-3:0.1)
-    M_H::Matrix{Float64} = zeros(3,length(Bext))
-    for iB in 1:length(Bext)
-        Hap[1] = Bext[iB]/mu0
+    M_H::Matrix{Float64} = zeros(3,length(Hext))
+    for iH in 1:length(Hext)
+        Hap[1] = Hext[iH]/mu0
         m, Heff, M_avg = SteepestDescent(mesh, m, Ms, Heff,
                                         Hap, Aexc, Aan,
                                         uan, scl,
                                         A, LHS, Vn, nodeVolume, areaT,
                                         maxTorque, maxAtt)
         
-        M_H[:,iB] = M_avg[:,end]    
+        M_H[:,iH] = M_avg[:,end]    
     end
 
     fig = Figure()
@@ -119,7 +120,7 @@ function main()
                 xlabel = "B applied",
                 ylabel = "<M>")
 
-    scatter!(ax, Bext, M_H[1,:])
+    scatter!(ax, mu0.*Hext, M_H[1,:])
 
     save("M_H_"*string(mesh.nv)*".png",fig)
     display(fig)
