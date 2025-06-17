@@ -11,8 +11,8 @@ using Random
 import Distributions as Dist
 
 # Find new magnetization after time iteration
-function timeStep(m::Vector{Float64},H::Vector{Float64},Hold::Vector{Float64},
-                  Heff::Vector{Float64},
+function timeStep(m::AbstractVector{Float64},H::AbstractVector{Float64},Hold::AbstractVector{Float64},
+                  Heff::AbstractVector{Float64},
                   dt::Float64,
                   giro::Float64,damp::Float64=1.0,
                   precession::Float64=1.0)
@@ -29,7 +29,9 @@ function timeStep(m::Vector{Float64},H::Vector{Float64},Hold::Vector{Float64},
     H12::Vector{Float64} = 3/2 *H - 0.5 *Hold
 
     # Repeat m12 = H12(m12) until m12 doesnt change
-    aux::Vector{Float64} = deepcopy(m)
+    aux::Vector{Float64} = zeros(3)
+    aux .= m
+
     err::Float64 = 1.0
     att::Int32 = 0
     while err > 1e-6
@@ -51,14 +53,16 @@ function timeStep(m::Vector{Float64},H::Vector{Float64},Hold::Vector{Float64},
         err = maximum(abs.(m2-aux))
         # println(err)
 
-        aux = deepcopy(m2)
+        aux .= m2
         if att > 1_000
             println("Time step did not converge in ",att," steps")
             break
         end
     end
 
-    return m2
+    # Update m directly and exit
+    m .= m2
+
 end # Find new magnetization after time iteration
 
 function LandauLifshitz(mesh::MESH, m::Matrix{Float64}, Ms::Float64,
@@ -140,8 +144,8 @@ function LandauLifshitz(mesh::MESH, m::Matrix{Float64}, Ms::Float64,
 
         # New magnetization
         for i in 1:mesh.nv
-            m[:,i] = timeStep(m[:,i], H[:,i], Hold[:,i],
-                  Heff[:,i],
+            m[:,i] = timeStep(@view m[:,i], @view H[:,i], @view Hold[:,i],
+                  @view Heff[:,i],
                   dt, giro, damp,
                   precession)
         end
