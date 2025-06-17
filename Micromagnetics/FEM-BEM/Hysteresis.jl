@@ -105,7 +105,7 @@ function main()
 
     M_H::Matrix{Float64} = zeros(3,length(Hext))
     for iH in 1:length(Hext)
-        Hap[1] = Hext[iH]/mu0
+        Hap[1] = Hext[iH]
         m, Heff, M_avg = SteepestDescent(mesh, m, Ms, Heff,
                                         Hap, Aexc, Aan,
                                         uan, scl,
