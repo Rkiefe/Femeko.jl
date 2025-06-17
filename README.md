@@ -70,6 +70,7 @@ Main install:
 - Open the Repl
 - Press ']' key to switch to the package manager "pkg >"
 - `add Gmsh LinearAlgebra SparseArrays`
+
 If you want the built in plots:
 - `add GLMakie` or/and `add CairoMakie`
 
