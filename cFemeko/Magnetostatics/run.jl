@@ -1,6 +1,8 @@
 #=
     Magnetostatic field simulation of a magnetic susceptible material
     under a uniform applied field
+
+    All the FEM calculations are done in C++
 =#
 
 include("../../src/gmsh_wrapper.jl")
@@ -75,7 +77,7 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     # Prepare the output
     u::Vector{Float64} = zeros(mesh.nv)
 
-    @time @ccall "../src/julia_wrapper.so".cMagnetoStatics(
+    @ccall "julia_wrapper.so".cMagnetoStatics(
         u::Ptr{Float64},
         mesh.p::Ptr{Float64},
         t::Ptr{Int32},
