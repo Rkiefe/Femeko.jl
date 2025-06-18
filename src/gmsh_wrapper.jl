@@ -388,8 +388,12 @@ function normal_surface(p,nds)
 end # Normal to surface triangle
 
 # Area of the 3D triangle
-function areaTriangle(xt,yt,zt)
+function areaTriangle(xt::AbstractVector{Float64},
+                      yt::AbstractVector{Float64},
+                      zt::AbstractVector{Float64})
+
     Atr::Float64 = 0.5*sqrt(det([xt';yt';[1 1 1]])^2 + det([yt';zt';[1 1 1]])^2 + det([zt';xt';[1 1 1]])^2)
+
     return Atr
 end # Area of the 3D triangle
 

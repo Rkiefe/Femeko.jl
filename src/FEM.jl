@@ -30,7 +30,7 @@ function stiffnessMatrix(mesh::MESH, f::Vector{Float64}=ones(mesh.nt))
     for i in 1:4
         for j in 1:4
             n += 1
-            A += sparse(Int.(mesh.t[i,:]),Int.(mesh.t[j,:]),Ak[n,:],mesh.nv,mesh.nv)
+            A += sparse(mesh.t[i,:],mesh.t[j,:],Ak[n,:],mesh.nv,mesh.nv)
         end
     end
 
@@ -47,7 +47,7 @@ function localStiffnessMatrix(mesh::MESH,f::Vector{Float64})
     
     for k in 1:mesh.nt
         for i in 1:4
-            _,b[i],c[i],d[i] = abcd(mesh.p,mesh.t[:,k],mesh.t[i,k])
+            _,b[i],c[i],d[i] = abcd(mesh.p,@view(mesh.t[:,k]),mesh.t[i,k])
         end
         aux = mesh.VE[k]*f[k]*(b*b' + c*c' + d*d')
         Ak[:,k] = aux[:] # vec(aux)
@@ -58,7 +58,7 @@ end # Local stiffnessmatrix in 100% Julia
 
 # Lagrange multiplier technique
 function lagrange(mesh::MESH)
-    C = zeros(mesh.nv,1);
+    C::Vector{Float64} = zeros(mesh.nv)
     for k in 1:mesh.nt
         nds::AbstractVector{Int32} = @view mesh.t[:,k];   # Nodes of that element
         C[nds] .+= mesh.VE[k]/4
@@ -68,7 +68,7 @@ end # Lagrange multiplier technique
 
 # Boundary condition
 function BoundaryIntegral(mesh::MESH,F::Vector{Float64},shell_id)
-    RHS = zeros(mesh.nv,1);
+    RHS::Vector{Float64} = zeros(mesh.nv);
     for s in 1:mesh.ne
 
         # Only integrate over the outer shell
@@ -80,28 +80,15 @@ function BoundaryIntegral(mesh::MESH,F::Vector{Float64},shell_id)
         nds = @view mesh.surfaceT[1:3,s];
         
         # Area of surface triangle
-        areaT = areaTriangle(mesh.p[1,nds],mesh.p[2,nds],mesh.p[3,nds]);
+        areaT = areaTriangle(@view(mesh.p[1,nds]),
+                             @view(mesh.p[2,nds]),
+                             @view(mesh.p[3,nds]))
         
         RHS[nds] .+= dot(mesh.normal[:,s],F)*areaT/3;
     end
 
     return RHS
 end # Boundary conditions
-
-# Wrapper for C++ function to get local stiffness matrix 
-function CstiffnessMatrix(p::Matrix{Float64}, t::Matrix{Int32}, VE::Vector{Float64}, mu::Vector{Float64})
-    # Get the matrix dimensions
-    nt::Int32 = size(t,2)
-    nv::Int32 = size(p,2)
-
-    # Ready the output
-    Ak::Matrix{Float64} = zeros(16,nt)
-    
-    # Call C++ function
-    @ccall "FEMc.so".stiffnessMatrix(Ak::Ptr{Float64}, p::Ptr{Float64}, t::Ptr{Int32}, nv::Int32, nt::Int32, VE::Ptr{Float64}, mu::Ptr{Float64})::Cvoid
-
-    return Ak
-end # Wrapper for C++ function to get local stiffness matrix 
 
 # Demagnetizing field
 function demagField(mesh::MESH,fixed::Vector{Int32},free::Vector{Int32},A,m::Matrix{Float64})
