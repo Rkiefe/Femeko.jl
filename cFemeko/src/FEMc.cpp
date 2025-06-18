@@ -10,9 +10,10 @@
 
 // Eigen for linear algebra
 #include "../../extern/eigen/Eigen/Dense"
+#include "../../extern/eigen/Eigen/Sparse"
 
 // FEM basis function
-Eigen::Vector4d abcd(Eigen::MatrixXd p,Eigen::Vector4i nodes,int nd){
+Eigen::Vector4d abcd(Eigen::Ref<Eigen::MatrixXd> p,Eigen::Vector4i nodes,int nd){
 	
 	int nds[3] = {0,0,0};		// All other nodes of the element
 	{ // Get nodes different than nd
@@ -50,8 +51,35 @@ double areaTriangle(Eigen::Ref<Eigen::MatrixXd> p, int i0, int i1, int i2){
     return area;
 } // Area of the 3D triangle
 
+// Lagrange multiplier technique | Volume integral of basis function
+Eigen::VectorXd lagrange(
+	Eigen::Ref<Eigen::MatrixXi> t, 
+	double* VE, 
+	int nv, int nt)
+{
+	Eigen::VectorXd C = Eigen::VectorXd::Zero(nv);
+	for(int k = 0; k<nt; k++){
+		Eigen::Vector4i nds = t.col(k); // Nodes of element k
+
+		// Update C
+		for(int i = 0; i<4; i++){
+			C(nds(i)) += VE[k]/4.0;
+		}
+	} // End of loop over the mesh elements
+
+	return C;
+} // Lagrange multiplier integral of linear basis function
+
 // Dense, element-wise stiffness matrix
-void localStiffnessMatrix(Eigen::Ref<Eigen::MatrixXd> Ak, Eigen::Ref<Eigen::MatrixXd> p, Eigen::Ref<Eigen::MatrixXi> t, double* VE, double* mu){
+Eigen::MatrixXd localStiffnessMatrix(
+	Eigen::Ref<Eigen::MatrixXd> p, 
+	Eigen::Ref<Eigen::MatrixXi> t, 
+	double* VE, double* mu)
+{
+	
+	// Create the local stiffness matrix
+	Eigen::MatrixXd Ak = Eigen::MatrixXd::Zero(16,t.cols());
+
 	#pragma omp parallel for
 	for(int k = 0; k<t.cols(); k++){
 		Eigen::Vector4d b,c,d;
@@ -64,15 +92,52 @@ void localStiffnessMatrix(Eigen::Ref<Eigen::MatrixXd> Ak, Eigen::Ref<Eigen::Matr
 		Eigen::Matrix4d aux = VE[k]*mu[k]*(b*b.transpose() + c*c.transpose() + d*d.transpose());
 		Ak.col(k) = Eigen::Map<Eigen::VectorXd>(aux.data(), 16);
 	}
+	return Ak;
+
 } // Local stiffness matrix
 
-// Boundary integral | Vector field boundary conditions
-Eigen::VectorXd BoundaryIntegral(Eigen::Ref<Eigen::MatrixXd> p, Eigen::Ref<Eigen::MatrixXd> surfaceT, Eigen::Ref<Eigen::MatrixXd> normal, Eigen::Ref<Eigen::Vector3d> F, std::vector<int>& shell_id){
+// Gloval stiffness matrix
+Eigen::SparseMatrix<double> stiffnessMatrix(
+	Eigen::Ref<Eigen::MatrixXd> p, 
+	Eigen::Ref<Eigen::MatrixXi> t, 
+	double* VE, double* mu)
+{
+	// First calculate the local stiffness matrix
+	Eigen::MatrixXd Ak = localStiffnessMatrix(p, t, VE, mu);
+	
+	// Temporary storage for triplets (row, col, value)
+	std::vector<Eigen::Triplet<double>> triplets;
+	triplets.reserve(16 * t.cols());
 
-	/*
-		This function has only seen preliminary testing. 
-		No tests on real implementations yet.
-	*/
+	// Update the global matrix
+	for(int k = 0; k<t.cols(); k++){
+		int n = -1;
+		for (int i = 0; i < 4; ++i) {
+		    for (int j = 0; j < 4; ++j) {
+		        n++;
+		        
+		        // Add contribution to global matrix
+		        triplets.emplace_back(t(i,k), t(j,k), Ak(n, k));
+		    }
+		}
+	} // Loop over the elements
+
+	// Build global stiffness matrix from triplets
+	Eigen::SparseMatrix<double> A(p.cols(), p.cols());
+    A.setFromTriplets(triplets.begin(), triplets.end());
+    // A.makeCompressed();
+    
+    return A;
+} // Sparse, global stiffness matrix
+
+// Boundary integral | Vector field boundary conditions
+Eigen::VectorXd BoundaryIntegral(
+	Eigen::Ref<Eigen::MatrixXd> p, 
+	Eigen::Ref<Eigen::MatrixXi> surfaceT, 
+	Eigen::Ref<Eigen::MatrixXd> normal, 
+	Eigen::Ref<Eigen::Vector3d> F, 
+	std::vector<int>& shell_id)
+{
 
 	int nv = p.cols(); 			// Number of mesh nodes
 	int ne = surfaceT.cols(); 	// Number of surface elements
@@ -90,7 +155,7 @@ Eigen::VectorXd BoundaryIntegral(Eigen::Ref<Eigen::MatrixXd> p, Eigen::Ref<Eigen
 		double areaT = areaTriangle(p, surfaceT(0,s), surfaceT(1,s), surfaceT(2,s));
 		
 		for(int i = 0; i<3; i++){
-			RHS((int)surfaceT(i,s)) += (normal(0,s)*F(0) + normal(1,s)*F(1) + normal(2,s)*F(2))*areaT/3; 
+			RHS(surfaceT(i,s)) += (normal(0,s)*F(0) + normal(1,s)*F(1) + normal(2,s)*F(2))*areaT/3; 
 		} // Update RHS
 
 	} // End of loop of surface elements
@@ -98,41 +163,92 @@ Eigen::VectorXd BoundaryIntegral(Eigen::Ref<Eigen::MatrixXd> p, Eigen::Ref<Eigen
 	return RHS;
 } // Boundary integral (vector field)
 
-// Lagrange multiplier technique | Volume integral of basis function
-// Eigen::VectorXd lagrange(t, VE){
-// }
 
 
+// For testing
+int main(int argc, char const *argv[])
+{
 
+	// Mesh data
+	int nt = 2; // Number of elements
+	int nv = 5; // Number of nodes
+	int ne = 6; // Number of surface elements
 
-// // For testing
-// int main(int argc, char const *argv[])
-// {
+	// Node coordinates
+	Eigen::MatrixXd p = Eigen::MatrixXd::Zero(3,nv);
 
-// 	int nv = 4;
-// 	int ne = 4;
-// 	Eigen::MatrixXd p = Eigen::MatrixXd::Zero(3,nv);
-
-// 	p.row(0) << 0,1,0,0;
-// 	p.row(1) << 0,0,1,0;
-// 	p.row(2) << 0,0,0,1;
-
-// 	Eigen::MatrixXd surfaceT = Eigen::MatrixXd::Zero(4,ne);
+	p.row(0) << 0,1,0,0,0;
+	p.row(1) << 0,0,1,0,-1;
+	p.row(2) << 0,0,0,1,0;
 	
-// 	surfaceT.col(0) << 0,1,2,0;
-// 	surfaceT.col(1) << 0,1,3,0;
-// 	surfaceT.col(2) << 0,2,3,0;
-// 	surfaceT.col(3) << 1,2,3,0;
+	// Element connectivity
+	Eigen::MatrixXi t = Eigen::MatrixXi::Zero(4,nt);
+	t.col(0) << 0, 1, 2, 3;
+	t.col(1) << 0, 1, 3, 4;
 
-// 	Eigen::MatrixXd normal = Eigen::MatrixXd::Zero(3,ne);
-// 	Eigen::Vector3d F(1.0,2.0,3.0);
-// 	std::vector<int> shell_id = {0,1,2};
+	// Volume of each element
+	std::vector<double> VE = {1.0/6.0, 1.0/6.0};
 
-// 	Eigen::VectorXd RHS = BoundaryIntegral(p, surfaceT, normal, F, shell_id);
+	// Surface element node connectivity
+	Eigen::MatrixXi surfaceT = Eigen::MatrixXi::Zero(4,ne);
+	
+	surfaceT.col(0) << 0,1,2,0;
+	surfaceT.col(1) << 0,2,3,0;
+	surfaceT.col(2) << 1,2,3,0;
+	surfaceT.col(3) << 4,1,3,0;
+	surfaceT.col(4) << 4,1,0,0;
+	surfaceT.col(5) << 4,0,3,0;
 
-// 	std::cout << "Working" << std::endl;
-// 	return 0;
-// }
+	// Surface normals
+	Eigen::MatrixXd normal = Eigen::MatrixXd::Zero(3,ne);
+	Eigen::Vector3d F(1.0,2.0,3.0);
+	std::vector<int> shell_id = {0,1,2};
+
+	// Define constants
+	std::vector<double> mu = {1.5, 1.5};
+
+	// Run the boundary integral
+	Eigen::VectorXd RHS = BoundaryIntegral(p, surfaceT, normal, F, shell_id);
+	
+	// Run the lagrange multiplier technique
+	Eigen::VectorXd Lag = lagrange(t, VE.data(), nv, nt);
+
+	// Global sparse stiffness matrix
+	Eigen::SparseMatrix<double> A = stiffnessMatrix(p, t, VE.data(), mu.data());
+
+	// Create the extended matrix
+	Eigen::SparseMatrix<double> mat(A.rows() + 1, A.cols() + 1);
+
+	std::vector<Eigen::Triplet<double>> triplets;
+	triplets.reserve(A.nonZeros() + 2 * Lag.nonZeros());
+
+	// Add A's elements
+	for (int k = 0; k < A.outerSize(); ++k) {
+	    for (Eigen::SparseMatrix<double>::InnerIterator it(A, k); it; ++it) {
+	        triplets.emplace_back(it.row(), it.col(), it.value());
+	    }
+	}
+
+	// Add Lag's elements (right column)
+	for (int i = 0; i < Lag.size(); ++i) {
+	    if (Lag[i] != 0) {
+	        triplets.emplace_back(i, A.cols(), Lag[i]);
+	    }
+	}
+
+	// Add Lag's elements transposed (bottom row)
+	for (int i = 0; i < Lag.size(); ++i) {
+	    if (Lag[i] != 0) {
+	        triplets.emplace_back(A.rows(), i, Lag[i]);
+	    }
+	}
+
+	mat.setFromTriplets(triplets.begin(), triplets.end());
+	mat.makeCompressed();
+
+	std::cout << "Working" << std::endl;
+	return 0;
+}
 
 
 
