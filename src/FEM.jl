@@ -1,7 +1,7 @@
 using LinearAlgebra, SparseArrays
 
 # FEM linear basis function
-function abcd(p::Matrix{Float64},nodes,nd::Int32)
+function abcd(p::Matrix{Float64},nodes::AbstractVector,nd::Int32)
     n1,n2,n3 = nodes[nodes .!= nd]
     x = @view p[1, [nd, n1, n2, n3]]
     y = @view p[2, [nd, n1, n2, n3]]
@@ -46,8 +46,9 @@ function localStiffnessMatrix(mesh::MESH,f::Vector{Float64})
     aux::Matrix{Float64} = zeros(4,4)
     
     for k in 1:mesh.nt
+        nds = @view mesh.t[:,k]
         for i in 1:4
-            _,b[i],c[i],d[i] = abcd(mesh.p,@view(mesh.t[:,k]),mesh.t[i,k])
+            _,b[i],c[i],d[i] = abcd(mesh.p,nds,nds[i])
         end
         aux = mesh.VE[k]*f[k]*(b*b' + c*c' + d*d')
         Ak[:,k] = aux[:] # vec(aux)
@@ -108,7 +109,7 @@ function demagField(mesh::MESH,fixed::Vector{Int32},free::Vector{Int32},A,m::Mat
     RHS::Vector{Float64} = zeros(mesh.nv)
     for ik in 1:mesh.nInside
         k = mesh.InsideElements[ik]
-        nds = mesh.t[1:4,k]
+        nds = @view mesh.t[1:4,k]
 
         # Average magnetization in the element
         aux = mean(m[:,nds],2)
@@ -125,7 +126,7 @@ function demagField(mesh::MESH,fixed::Vector{Int32},free::Vector{Int32},A,m::Mat
     Hde::Matrix{Float64} = zeros(3,mesh.nInside)
     for ik in 1:mesh.nInside
         k = mesh.InsideElements[ik]
-        nds = mesh.t[:,k] # all nodes of that element
+        nds = @view mesh.t[:,k] # all nodes of that element
 
         # Sum the contributions
         for ind in 1:length(nds)
