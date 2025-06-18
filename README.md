@@ -76,8 +76,14 @@ If you want the built in plots:
 
 Compiling C++ alternative implementation:
 - First update your clone of the repository to include eigen by going to the terminal and run `git submodule update --init --recursive` while in the Femeko.jl folder
-- Move to the `src/` folder and compile FEMc.cpp with `g++ -O3 -fPIC -shared -o FEMc.so FEMc.cpp`
+- Move to the `cFemeko/Magnetostatics/` folder and compile `julia_wrapper.cpp` with `g++ -O3 -fPIC -shared -o julia_wrapper.so julia_wrapper.cpp`
 - Note that additional flags are available such as `-fopenmp`
+
+### Current C++ alternatives covered
+This C++ alternatives are not for speed increases, suprisingly. They are to avoid the garbage collector and honestly some messy crashes that happen on Julia's side. This way, the mesh and plots are handled by Julia, while everything else (including the linear solver) is handled by C++.
+
+- Magnetostatics has a complete C++ alternative available.
+
 
 ### License
 
