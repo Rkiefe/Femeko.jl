@@ -80,7 +80,7 @@ Eigen::MatrixXd localStiffnessMatrix(
 	// Create the local stiffness matrix
 	Eigen::MatrixXd Ak = Eigen::MatrixXd::Zero(16,t.cols());
 
-	#pragma omp parallel for
+	// #pragma omp parallel for
 	for(int k = 0; k<t.cols(); k++){
 		Eigen::Vector4d b,c,d;
 		for(int i = 0; i<4; i++){
@@ -135,8 +135,8 @@ Eigen::VectorXd BoundaryIntegral(
 	Eigen::Ref<Eigen::MatrixXd> p, 
 	Eigen::Ref<Eigen::MatrixXi> surfaceT, 
 	Eigen::Ref<Eigen::MatrixXd> normal, 
-	Eigen::Ref<Eigen::Vector3d> F, 
-	std::vector<int>& shell_id)
+	std::vector<double>& F, 
+	int shell_id)
 {
 
 	int nv = p.cols(); 			// Number of mesh nodes
@@ -147,7 +147,7 @@ Eigen::VectorXd BoundaryIntegral(
 	for (int s = 0; s < ne; s++)
 	{
 		// Only integrate over the outer shell (shell_id)
-		if (!( surfaceT(3,s) == shell_id[0] || surfaceT(3,s) == shell_id[1] || surfaceT(3,s) == shell_id[2] )) {
+		if (surfaceT(3,s) != shell_id) {
 		    continue;
 		}
 		
@@ -155,7 +155,7 @@ Eigen::VectorXd BoundaryIntegral(
 		double areaT = areaTriangle(p, surfaceT(0,s), surfaceT(1,s), surfaceT(2,s));
 		
 		for(int i = 0; i<3; i++){
-			RHS(surfaceT(i,s)) += (normal(0,s)*F(0) + normal(1,s)*F(1) + normal(2,s)*F(2))*areaT/3; 
+			RHS(surfaceT(i,s)) += (normal(0,s)*F[0] + normal(1,s)*F[1] + normal(2,s)*F[2])*areaT/3; 
 		} // Update RHS
 
 	} // End of loop of surface elements
@@ -164,92 +164,87 @@ Eigen::VectorXd BoundaryIntegral(
 } // Boundary integral (vector field)
 
 
-
 // For testing
-int main(int argc, char const *argv[])
+Eigen::VectorXd magnetostatics(
+	Eigen::Ref<Eigen::MatrixXd> p, 
+	Eigen::Ref<Eigen::MatrixXi> t, 
+	Eigen::Ref<Eigen::MatrixXi> surfaceT, 
+	Eigen::Ref<Eigen::MatrixXd> normal, 
+	double* VE,
+	double* mu,
+	std::vector<double>& F,
+	int shell_id)
 {
 
-	// Mesh data
-	int nt = 2; // Number of elements
-	int nv = 5; // Number of nodes
-	int ne = 6; // Number of surface elements
-
-	// Node coordinates
-	Eigen::MatrixXd p = Eigen::MatrixXd::Zero(3,nv);
-
-	p.row(0) << 0,1,0,0,0;
-	p.row(1) << 0,0,1,0,-1;
-	p.row(2) << 0,0,0,1,0;
-	
-	// Element connectivity
-	Eigen::MatrixXi t = Eigen::MatrixXi::Zero(4,nt);
-	t.col(0) << 0, 1, 2, 3;
-	t.col(1) << 0, 1, 3, 4;
-
-	// Volume of each element
-	std::vector<double> VE = {1.0/6.0, 1.0/6.0};
-
-	// Surface element node connectivity
-	Eigen::MatrixXi surfaceT = Eigen::MatrixXi::Zero(4,ne);
-	
-	surfaceT.col(0) << 0,1,2,0;
-	surfaceT.col(1) << 0,2,3,0;
-	surfaceT.col(2) << 1,2,3,0;
-	surfaceT.col(3) << 4,1,3,0;
-	surfaceT.col(4) << 4,1,0,0;
-	surfaceT.col(5) << 4,0,3,0;
-
-	// Surface normals
-	Eigen::MatrixXd normal = Eigen::MatrixXd::Zero(3,ne);
-	Eigen::Vector3d F(1.0,2.0,3.0);
-	std::vector<int> shell_id = {0,1,2};
-
-	// Define constants
-	std::vector<double> mu = {1.5, 1.5};
+	int nv = p.cols();
+	int nt = t.cols();
 
 	// Run the boundary integral
 	Eigen::VectorXd RHS = BoundaryIntegral(p, surfaceT, normal, F, shell_id);
 	
 	// Run the lagrange multiplier technique
-	Eigen::VectorXd Lag = lagrange(t, VE.data(), nv, nt);
+	Eigen::VectorXd Lag = lagrange(t, VE, nv, nt);
 
 	// Global sparse stiffness matrix
-	Eigen::SparseMatrix<double> A = stiffnessMatrix(p, t, VE.data(), mu.data());
+	Eigen::SparseMatrix<double> A = stiffnessMatrix(p, t, VE, mu);
 
 	// Create the extended matrix
-	Eigen::SparseMatrix<double> mat(A.rows() + 1, A.cols() + 1);
-
+	int n = A.rows();
+	int newSize = n + 1;
 	std::vector<Eigen::Triplet<double>> triplets;
-	triplets.reserve(A.nonZeros() + 2 * Lag.nonZeros());
+	
+	// Reserve space: non-zeros from A + 2 * non-zeros in Lag + bottom-right zero
+	triplets.reserve(A.nonZeros() + 2*Lag.size() + 1);
 
-	// Add A's elements
+	// Add original matrix A
 	for (int k = 0; k < A.outerSize(); ++k) {
 	    for (Eigen::SparseMatrix<double>::InnerIterator it(A, k); it; ++it) {
 	        triplets.emplace_back(it.row(), it.col(), it.value());
 	    }
 	}
 
-	// Add Lag's elements (right column)
-	for (int i = 0; i < Lag.size(); ++i) {
-	    if (Lag[i] != 0) {
-	        triplets.emplace_back(i, A.cols(), Lag[i]);
-	    }
+	// Add Lag (i, n) and Lag' (n, i)
+	for (int i = 0; i < n; ++i) {
+	    triplets.emplace_back(i, n, Lag(i));
+	    triplets.emplace_back(n, i, Lag(i));
 	}
 
-	// Add Lag's elements transposed (bottom row)
-	for (int i = 0; i < Lag.size(); ++i) {
-	    if (Lag[i] != 0) {
-	        triplets.emplace_back(A.rows(), i, Lag[i]);
-	    }
-	}
+	// Explicitly set bottom-right element to 0
+	triplets.emplace_back(n, n, 0.0);
 
+	// Build the sparse matrix
+	Eigen::SparseMatrix<double> mat(newSize, newSize);
 	mat.setFromTriplets(triplets.begin(), triplets.end());
-	mat.makeCompressed();
+	mat.makeCompressed();  // Optimize storage
 
-	std::cout << "Working" << std::endl;
-	return 0;
+	// Extend the RHS | [-RHS; 0]
+    Eigen::VectorXd RHS_ext(n + 1);
+    RHS_ext.head(n) = -RHS;
+    RHS_ext(n) = 0.0;
+
+    // Solve using SparseLU
+    Eigen::SparseLU<Eigen::SparseMatrix<double>> solver;
+    solver.compute(mat);
+    
+    if (solver.info() != Eigen::Success) {
+        throw std::runtime_error("Matrix decomposition failed");
+    }
+
+    // Magnetostatic potential
+    Eigen::VectorXd u = solver.solve(RHS_ext);
+
+    if (solver.info() != Eigen::Success) {
+        throw std::runtime_error("Solving failed");
+    }
+
+    return u;
 }
 
+// int main(int argc, char const *argv[])
+// {
+// 	/* code */
+// 	return 0;
+// }
 
 
 

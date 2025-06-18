@@ -3,30 +3,56 @@
 #include "FEMc.cpp"
 
 extern "C"{
-	// Function called from Julia
-	void abcd_julia(double* pJL, int* nodes, int nd, int nv, double* result){
-		// Convert the pointer array to Eigen matrix
-		Eigen::Map<Eigen::MatrixXd> p(pJL,3,nv);
-		Eigen::Map<Eigen::Vector4i> nds(nodes);
+
+	void cMagnetoStatics(double* u_in,
+						double* p_in,
+						int* t_in,
+						int* surfaceT_in,
+						double* normal_in,
+						int nv,
+						int nt,
+						int ne,
+						double* VE,
+						double* mu,
+						double* F_in,
+						int shell_id)
+	{
+
+		// Node coordinates
+		Eigen::Map<Eigen::MatrixXd> p(p_in,3,nv);
 		
-		// Run C++ abcd
-		Eigen::Vector4d r = abcd(p,nds,nd);
+		// Element connectivity
+		Eigen::Map<Eigen::MatrixXi> t(t_in,4,nt);
 
-		// Update the output
-		result[0] = r[0];
-		result[1] = r[1];
-		result[2] = r[2];
-		result[3] = r[3];
-	}
+		// Surface element node connectivity
+		Eigen::Map<Eigen::MatrixXi> surfaceT(surfaceT_in,4,ne);
+		
+		// Surface normals
+		Eigen::Map<Eigen::MatrixXd> normal(normal_in,3,ne);
 
-	void stiffnessMatrix(double* AkJL, double* pJL, int* tJL, int nv, int nt, double* VE, double* mu){
-		// Convert the pointer array to Eigen matrix
-		Eigen::Map<Eigen::MatrixXd> Ak(AkJL,16,nt);
-		Eigen::Map<Eigen::MatrixXd> p(pJL,3,nv);
-		Eigen::Map<Eigen::MatrixXi> t(tJL,4,nt);
+		// Source field
+		std::vector<double> F(F_in, F_in + 3);  
+		// Example of source field {1.0,2.0,3.0}
 
-		// Run C++ local stiffness matrix
-		localStiffnessMatrix(Ak,p,t,VE,mu);
-	}
+
+		// Run
+		Eigen::VectorXd u = magnetostatics(
+			 p, 
+			 t, 
+			 surfaceT, 
+			 normal,
+			 VE,
+			 mu, 
+			 F,
+			 shell_id);
+
+		// Update the input u
+		for (int i = 0; i < nv; i++)
+		{
+			// std::cout << u(i) << std::endl;
+			u_in[i] = u(i);
+		}
+
+	} // Wrapper to C++ magnetic field simulation
 
 } // extern C
