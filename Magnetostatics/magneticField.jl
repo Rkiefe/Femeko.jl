@@ -33,14 +33,14 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
 
     # Applied field
     mu0 = pi*4e-7      # vacuum magnetic permeability
-    Hext::Vector{Float64} = [1,0,0]     # T
+    Hext::Vector{Float64} = [0,0,1]     # T
 
     # Dimensions
-    L::Vector{Float64} = [1.65,1.65,0.04]
+    L::Vector{Float64} = [8,8,0.2]
     # L::Vector{Float64} = [1,1,1]
     
     # Relative magnetic permeability
-    permeability::Float64 = 3
+    permeability::Float64 = 1 + 0.4712
 
     # Create a geometry
     gmsh.initialize()
@@ -94,19 +94,19 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     mu[mesh.InsideElements] .= permeability
 
     # Boundary conditions
-    RHS = BoundaryIntegral(mesh,Hext,shell_id)
+    RHS::Vector{Float64} = BoundaryIntegral(mesh,Hext,shell_id)
 
     # Lagrange multiplier technique
-    Lag = lagrange(mesh)
+    Lag::Vector{Float64} = lagrange(mesh)
 
     # Stiffness matrix
     A = stiffnessMatrix(mesh,mu) 
     
     # Extend the matrix for the Lagrange multiplier technique
-    mat = [A Lag;Lag' 0]
+    # mat = [A Lag;Lag' 0]
 
     # Magnetic scalar potential
-    u = mat\[-RHS;0]
+    u::Vector{Float64} = [A Lag;Lag' 0]\[-RHS;0]
     u = u[1:mesh.nv]
 
     #= Example of calling C++ to calculate the local stiffness matrix
@@ -165,30 +165,30 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
         centroids[3,k] = sum(mesh.p[3,nds])/4
     end
 
-    # Plot result | Uncomment "using GLMakie"
-    fig = Figure()
-    ax = Axis3(fig[1, 1], aspect = :data, title="Magnetic field H")
-    scatterPlot = scatter!(ax, 
-        centroids[1,mesh.InsideElements],
-        centroids[2,mesh.InsideElements],
-        centroids[3,mesh.InsideElements], 
-        color = H[mesh.InsideElements], 
-        colormap=:rainbow, 
-        markersize=20 .* mesh.VE[mesh.InsideElements]./maximum(mesh.VE[mesh.InsideElements]))
+    # # Plot result | Uncomment "using GLMakie"
+    # fig = Figure()
+    # ax = Axis3(fig[1, 1], aspect = :data, title="Magnetic field H")
+    # scatterPlot = scatter!(ax, 
+    #     centroids[1,mesh.InsideElements],
+    #     centroids[2,mesh.InsideElements],
+    #     centroids[3,mesh.InsideElements], 
+    #     color = H[mesh.InsideElements], 
+    #     colormap=:rainbow, 
+    #     markersize=20 .* mesh.VE[mesh.InsideElements]./maximum(mesh.VE[mesh.InsideElements]))
 
-    Colorbar(fig[1, 2], scatterPlot, label="H field strength") # Add a colorbar
+    # Colorbar(fig[1, 2], scatterPlot, label="H field strength") # Add a colorbar
     
-    # Display the figure (this will open an interactive window)
-    wait(display(fig)) # This is required only if runing outside the repl
+    # # Display the figure (this will open an interactive window)
+    # wait(display(fig)) # This is required only if runing outside the repl
     
-    # save("H.png",fig)
+    # # save("H.png",fig)
 
 end # end of main
 
-meshSize = 4
+meshSize = 40
 localSize = 0.1
 showGmsh = false
 saveMesh = false
 
-main(meshSize,localSize,showGmsh,saveMesh)
+@time main(meshSize,localSize,showGmsh,saveMesh)
 
