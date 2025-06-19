@@ -1,4 +1,3 @@
-#include "FEMc.cpp"
 
 /* 	   FEM-BEM approach
 	| A B | |u| = -|RHS|
@@ -14,8 +13,10 @@
  	thanks to the Greens function
 */
 
+#include "FEMc.cpp"
+
 // Get midpoints of input triangle
-Eigen::Matrix3d midPoints(Eigen::Ref<Eigen::Matrix3d> r)
+Eigen::Matrix3d midPoints(Eigen::Ref<const Eigen::Matrix3d> r)
 {
 	Eigen::Matrix3d t(3,3);
 	t.col(0) = 0.5*(r.col(0) + r.col(1));
@@ -26,7 +27,7 @@ Eigen::Matrix3d midPoints(Eigen::Ref<Eigen::Matrix3d> r)
 } // Triangle midpoints
 
 // Subdivide the element into 4 and get the midpoints of the edges
-Eigen::MatrixXd subtriangle(Eigen::Ref<Eigen::MatrixXd> p)
+Eigen::MatrixXd subtriangle(Eigen::Ref<const Eigen::Matrix3d> p)
 {
 	Eigen::MatrixXd r(3,15);
 
@@ -130,7 +131,9 @@ Eigen::MatrixXd Bmatrix(
 // C | also dont know how to name this function
 Eigen::MatrixXd Cmatrix(
 	Eigen::Ref<Eigen::MatrixXd> p,
-	Eigen::Ref<Eigen::MatrixXi> surfaceT)
+	Eigen::Ref<Eigen::MatrixXi> surfaceT,
+	Eigen::Ref<Eigen::MatrixXd> normal,
+	Eigen::Ref<Eigen::VectorXd> areaT)
 {
 
 	// Pre compute the values of the linear basis function over the quadrature
@@ -142,32 +145,64 @@ Eigen::MatrixXd Cmatrix(
 	int nv = p.cols();
 	int ne = surfaceT.cols();
 
+	double one_six = 1.0/6.0; // Avoid repeats
+	double one_over_4pi = 1/(4*pi);
+
 	Eigen::MatrixXd C = Eigen::MatrixXd::Zero(ne,nv);
 	for(int m = 0; m < ne; m++){
 
-		Eigen::Vector3d xm;
+		// Center of surface element m
+		Eigen::Vector3d xm(0.0,0.0,0.0);
 
 		// Update C over the nodes of m
 		for(int i = 0; i<3; i++){
 			int nd = surfaceT(i,m);
-			C(m,nd) = 1.0/6.0;
+			C(m,nd) = one_six;
+
+			// Calculate the centroid of the surface element m
+			xm += p.col(nd);
 		}
+		xm /= 3.0;
 
-
+		// Now add the boundary integral
 		for(int s = 0; s < ne; s++){
 
-		} // Loop over surface elements | s
+			// Get the element node coordinates xyz into a matrix
+			Eigen::Matrix3d triangle_coord;
+			triangle_coord.col(0) = p.col(surfaceT(0,s));
+			triangle_coord.col(1) = p.col(surfaceT(1,s)); 
+			triangle_coord.col(2) = p.col(surfaceT(2,s)); 
 
+			// Get the nodes of the quadrature for this element
+			Eigen::MatrixXd r = subtriangle(triangle_coord);
+			
+			// Temporary vector to hold the integral value
+			Eigen::Vector3d integral(0.0,0.0,0.0);
+			
+			// distance between centroid xm and the quadrature point
+			Eigen::Vector3d distance(0.0,0.0,0.0);
+			
+			// Evaluate the integral over the quadrature points
+			for(int quad = 0; quad<r.cols(); quad++){ // 15 quadrature nodes
+				Eigen::Vector3d y = r.col(quad);
+				distance = y - xm;
+
+				integral += (distance.dot(normal.col(s))/pow(distance.norm(),3)) * phi.col(quad);
+			}
+			// Update C
+			C(m,surfaceT(0,s)) += (one_over_4pi*areaT(s)/r.cols()) * integral(0);
+			C(m,surfaceT(1,s)) += (one_over_4pi*areaT(s)/r.cols()) * integral(1);
+			C(m,surfaceT(2,s)) += (one_over_4pi*areaT(s)/r.cols()) * integral(2);
+
+		} // Loop over surface elements | s
 	} // Loop over surface elements | m
 
-
 	return C;
-}
-
+} // C matrix of BEM 
 
 
 int main(int argc, char const *argv[])
 {
-	/* code */
+	std::cout << "Working" << std::endl;
 	return 0;
 }
