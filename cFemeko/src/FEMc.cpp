@@ -164,15 +164,3 @@ Eigen::VectorXd BoundaryIntegral(
 
 	return RHS;
 } // Boundary integral (vector field)
-
-
-
-// For testing
-// int main(int argc, char const *argv[])
-// {
-// 	/* code */
-// 	return 0;
-// }
-
-
-

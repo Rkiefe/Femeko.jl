@@ -67,8 +67,7 @@ Eigen::MatrixXd subtriangle(Eigen::Ref<const Eigen::Matrix3d> p)
 Eigen::MatrixXd denseStiffnessMatrix(
 	Eigen::Ref<Eigen::MatrixXd> p, 
 	Eigen::Ref<Eigen::MatrixXi> t, 
-	double* VE,
-	double* mu)
+	double* VE)
 {
 
 	// Same as FEM stiffnessMatrix but using a dense version of the matrix
@@ -88,7 +87,7 @@ Eigen::MatrixXd denseStiffnessMatrix(
 			c(i) = r[2];
 			d(i) = r[3]; 
 		}
-		Eigen::Matrix4d aux = VE[k]*mu[k]*(b*b.transpose() + c*c.transpose() + d*d.transpose());
+		Eigen::Matrix4d aux = VE[k]*(b*b.transpose() + c*c.transpose() + d*d.transpose());
 		
 		// Update the global stiffness matrix
 		for(int i = 0; i<4; i++){
@@ -104,7 +103,8 @@ Eigen::MatrixXd denseStiffnessMatrix(
 // B | dont know how to name this one
 Eigen::MatrixXd Bmatrix(
 	Eigen::Ref<Eigen::MatrixXd> p,
-	Eigen::Ref<Eigen::MatrixXi> surfaceT)
+	Eigen::Ref<Eigen::MatrixXi> surfaceT,
+	double* AE)
 {
 	int nv = p.cols(); 			// Number of mesh nodes
 	int ne = surfaceT.cols(); 	// Number of surface elements
@@ -115,7 +115,8 @@ Eigen::MatrixXd Bmatrix(
 	for(int s = 0; s<ne; s++){
 		
 		// Area of the surface element 
-		double areaT = areaTriangle(p, surfaceT(0,s), surfaceT(1,s), surfaceT(2,s));
+		// double areaT = areaTriangle(p, surfaceT(0,s), surfaceT(1,s), surfaceT(2,s));
+		double areaT = AE[s];
 
 		// For each node of the surface triangle...
 		for(int i = 0; i<3; i++){
@@ -133,7 +134,7 @@ Eigen::MatrixXd Cmatrix(
 	Eigen::Ref<Eigen::MatrixXd> p,
 	Eigen::Ref<Eigen::MatrixXi> surfaceT,
 	Eigen::Ref<Eigen::MatrixXd> normal,
-	Eigen::Ref<Eigen::VectorXd> areaT)
+	double* areaT)
 {
 
 	// Pre compute the values of the linear basis function over the quadrature
@@ -190,9 +191,9 @@ Eigen::MatrixXd Cmatrix(
 				integral += (distance.dot(normal.col(s))/pow(distance.norm(),3)) * phi.col(quad);
 			}
 			// Update C
-			C(m,surfaceT(0,s)) += (one_over_4pi*areaT(s)/r.cols()) * integral(0);
-			C(m,surfaceT(1,s)) += (one_over_4pi*areaT(s)/r.cols()) * integral(1);
-			C(m,surfaceT(2,s)) += (one_over_4pi*areaT(s)/r.cols()) * integral(2);
+			C(m,surfaceT(0,s)) += (one_over_4pi*areaT[s]/r.cols()) * integral(0);
+			C(m,surfaceT(1,s)) += (one_over_4pi*areaT[s]/r.cols()) * integral(1);
+			C(m,surfaceT(2,s)) += (one_over_4pi*areaT[s]/r.cols()) * integral(2);
 
 		} // Loop over surface elements | s
 	} // Loop over surface elements | m
@@ -204,7 +205,7 @@ Eigen::MatrixXd Cmatrix(
 Eigen::MatrixXd Dmatrix(
 	Eigen::Ref<Eigen::MatrixXd> p,
 	Eigen::Ref<Eigen::MatrixXi> surfaceT,
-	Eigen::Ref<Eigen::VectorXd> areaT)
+	double* areaT)
 {
 	int ne = surfaceT.cols(); // Number of surface elements
 	Eigen::MatrixXd D = Eigen::MatrixXd::Zero(ne,ne);
@@ -235,27 +236,19 @@ Eigen::MatrixXd Dmatrix(
 			Eigen::MatrixXd r = subtriangle(triangle_coord);
 
 			// Go over the quadrature points
-			double aux = 0.0;
+			double integral = 0.0;
 			for(int quad = 0; quad<r.cols(); quad++){
 				Eigen::Vector3d y = r.col(quad);
 				double distance = (y-xm).norm();
 
-				aux += 1/distance;
+				integral += 1/distance;
 			}
 
 			// Update D
-			D(m,n) += one_over_4pi * aux * areaT(s)/r.cols();
+			D(m,n) += one_over_4pi * integral * areaT[n]/r.cols();
 
 		} // End of loop over surface elements n
 	} // End of loop over surface elements m
 
 	return D;
 } // D matrix | BEM
-
-
-
-int main(int argc, char const *argv[])
-{
-	std::cout << "Working" << std::endl;
-	return 0;
-}
