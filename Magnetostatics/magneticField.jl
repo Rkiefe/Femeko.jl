@@ -33,10 +33,10 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
 
     # Applied field
     mu0 = pi*4e-7      # vacuum magnetic permeability
-    Hext::Vector{Float64} = [0,0,1]     # T
+    Hext::Vector{Float64} = [1,0,0]     # T
 
     # Dimensions
-    L::Vector{Float64} = [8,8,0.2]
+    L::Vector{Float64} = [1.65,1.65,0.04]
     # L::Vector{Float64} = [1,1,1]
     
     # Relative magnetic permeability
@@ -165,27 +165,27 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
         centroids[3,k] = sum(mesh.p[3,nds])/4
     end
 
-    # # Plot result | Uncomment "using GLMakie"
-    # fig = Figure()
-    # ax = Axis3(fig[1, 1], aspect = :data, title="Magnetic field H")
-    # scatterPlot = scatter!(ax, 
-    #     centroids[1,mesh.InsideElements],
-    #     centroids[2,mesh.InsideElements],
-    #     centroids[3,mesh.InsideElements], 
-    #     color = H[mesh.InsideElements], 
-    #     colormap=:rainbow, 
-    #     markersize=20 .* mesh.VE[mesh.InsideElements]./maximum(mesh.VE[mesh.InsideElements]))
+    # Plot result | Uncomment "using GLMakie"
+    fig = Figure()
+    ax = Axis3(fig[1, 1], aspect = :data, title="Magnetic field H")
+    scatterPlot = scatter!(ax, 
+        centroids[1,mesh.InsideElements],
+        centroids[2,mesh.InsideElements],
+        centroids[3,mesh.InsideElements], 
+        color = H[mesh.InsideElements], 
+        colormap=:rainbow, 
+        markersize=20 .* mesh.VE[mesh.InsideElements]./maximum(mesh.VE[mesh.InsideElements]))
 
-    # Colorbar(fig[1, 2], scatterPlot, label="H field strength") # Add a colorbar
+    Colorbar(fig[1, 2], scatterPlot, label="H field strength") # Add a colorbar
     
-    # # Display the figure (this will open an interactive window)
-    # wait(display(fig)) # This is required only if runing outside the repl
+    # Display the figure (this will open an interactive window)
+    wait(display(fig)) # This is required only if runing outside the repl
     
-    # # save("H.png",fig)
+    # save("H.png",fig)
 
 end # end of main
 
-meshSize = 40
+meshSize = 4
 localSize = 0.1
 showGmsh = false
 saveMesh = false
