@@ -12,6 +12,8 @@
 #include "../../extern/eigen/Eigen/Dense"
 #include "../../extern/eigen/Eigen/Sparse"
 
+#define pi 3.14159265358979311600
+
 // FEM basis function
 Eigen::Vector4d abcd(Eigen::Ref<Eigen::MatrixXd> p,Eigen::Vector4i nodes,int nd){
 	
