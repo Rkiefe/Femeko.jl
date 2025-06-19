@@ -18,6 +18,8 @@ The mesh generation is handled by Gmsh. Femeko.jl has a wrapper to Gmsh, to faci
 - [Fully featured examples](#examples)
 - [Basic model creation and mesh gen](#functionality)
 - [Installation](#installation)
+- [C++ available implementations](Current-C++-alternatives-covered)
+
 <!-- - [License](#license) -->
 
 ## Examples
