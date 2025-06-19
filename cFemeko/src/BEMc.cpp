@@ -142,8 +142,8 @@ Eigen::MatrixXd Cmatrix(
 	phi.row(1) << 0.0, 1.0, 0.0, 0.5, 0.5, 0.0, 0.25, 0.25, 0.0, 0.75, 0.75, 0.5, 0.25, 0.0, 0.25;
 	phi.row(2) << 0.0, 0.0, 1.0, 0.0, 0.5, 0.5, 0.0, 0.25, 0.25, 0.0, 0.25, 0.25, 0.75, 0.75, 0.5;
 	
-	int nv = p.cols();
-	int ne = surfaceT.cols();
+	int nv = p.cols(); 			// Number of mesh nodes
+	int ne = surfaceT.cols(); 	// Number of surface elements
 
 	double one_six = 1.0/6.0; // Avoid repeats
 	double one_over_4pi = 1/(4*pi);
@@ -199,6 +199,59 @@ Eigen::MatrixXd Cmatrix(
 
 	return C;
 } // C matrix of BEM 
+
+// D matrix | i give up naming this matrices (its the last one :D)
+Eigen::MatrixXd Dmatrix(
+	Eigen::Ref<Eigen::MatrixXd> p,
+	Eigen::Ref<Eigen::MatrixXi> surfaceT,
+	Eigen::Ref<Eigen::VectorXd> areaT)
+{
+	int ne = surfaceT.cols(); // Number of surface elements
+	Eigen::MatrixXd D = Eigen::MatrixXd::Zero(ne,ne);
+
+	double one_over_4pi = 1/(4*pi);
+
+	for (int m = 0; m<ne; m++)
+	{
+		// Centroid of surface element m
+		Eigen::Vector3d xm(0.0,0.0,0.0);
+
+		// Go over each node of the surface element to get the average position | centroid
+		for(int i = 0; i<3; i++){
+			xm += p.col(surfaceT(i,m));
+		}
+		xm = xm/3.0;
+
+		for (int n = 0; i<n; n++)
+		{
+
+			// Get the element node coordinates xyz into a matrix
+			Eigen::Matrix3d triangle_coord;
+			triangle_coord.col(0) = p.col(surfaceT(0,n));
+			triangle_coord.col(1) = p.col(surfaceT(1,n)); 
+			triangle_coord.col(2) = p.col(surfaceT(2,n)); 
+
+			// Get the nodes of the quadrature for this element n
+			Eigen::MatrixXd r = subtriangle(triangle_coord);
+
+			// Go over the quadrature points
+			double aux = 0.0;
+			for(int quad = 0; quad<r.cols(); quad++){
+				Eigen::Vector3d y = r.col(quad);
+				double distance = (y-xm).norm();
+
+				aux += 1/distance;
+			}
+
+			// Update D
+			D(m,n) += one_over_4pi * aux * areaT(s)/r.cols();
+
+		} // End of loop over surface elements n
+	} // End of loop over surface elements m
+
+	return D;
+} // D matrix | BEM
+
 
 
 int main(int argc, char const *argv[])
