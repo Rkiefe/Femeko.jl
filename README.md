@@ -18,7 +18,7 @@ The mesh generation is handled by Gmsh. Femeko.jl has a wrapper to Gmsh, to faci
 - [Fully featured examples](#examples)
 - [Basic model creation and mesh gen](#functionality)
 - [Installation](#installation)
-- [C++ available implementations](#current-c++-alternatives-covered)
+- [C++ available implementations](#c++)
 
 <!-- - [License](#license) -->
 
@@ -81,7 +81,7 @@ Compiling C++ alternative implementation:
 - Move to the `cFemeko/Magnetostatics/` folder and compile `julia_wrapper.cpp` with `g++ -O3 -fPIC -shared -o julia_wrapper.so julia_wrapper.cpp`
 - Note that additional flags are available such as `-fopenmp`
 
-### Current C++ alternatives covered
+### C++
 This C++ alternatives are not for speed increases, suprisingly. They are to avoid the garbage collector and honestly some messy crashes that happen on Julia's side. This way, the mesh and plots are handled by Julia, while everything else (including the linear solver) is handled by C++.
 
 - Magnetostatics has a complete C++ alternative available.
