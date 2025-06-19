@@ -1,5 +1,5 @@
 # For plots
-using CairoMakie
+# using CairoMakie
 
 include("../../src/gmsh_wrapper.jl")
 include("SteepestDescent.jl")
@@ -56,14 +56,7 @@ function main()
     println("Number of Inside nodes ",mesh.nInsideNodes)
     # viewMesh(mesh)
     # return
-
-    # Pre-calculate the area of each surface triangle
-    areaT::Vector{Float64} = zeros(mesh.ne)
-    for s in 1:mesh.ne
-        nds = mesh.surfaceT[1:3,s]
-        areaT[s] = areaTriangle(mesh.p[1,nds],mesh.p[2,nds],mesh.p[3,nds])
-    end
-
+    
     # Volume of elements of each mesh node | Needed for the demagnetizing field
     Vn::Vector{Float64} = zeros(mesh.nv)
 
@@ -77,9 +70,9 @@ function main()
 
     # FEM/BEM matrices
     A = denseStiffnessMatrix(mesh)  # ij
-    B = Bmatrix(mesh, areaT)        # in
-    C = Cmatrix(mesh, areaT)        # mj
-    D = Dmatrix(mesh, areaT)        # mn
+    B = Bmatrix(mesh)        # in
+    C = Cmatrix(mesh)        # mj
+    D = Dmatrix(mesh)        # mn
 
     LHS::Matrix{Float64} = [-A B; C D]; # Final BEM matrix
 
@@ -99,31 +92,31 @@ function main()
     m, Heff, M_avg, E_time, torque_time = LandauLifshitz(mesh, m, Ms,
                                                         Hap, Aexc, Aan,
                                                         uan, scl, damp, giro,
-                                                        A, LHS, Vn, nodeVolume, areaT,
+                                                        A, LHS, Vn, nodeVolume,
                                                         dt, precession, maxTorque,
                                                         maxAtt, totalTime)
 
-    M_H::Matrix{Float64} = zeros(3,length(Hext))
-    for iH in 1:length(Hext)
-        Hap[1] = Hext[iH]
+    # M_H::Matrix{Float64} = zeros(3,length(Hext))
+    # for iH in 1:length(Hext)
+        # Hap[1] = Hext[iH]
         m, Heff, M_avg = SteepestDescent(mesh, m, Ms, Heff,
                                         Hap, Aexc, Aan,
                                         uan, scl,
-                                        A, LHS, Vn, nodeVolume, areaT,
+                                        A, LHS, Vn, nodeVolume,
                                         maxTorque, maxAtt)
         
-        M_H[:,iH] = M_avg[:,end]    
-    end
+        # M_H[:,iH] = M_avg[:,end]    
+    # end
 
-    fig = Figure()
-    ax = Axis(  fig[1,1],
-                xlabel = "B applied",
-                ylabel = "<M>")
+    # fig = Figure()
+    # ax = Axis(  fig[1,1],
+    #             xlabel = "B applied",
+    #             ylabel = "<M>")
 
-    scatter!(ax, mu0.*Hext, M_H[1,:])
+    # scatter!(ax, mu0.*Hext, M_H[1,:])
 
-    save("M_H_"*string(mesh.nv)*".png",fig)
-    display(fig)
+    # save("M_H_"*string(mesh.nv)*".png",fig)
+    # display(fig)
 end
 
 main()

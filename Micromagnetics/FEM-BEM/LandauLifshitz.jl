@@ -70,7 +70,7 @@ end # Find new magnetization after time iteration
 function LandauLifshitz(mesh::MESH, m::Matrix{Float64}, Ms::Float64,
                         Hap::Vector{Float64}, Aexc::Float64, Aan::Float64,
                         uan::Vector{Float64}, scl::Float64, damp::Float64, giro::Float64,
-                        A::Matrix{Float64}, LHS::Matrix{Float64}, Vn::Vector{Float64}, nodeVolume::Vector{Float64}, areaT::Vector{Float64},
+                        A::Matrix{Float64}, LHS::Matrix{Float64}, Vn::Vector{Float64}, nodeVolume::Vector{Float64},
                         dt::Float64, precession::Float64, maxTorque::Float64,
                         maxAtt::Int32, totalTime::Float64=Inf, T::Float64=0.0)
 
@@ -87,7 +87,7 @@ function LandauLifshitz(mesh::MESH, m::Matrix{Float64}, Ms::Float64,
     Hext::Matrix{Float64} = zeros(3,mesh.nv) .+ mu0.*Hap
 
     # Demagnetizing field
-    Hd::Matrix{Float64} = BEMdmag(mesh,m,areaT,LHS)
+    Hd::Matrix{Float64} = BEMdmag(mesh,m,LHS)
 
     # Exchange field
     Hexc::Matrix{Float64} = -2*Aexc.* (A * m')'
@@ -162,7 +162,7 @@ function LandauLifshitz(mesh::MESH, m::Matrix{Float64}, Ms::Float64,
         # Hext = zeros(3,mesh.nv) .+ mu0.*Hap
 
         # Demagnetizing field
-        Hd = BEMdmag(mesh,m,areaT,LHS)
+        Hd = BEMdmag(mesh,m,LHS)
 
         # Exchange field
         Hexc = -2*Aexc.* (A * m')'

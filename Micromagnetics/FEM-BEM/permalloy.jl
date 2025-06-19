@@ -61,14 +61,7 @@ function main()
     println("Number of surface elements ",size(mesh.surfaceT,2))
     # viewMesh(mesh)
     # return
-
-    # Pre-calculate the area of each surface triangle
-    areaT::Vector{Float64} = zeros(mesh.ne)
-    for s in 1:mesh.ne
-        nds = mesh.surfaceT[1:3,s]
-        areaT[s] = areaTriangle(mesh.p[1,nds],mesh.p[2,nds],mesh.p[3,nds])
-    end
-
+    
     # Volume of elements of each mesh node | Needed for the demagnetizing field
     Vn::Vector{Float64} = zeros(mesh.nv)
 
@@ -82,9 +75,9 @@ function main()
 
     # FEM/BEM matrices
     A = denseStiffnessMatrix(mesh)  # ij
-    B = Bmatrix(mesh, areaT)        # in
-    C = Cmatrix(mesh, areaT)        # mj
-    D = Dmatrix(mesh, areaT)        # mn
+    B = Bmatrix(mesh)        # in
+    C = Cmatrix(mesh)        # mj
+    D = Dmatrix(mesh)        # mn
 
     LHS::Matrix{Float64} = [-A B; C D]; # Final BEM matrix
 
@@ -96,7 +89,7 @@ function main()
     m, Heff, M_avg, E_time, torque_time = LandauLifshitz(mesh, m, Ms,
                                                         Hap, Aexc, Aan,
                                                         uan, scl, damp, giro,
-                                                        A, LHS, Vn, nodeVolume, areaT,
+                                                        A, LHS, Vn, nodeVolume,
                                                         dt, precession, maxTorque,
                                                         maxAtt, totalTime)
 

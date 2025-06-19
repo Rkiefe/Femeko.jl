@@ -35,7 +35,7 @@ end # New magnetization with steepest descent
 function SteepestDescent(mesh::MESH, m::Matrix{Float64}, Ms::Float64, Heff::Matrix{Float64},
                         Hap::Vector{Float64}, Aexc::Float64, Aan::Float64,
                         uan::Vector{Float64}, scl::Float64,
-                        A::Matrix{Float64}, LHS::Matrix{Float64}, Vn::Vector{Float64}, nodeVolume::Vector{Float64}, areaT::Vector{Float64},
+                        A::Matrix{Float64}, LHS::Matrix{Float64}, Vn::Vector{Float64}, nodeVolume::Vector{Float64},
                         maxTorque::Float64, maxAtt::Int32)
 
     mu0::Float64 = pi*4e-7
@@ -50,7 +50,7 @@ function SteepestDescent(mesh::MESH, m::Matrix{Float64}, Ms::Float64, Heff::Matr
 
     if isempty(Heff) # Get the initial effective field
         # Demagnetizing field
-        Hd = BEMdmag(mesh,m,areaT,LHS)
+        Hd = BEMdmag(mesh,m,LHS)
 
         # Exchange field
         Hexc = -2*Aexc.* (A * m')'
@@ -109,7 +109,7 @@ function SteepestDescent(mesh::MESH, m::Matrix{Float64}, Ms::Float64, Heff::Matr
         # -- New magnetic field --
         
         # Demagnetizing field
-        Hd = BEMdmag(mesh,m,areaT,LHS)
+        Hd = BEMdmag(mesh,m,LHS)
 
         # Exchange field
         Hexc = -2*Aexc.* (A * m')'
