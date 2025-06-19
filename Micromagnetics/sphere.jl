@@ -16,7 +16,7 @@ include("LandauLifshitz.jl")
 
 function main()
     meshSize::Float64 = 2500
-    localSize::Float64 = 5
+    localSize::Float64 = 1
 
     # Constants
     mu0::Float64 = pi*4e-7          # vacuum magnetic permeability
@@ -117,34 +117,32 @@ function main()
 
     # Stiffness matrix | Exchange field
     A = spzeros(mesh.nv,mesh.nv)
-    begin
-        Ak::Matrix{Float64} = zeros(4*4,mesh.nt)
-        b::Vector{Float64} = zeros(4)
-        c::Vector{Float64} = zeros(4)
-        d::Vector{Float64} = zeros(4)
-        aux::Matrix{Float64} = zeros(4,4)
-        
-        for ik in 1:mesh.nInside
-            k = mesh.InsideElements[ik]
-            for i in 1:4
-                _,b[i],c[i],d[i] = abcd(mesh.p,mesh.t[:,k],mesh.t[i,k])
-            end
-            aux = mesh.VE[k]*(b*b' + c*c' + d*d')
-            Ak[:,k] = aux[:] # vec(aux)
-        end
-
-        # Update sparse global matrix
-        n = 0
+    Ak::Matrix{Float64} = zeros(4*4,mesh.nt)
+    b::Vector{Float64} = zeros(4)
+    c::Vector{Float64} = zeros(4)
+    d::Vector{Float64} = zeros(4)
+    aux::Matrix{Float64} = zeros(4,4)
+    
+    for ik in 1:mesh.nInside
+        k = mesh.InsideElements[ik]
         for i in 1:4
-            for j in 1:4
-                n += 1
-                A += sparse(Int.(mesh.t[i,:]),Int.(mesh.t[j,:]),Ak[n,:],mesh.nv,mesh.nv)
-            end
+            _,b[i],c[i],d[i] = abcd(mesh.p,mesh.t[:,k],mesh.t[i,k])
         end
-        
-        # Remove all exterior nodes
-        A = A[mesh.InsideNodes,mesh.InsideNodes]
-    end # End of Stiffness Matrix of Exchange field
+        aux = mesh.VE[k]*(b*b' + c*c' + d*d')
+        Ak[:,k] = aux[:] # vec(aux)
+    end
+
+    # Update sparse global matrix
+    n = 0
+    for i in 1:4
+        for j in 1:4
+            n += 1
+            A += sparse(Int.(mesh.t[i,:]),Int.(mesh.t[j,:]),Ak[n,:],mesh.nv,mesh.nv)
+        end
+    end
+    
+    # Remove all exterior nodes
+    A = A[mesh.InsideNodes,mesh.InsideNodes]
 
     # Landau Lifshitz
     m, Heff::Matrix{Float64},

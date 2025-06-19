@@ -2,7 +2,7 @@
     Minimizes the energy by steepest descent and by the 
     Landau-Lifshitz equation.
 
-    This example is the same as 'example_1' but without time dynamics.
+    This example is the same as 'permalloy' but without time dynamics.
     The system is minimized directly towards a stable magnetization and low energy
     resulting in the same <M> at the end, as expected.
 =#

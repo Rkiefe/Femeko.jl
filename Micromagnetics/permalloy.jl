@@ -12,7 +12,7 @@ include("../src/gmsh_wrapper.jl")
 include("LandauLifshitz.jl")
 
 function main()
-    meshSize::Float64 = 2_000
+    meshSize::Float64 = 500
     localSize::Float64 = 5
 
     # Constants
@@ -103,21 +103,6 @@ function main()
     # Magnetization field
     m::Matrix{Float64} = zeros(3,mesh.nv)
     m[1,mesh.InsideNodes] .= 1
-    # begin
-    #     theta::Vector{Float64} = 2*pi.*rand(mesh.nInsideNodes)
-    #     phi::Vector{Float64} = pi.*rand(mesh.nInsideNodes)
-    
-    #     for i in 1:mesh.nInsideNodes
-    #         nd = mesh.InsideNodes[i]
-    #         m[:,nd] =   [
-    #                         sin(theta[i])*cos(phi[i])
-    #                         sin(theta[i])*sin(phi[i])
-    #                         cos(theta[i])
-    #                     ]
-
-    #         m[:,nd] = m[:,nd]./norm(m[:,nd])
-    #     end
-    # end # Random initial magnetization
 
     # Dirichlet boundary condition
     fixed::Vector{Int32} = findNodes(mesh,"face",mesh.shell_id)
@@ -128,36 +113,32 @@ function main()
 
     # Stiffness matrix | Exchange field
     A = spzeros(mesh.nv,mesh.nv)
-
-    begin
-        Ak::Matrix{Float64} = zeros(4*4,mesh.nt)
-        b::Vector{Float64} = zeros(4)
-        c::Vector{Float64} = zeros(4)
-        d::Vector{Float64} = zeros(4)
-        aux::Matrix{Float64} = zeros(4,4)
-        
-        for ik in 1:mesh.nInside
-            k = mesh.InsideElements[ik]
-            for i in 1:4
-                _,b[i],c[i],d[i] = abcd(mesh.p,mesh.t[:,k],mesh.t[i,k])
-            end
-            aux = mesh.VE[k]*(b*b' + c*c' + d*d')
-            Ak[:,k] = aux[:] # vec(aux)
-        end
-
-        # Update sparse global matrix
-        n = 0
+    Ak::Matrix{Float64} = zeros(4*4,mesh.nt)
+    b::Vector{Float64} = zeros(4)
+    c::Vector{Float64} = zeros(4)
+    d::Vector{Float64} = zeros(4)
+    aux::Matrix{Float64} = zeros(4,4)
+    
+    for ik in 1:mesh.nInside
+        k = mesh.InsideElements[ik]
         for i in 1:4
-            for j in 1:4
-                n += 1
-                A += sparse(Int.(mesh.t[i,:]),Int.(mesh.t[j,:]),Ak[n,:],mesh.nv,mesh.nv)
-            end
+            _,b[i],c[i],d[i] = abcd(mesh.p,mesh.t[:,k],mesh.t[i,k])
         end
-        
-        # Remove all exterior nodes
-        A = A[mesh.InsideNodes,mesh.InsideNodes]
+        aux = mesh.VE[k]*(b*b' + c*c' + d*d')
+        Ak[:,k] = aux[:] # vec(aux)
+    end
 
-    end # End of Stiffness Matrix of Exchange field
+    # Update sparse global matrix
+    n = 0
+    for i in 1:4
+        for j in 1:4
+            n += 1
+            A += sparse(Int.(mesh.t[i,:]),Int.(mesh.t[j,:]),Ak[n,:],mesh.nv,mesh.nv)
+        end
+    end
+    
+    # Remove all exterior nodes
+    A = A[mesh.InsideNodes,mesh.InsideNodes]
 
     # Landau Lifshitz
     m, Heff::Matrix{Float64},
