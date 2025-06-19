@@ -41,7 +41,7 @@ function main(meshSize=0,showGmsh=true,saveMesh=false)
     println("Number of surface elements ",size(mesh.surfaceT,2))
     println("Number of elements ",size(mesh.t,2))
     println("Number of Inside elements ",length(mesh.InsideElements))
-    return
+    # return
 
     # Element centroids
     centroids::Matrix{Float64} = zeros(3,mesh.nt)
@@ -183,7 +183,7 @@ function main(meshSize=0,showGmsh=true,saveMesh=false)
 
 end # end of main
 
-meshSize = 4
+meshSize = 0.1
 showGmsh = false
 saveMesh = false
 
