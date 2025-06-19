@@ -222,7 +222,7 @@ Eigen::MatrixXd Dmatrix(
 		}
 		xm = xm/3.0;
 
-		for (int n = 0; i<n; n++)
+		for (int n = 0; n<ne; n++)
 		{
 
 			// Get the element node coordinates xyz into a matrix
