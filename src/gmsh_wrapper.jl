@@ -31,6 +31,9 @@ mutable struct MESH
     # Volume of each mesh element
     VE::Vector{Float64}
     
+    # Area of each surface mesh element
+    AE::Vector{Float64} 
+
     # Normal of each surface triangle
     normal::Matrix{Float64}
     
@@ -349,10 +352,13 @@ function Mesh(cells,meshSize=0,localSize=0,saveMesh::Bool=false)
         mesh.VE[k] = elementVolume(mesh.p,mesh.t[:,k])
     end
 
-    # List of all surface triangle normals
+    # List of all surface triangle normals are areas
     mesh.normal = zeros(3,mesh.ne)
+    mesh.AE = zeros(mesh.ne)
     for i in 1:mesh.ne
-        mesh.normal[:,i] = normal_surface(mesh.p,@view mesh.surfaceT[1:3,i]);
+        nds = @view mesh.surfaceT[1:3,i]
+        mesh.normal[:,i] = normal_surface(mesh.p,nds);
+        mesh.AE[i] = areaTriangle(mesh.p[1,nds],mesh.p[2,nds],mesh.p[3,nds])
     end
 
     # Save mesh 
@@ -363,6 +369,7 @@ function Mesh(cells,meshSize=0,localSize=0,saveMesh::Bool=false)
         save2file("surfaceT.txt",mesh.surfaceT)
         save2file("InsideElements.txt",mesh.InsideElements)
         save2file("VE.txt",mesh.VE)
+        save2file("AE.txt",mesh.AE)
         save2file("normal.txt",mesh.normal)
     end
 
