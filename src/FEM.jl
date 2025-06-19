@@ -76,16 +76,8 @@ function BoundaryIntegral(mesh::MESH,F::Vector{Float64},shell_id)
         if !(mesh.surfaceT[4,s] in shell_id)
             continue
         end
-
-        # Nodes of the surface triangle
-        nds = @view mesh.surfaceT[1:3,s];
         
-        # Area of surface triangle
-        areaT = areaTriangle(@view(mesh.p[1,nds]),
-                             @view(mesh.p[2,nds]),
-                             @view(mesh.p[3,nds]))
-        
-        RHS[nds] .+= dot(mesh.normal[:,s],F)*areaT/3;
+        RHS[mesh.surfaceT[1:3,s]] .+= dot(mesh.normal[:,s],F)*mesh.AE[s]/3;
     end
 
     return RHS
