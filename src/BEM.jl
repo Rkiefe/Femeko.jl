@@ -6,12 +6,12 @@
 include("FEM.jl")
 
 # Demagntizing field with FEM/BEM
-function BEMdmag(mesh::MESH,m::Matrix{Float64},areaT::Vector{Float64},LHS::Matrix{Float64})
+function BEMdmag(mesh::MESH,m::Matrix{Float64},LHS::Matrix{Float64})
     
     RHS::Vector{Float64} = zeros(mesh.nv + mesh.ne)
     for s in 1:mesh.ne
         nds = @view mesh.surfaceT[1:3,s]
-        RHS[nds] .+= dot(mesh.normal[:,s],mean(m[:,nds],2))*areaT[s]/3
+        RHS[nds] .+= dot(mesh.normal[:,s],mean(m[:,nds],2))*mesh.AE[s]/3
     end
 
     # Magnetic scalar potential
@@ -63,16 +63,16 @@ function denseStiffnessMatrix(mesh::MESH)
     return A
 end
 
-function Bmatrix(mesh::MESH, areaT::Vector{Float64})
+function Bmatrix(mesh::MESH)
     B::Matrix{Float64} = zeros(mesh.nv,mesh.ne)
     for s in 1:mesh.ne
         nds = mesh.surfaceT[1:3,s]
-        B[nds,s] .+= areaT[s]/3
+        B[nds,s] .+= mesh.AE[s]/3
     end
     return B
 end # BEM matrix Min
 
-function Cmatrix(mesh::MESH, areaT::Vector{Float64})
+function Cmatrix(mesh::MESH)
     # Basis function value on the quadrature points
     phi = [1.0000         0         0
                  0    1.0000         0
@@ -113,14 +113,14 @@ function Cmatrix(mesh::MESH, areaT::Vector{Float64})
                 aux .+= dot(r,mesh.normal[:,s])/(norm(r)^3) .* phi[:,quad]
             end
 
-            C[m,nds_j] .+= 1/(4*pi) * areaT[s]/size(p,2) .* aux
+            C[m,nds_j] .+= 1/(4*pi) * mesh.AE[s]/size(p,2) .* aux
         end
     end
 
     return C
 end # BEM matrix Mmj
 
-function Dmatrix(mesh::MESH, areaT::Vector{Float64})
+function Dmatrix(mesh::MESH)
 
     # Mmn
     D::Matrix{Float64} = zeros(mesh.ne,mesh.ne)
@@ -143,7 +143,7 @@ function Dmatrix(mesh::MESH, areaT::Vector{Float64})
                 aux += 1/r
             end
 
-            D[m,n] += 1/(4*pi) * aux * areaT[n]/size(p,2)
+            D[m,n] += 1/(4*pi) * aux * mesh.AE[n]/size(p,2)
         end
     end
     
