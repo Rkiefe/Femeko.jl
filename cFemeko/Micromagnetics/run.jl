@@ -42,6 +42,18 @@ function main(meshSize=0,showGmsh=true,saveMesh=false)
     println("Number of elements ",size(mesh.t,2))
     println("Number of Inside elements ",length(mesh.InsideElements))
 
+    # Volume of elements of each mesh node | Needed for the demagnetizing field
+    Vn::Vector{Float64} = zeros(mesh.nv)
+
+    # Integral of basis function over the domain | Needed for the exchange field
+    nodeVolume::Vector{Float64} = zeros(mesh.nv)
+    
+    for k in 1:mesh.nt
+        Vn[mesh.t[:,k]]         .+= mesh.VE[k]
+        nodeVolume[mesh.t[:,k]] .+= mesh.VE[k]/4
+    end
+    
+
     # Adjust to 0 indexing
     t::Matrix{Int32} = mesh.t .- 1
     surfaceT::Matrix{Int32} = mesh.surfaceT .- 1
@@ -51,10 +63,11 @@ function main(meshSize=0,showGmsh=true,saveMesh=false)
     m[1,:] .= 1
 
     # Prepare the output
-    u::Vector{Float64} = zeros(mesh.nv)
+    Hd::Matrix{Float64} = zeros(3,mesh.nv)
 
+    # Calculate the magnetostatic field
     @ccall "julia_wrapper.so".demag(
-        u::Ptr{Float64},
+        Hd::Ptr{Float64},
         mesh.p::Ptr{Float64},
         t::Ptr{Int32},
         surfaceT::Ptr{Int32},
@@ -64,40 +77,14 @@ function main(meshSize=0,showGmsh=true,saveMesh=false)
         mesh.nt::Int32,
         mesh.ne::Int32,
         mesh.VE::Ptr{Float64},
+        Vn::Ptr{Float64},
         m::Ptr{Float64}
     )::Cvoid
 
-    # println(u)
-
-    # Magnetic field
-    H_vectorField::Matrix{Float64} = zeros(mesh.nt,3)
-    for k in 1:mesh.nt
-        nds = mesh.t[:,k];
-
-        # Sum the contributions
-        for nd in nds
-            # obtain the element parameters
-            _,b,c,d = abcd(mesh.p,nds,nd)
-
-            H_vectorField[k,1] -= u[nd]*b;
-            H_vectorField[k,2] -= u[nd]*c;
-            H_vectorField[k,3] -= u[nd]*d;
-        end
-    end
-
     # Magnetic field intensity
-    H::Vector{Float64} = zeros(mesh.nt)
-    for k in 1:mesh.nt
-        H[k] = norm(H_vectorField[k,:])
-    end
-
-    # Element centroids
-    centroids::Matrix{Float64} = zeros(3,mesh.nt)
-    for k in 1:mesh.nt
-        nds = mesh.t[:,k]
-        centroids[1,k] = sum(mesh.p[1,nds])/4
-        centroids[2,k] = sum(mesh.p[2,nds])/4
-        centroids[3,k] = sum(mesh.p[3,nds])/4
+    H::Vector{Float64} = zeros(mesh.nv)
+    for i in 1:mesh.nv
+        H[i] = norm(Hd[:,i])
     end
 
     # Plot result | Uncomment "using GLMakie"
@@ -105,12 +92,12 @@ function main(meshSize=0,showGmsh=true,saveMesh=false)
     ax = Axis3(fig[1, 1], aspect = :data, title="Magnetic field H")
     
     scatterPlot = scatter!(ax, 
-        centroids[1,:],
-        centroids[2,:],
-        centroids[3,:], 
+        mesh.p[1,:],
+        mesh.p[2,:],
+        mesh.p[3,:], 
         color = H, 
-        colormap=:rainbow, 
-        markersize=20 .* mesh.VE./maximum(mesh.VE))
+        colormap=:rainbow
+        ) # markersize=20 .* mesh.VE./maximum(mesh.VE)
 
     Colorbar(fig[1, 2], scatterPlot, label="H field strength") # Add a colorbar
     

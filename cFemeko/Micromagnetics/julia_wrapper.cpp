@@ -3,19 +3,32 @@
 #include "../src/BEMc.cpp" // Include Femeko C++ FEM functions
 
 // Calculate the magnetic scalar potential
-Eigen::VectorXd BEMdmag(
+void BEMdmag(
+	Eigen::Ref<Eigen::MatrixXd> Hd,
 	Eigen::Ref<Eigen::MatrixXd> p, 
 	Eigen::Ref<Eigen::MatrixXi> t, 
 	Eigen::Ref<Eigen::MatrixXi> surfaceT, 
 	Eigen::Ref<Eigen::MatrixXd> normal,
 	double* areaT,
 	double* VE,
+	double* Vn,
 	Eigen::Ref<Eigen::MatrixXd> m)
 {
 
-	int nv = p.cols();
-	int nt = t.cols();
-	int ne = surfaceT.cols();
+	/*		Inputs
+		Hd 		 -> Input and output  | Magnetostatic field, 3 by nv
+		p  		 -> Nodes coordiantes | 3 by nv
+		t  		 -> Volume element node connectivity | 4 by nt
+		surfaceT -> Surface element node connectivity | 4 by ne (3 nodes + boundary label)
+		normal 	 -> Normal to surface element | 3 by ne
+		areaT 	 -> Area of surface element
+		VE 		 -> Volume of volume element
+		Vn 		 -> Total volume of elements with node i | Vector of length nv
+	*/ 
+
+	int nv = p.cols(); 			// Number of mesh nodes
+	int nt = t.cols(); 			// Number of volume elements
+	int ne = surfaceT.cols();   // Number of surface elements
 
 	// Make the FEM-BEM matrices
 
@@ -60,9 +73,40 @@ Eigen::VectorXd BEMdmag(
         throw std::runtime_error("Linear solver failed for FEM-BEM magnetostatic potential");
     }
 
-	// Eigen::VectorXd u = Eigen::VectorXd::Zero(nv);
+    // Calculate the Magnetostatic field
+    Eigen::MatrixXd Hdk = Eigen::MatrixXd::Zero(3,nt);
+    for (int k = 0; k<nt; k++)
+    {
+    	for(int i = 0; i<4; i++)
+    	{
+	    	Eigen::Vector4d r = abcd(p,t.col(k),t(i,k));
+	    	// phi = a + bx + cy + dz
+    		Hdk(0,k) -= u(t(i,k))*r(1);
+    		Hdk(1,k) -= u(t(i,k))*r(2);
+    		Hdk(2,k) -= u(t(i,k))*r(3);
+    	}
+    } // Magnetostatic field on each element of the mesh
 
-	return u;
+    // Update the input magnetostatic field on the nodes 
+    // by the average contributions
+    
+    for(int k = 0; k<nt; k++)
+    {
+    	// Add to each node, the element contribution
+    	for(int i = 0; i<4; i++)
+    	{
+    		int nd = t(i,k);
+    		Hd.col(nd) += VE[k]*Hdk.col(k);
+    	}
+
+    } // Element contribution to the magnetic field on the nodes
+
+    // Divide by the total volume of each node
+    for(int i = 0; i<nv; i++)
+    {
+    	Hd.col(i) /= Vn[i];
+    }
+
 } // Magnetostatic scalar potential
 
 extern "C"{
@@ -71,7 +115,7 @@ extern "C"{
 		Takes Julia input arrays and converts to eigen vectors
 		and std vectors
 	*/ 
-	void demag(double* u_in,
+	void demag(double* Hd_in,
 			   double* p_in,
 			   int* t_in,
 			   int* surfaceT_in,
@@ -81,6 +125,7 @@ extern "C"{
 			   int nt,
 			   int ne,
 			   double* VE,
+			   double* Vn,
 			   double* m_in)
 	{
 
@@ -99,22 +144,26 @@ extern "C"{
 		// Magnetization
 		Eigen::Map<Eigen::MatrixXd> m(m_in,3,nv);
 
-		// Run
-		Eigen::VectorXd u = BEMdmag(
-			 p, 
-			 t, 
-			 surfaceT, 
-			 normal,
-			 areaT,
-			 VE,
-			 m);
+		// Map the input magnetostatic field
+		Eigen::Map<Eigen::MatrixXd> Hd_out(Hd_in,3,nv);
 
-		// Update the input u
-		for (int i = 0; i < nv; i++)
-		{
-			// std::cout << u(i) << std::endl;
-			u_in[i] = u(i);
-		}
+		// Run
+		BEMdmag(
+				  Hd_out,
+				  p, 
+				  t, 
+				  surfaceT, 
+				  normal,
+				  areaT,
+				  VE,
+				  Vn,
+				  m);
+
+		// // Update the input Hd
+		// for (int i = 0; i < nv; i++)
+		// {
+		// 	Hd_out.col(i) = Hd.col(i);
+		// }
 
 	} // Wrapper to C++ magnetic field simulation
 
