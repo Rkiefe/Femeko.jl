@@ -46,7 +46,7 @@ function timeStep(m::AbstractVector{Float64},H::AbstractVector{Float64},Hold::Ab
         m2 = mat\(m - d*cross(m,H12))
 
         # 3) m (n + 1/2)
-        m12 = 0.5*(m + m2)
+        m12::Vector{Float64} = 0.5*(m + m2)
 
         # 4) Calculate H (n+1/2) from m (n+1/2)
         H12 = precession.*Heff + damp*cross(m12,Heff)
