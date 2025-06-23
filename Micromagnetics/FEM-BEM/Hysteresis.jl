@@ -1,5 +1,6 @@
 # For plots
 # using CairoMakie
+using GLMakie
 
 include("../../src/gmsh_wrapper.jl")
 include("SteepestDescent.jl")
@@ -107,6 +108,20 @@ function main()
         
         # M_H[:,iH] = M_avg[:,end]    
     # end
+
+
+    time::Vector{Int32} = 1:size(M_avg,2)
+
+    fig = Figure()
+    ax = Axis(  fig[1,1],
+                xlabel = "Time (ns)", 
+                ylabel = "<M> (kA/m)",
+                title = "Micromagnetic simulation",
+                yticks = range(-1500,1500,5))
+
+    scatter!(ax,time,Ms/1000 .*M_avg[1,:], label = "M_x")
+    # axislegend()
+    wait(display(fig))
 
     # fig = Figure()
     # ax = Axis(  fig[1,1],
