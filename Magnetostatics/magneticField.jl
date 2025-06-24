@@ -77,6 +77,9 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     shell_id = shell_id[bounding_shell_n_surfaces] # All other, are interior surfaces
 
     if showGmsh
+        # gmsh.option.setNumber("Mesh.Clip", 1)
+        # gmsh.option.setNumber("Mesh.VolumeFaces", 1)
+        # gmsh.option.setNumber("General.ClipWholeElements", 1)
         gmsh.fltk.run()
     end
     gmsh.finalize()
