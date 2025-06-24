@@ -1,6 +1,6 @@
 // Wrapper to C++ magnetostatic simulation to be called in julia
 
-#include "../src/FEMc.cpp" // Include Femeko C++ FEM functions
+#include "../../src/FEMc.cpp" // Include Femeko C++ FEM functions
 
 // Magnetostatic simulation of a paramagnet
 Eigen::VectorXd magnetostatics(
