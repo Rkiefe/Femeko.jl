@@ -326,25 +326,25 @@ function Mesh(cells,meshSize=0,localSize=0,saveMesh::Bool=false)
 
     # Mesh elements inside the container
     if !isempty(cells)
-            InsideElements = zeros(mesh.nt,1)
-            for k in 1:mesh.nt
-                etype,nodeTags,dim, id = gmsh.model.mesh.getElement(t_tags[k])
-                # element type , nodes of the element , dimension , id
-                if id in volumeID
-                    InsideElements[k] = k
-                end
+        InsideElements = zeros(mesh.nt,1)
+        for k in 1:mesh.nt
+            etype,nodeTags,dim, id = gmsh.model.mesh.getElement(t_tags[k])
+            # element type , nodes of the element , dimension , id
+            if id in volumeID
+                InsideElements[k] = k
             end
-            mesh.InsideElements = Int.(InsideElements[InsideElements.!=0])
-            mesh.nInside = length(mesh.InsideElements)
-        else
-            mesh.InsideElements = []
-            mesh.nInside = 0
         end
+        mesh.InsideElements = Int.(InsideElements[InsideElements.!=0])
+        mesh.nInside = length(mesh.InsideElements)
+    else
+        mesh.InsideElements = []
+        mesh.nInside = 0
+    end
 
-        # Inside nodes
-        aux::Matrix{Int32} = mesh.t[:,mesh.InsideElements]
-        mesh.InsideNodes = unique(vec(aux))
-        mesh.nInsideNodes = length(mesh.InsideNodes)
+    # Inside nodes
+    aux::Matrix{Int32} = mesh.t[:,mesh.InsideElements]
+    mesh.InsideNodes = unique(vec(aux))
+    mesh.nInsideNodes = length(mesh.InsideNodes)
 
     # Element volumes
     mesh.VE = zeros(mesh.nt)
