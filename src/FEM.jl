@@ -23,7 +23,6 @@ function stiffnessMatrix(mesh::MESH, f::Vector{Float64}=ones(mesh.nt))
 
     # Local stiffness matrix
     Ak::Matrix{Float64} = localStiffnessMatrix(mesh,f)
-    # Ak::Matrix{Float64} = CstiffnessMatrix(mesh.p, mesh.t, mesh.VE, f)
 
     # Update sparse global matrix
     n = 0
