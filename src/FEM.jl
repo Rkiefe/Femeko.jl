@@ -205,3 +205,32 @@ function interp1(x::Vector, y::Vector, xq::Vector)
     end
     return yq
 end # Interp over the entire input array
+
+# 1D Gradient function
+function gradient(x::Vector{Float64},y::Vector{Float64})
+    #=
+        Forward and backward finite difference in the limits of the dataset ;
+        Central finite difference on everything else
+    =#
+
+    if length(x) != length(y)
+        error("Input x and y must have the same length")
+    end
+    
+    if length(x) < 2
+        error("Input data must have more than 1 element")
+    end
+
+    size::Int32 = length(x)
+    z::Vector{Float64} = zeros(size)
+
+
+    z[1] = (y[2] - y[1])/(x[2] - x[1])
+    z[size] = (y[size] - y[size-1])/(x[size] - x[size-1])
+
+    for i in 2:size-1
+        z[i] = (y[i+1] - y[i-1])/(x[i+1] - x[i-1])
+    end
+
+    return z
+end
