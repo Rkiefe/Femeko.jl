@@ -85,14 +85,7 @@ Compiling C++ alternative implementation:
 This C++ alternatives are not for speed increases, suprisingly. They are to avoid the garbage collector and honestly some messy crashes that happen on Julia's side. This way, the mesh and plots are handled by Julia, while everything else (including the linear solver) is handled by C++.
 
 - Magnetostatics has a complete C++ alternative available.
-- Micromagnetics has a full implementation of the magnetostatic scalar potential with FEM-BEM in C++
-
-Missing in Micromagnetics
-- Exchange field
-- Applied field (should be trivial)
-- Anisotropy field
-- Time step
-- Steepest descent energy minimization
+- Micromagnetics has a full implementation, but is missing some thorough testing.
 
 
 ### License
