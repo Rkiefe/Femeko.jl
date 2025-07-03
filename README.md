@@ -1,7 +1,20 @@
 # Femeko.jl
-This repository aims to be as user-friendly and readable as possible so that people can adapt Femeko.jl to their needs or learn how to make their own implementations from a friendly starting point.
+Creating a Finite Element simulation from scratch is unnecessarily complicated. From mesh generation, mesh quality, geometry handling, data structures, when does you FEM implementation start?
 
-The mesh generation is handled by Gmsh. Femeko.jl has a wrapper to Gmsh, to facilitate model creation and mesh generation (with straight forward local refinement). The plots are powered by Makie.jl. That's it, everything else is Femeko.
+Femeko is my answer to "I want to make my own FEM, but I don't want to deal with everything else related to FEM" (mesh generation, model handling and data structures).
+
+Powered by Gmsh, with Femeko you can import your CAD file (e.g.: .step) and generate a volume mesh with straightforward local refinement. For example:
+
+```julia
+    # Import cad file
+    importCAD("STEP_Models/Fennec_Fox.step")
+
+    # Generate tetrahedral mesh
+    mesh = Mesh(cells, meshSize, localSize, saveMesh)
+```
+The `mesh` struct holds the mesh information in a digested format, such as node connectivity and node coordinates, element volume and surface element area, etc.
+
+You can access the node indices of the first element like this: `mesh.t[:,1]`, which would output a vector of 4 integers.
 
 ## Femeko.jl currently has full fledged implementations for
 - Magnetostatic fields from permanent magnets
