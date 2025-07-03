@@ -1,7 +1,7 @@
 # Femeko.jl
-Creating a Finite Element simulation from scratch is unnecessarily complicated. From mesh generation, mesh quality, geometry handling, data structures, when does you FEM implementation start?
+Creating a Finite Element simulation from scratch is unnecessarily complicated. From mesh generation, mesh quality, geometry handling, data structures, when does your FEM implementation start?
 
-Femeko is my answer to "I want to make my own FEM, but I don't want to deal with everything else related to FEM" (mesh generation, model handling and data structures).
+Femeko is my answer to "I want to make my own FEM, have full control over my implementation, but I want everything else related to FEM to be as easy as possible" (mesh generation, model handling and data structures).
 
 Powered by Gmsh, with Femeko you can import your CAD file (e.g.: .step) and generate a volume mesh with straightforward local refinement. For example:
 
