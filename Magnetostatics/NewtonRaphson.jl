@@ -56,12 +56,12 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     T::Float64 = 293.0
 
     # Applied field
-    Hext::Vector{Float64} = [1,0,0]./mu0    # A/m
+    Hext::Vector{Float64} = [0,0,1]./mu0    # A/m
 
     # Convergence criteria
-    picardDeviation::Float64 = 1e-3
+    picardDeviation::Float64 = 2.0 # 1e-4
     maxDeviation::Float64 = 1e-10
-    maxAtt::Int32 = 20
+    maxAtt::Int32 = 10
 
     # Data of magnetic materials
     folder::String = "Materials/"
@@ -140,8 +140,15 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     # 3D Model
     gmsh.initialize()
 
+    # Dimensions of each plate
+    spacing::Float64 = 1.25
+    thick::Float64 = 0.5
+    Leng::Float64 = 16.5
+
+    L::Vector{Float64} = [Leng, Leng, thick]
+
     # Create an empty container
-    box = addCuboid([0,0,0],8.75*[1,1,1])
+    box = addCuboid([0,0,0],5*maximum(L)*[1,1,1])
     # box = addCuboid([0,0,0],[70.0,20.0,500.0])
 
     # Get how many surfaces compose the bounding shell
@@ -153,23 +160,41 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     cellLabels::Vector{String} = ["Air"]
 
     # Add Gadolinium plates
-    addCuboid([0,0,0],[1.65,1.65,0.05], cells, true)
+    addCuboid([0,0,0],L, cells, true)
     push!(cellLabels,"Gd")
 
-    addCuboid([0,0,0.1+2*0.05],[1.65,1.65,0.05], cells, true)
+    addCuboid([0,0,spacing+2*thick],[Leng, Leng, thick], cells, true)
     push!(cellLabels,"Gd")
 
 
     # Add Iron
-    addCuboid([(1.65+0.1)/2,0,0],[0.1,1.65,0.05],cells,true)
+    thickIron::Float64 = 1.0
+    addCuboid([(Leng+thickIron)/2, 0.0 , 0.0],
+              [thickIron, Leng, thick],
+              cells,true)
+
     push!(cellLabels,"Fe")
 
-    addCuboid([(1.65+0.1)/2,0,0.1+2*0.05],[0.1,1.65,0.05],cells,true)
+    addCuboid([-(Leng+thickIron)/2, 0.0 , 0.0],
+              [thickIron, Leng, thick],
+              cells,true)
+
+    push!(cellLabels,"Fe")
+    
+
+    addCuboid([(Leng+thickIron)/2, 0.0, spacing+2*thick],
+              [thickIron, Leng, thick],
+              cells,true)
+    
     push!(cellLabels,"Fe")
 
-
-
-
+    addCuboid([-(Leng+thickIron)/2, 0.0, spacing+2*thick],
+              [thickIron, Leng, thick],
+              cells,true)
+    
+    push!(cellLabels,"Fe")
+    
+    
 
 
     # Fragment to make a unified geometry
@@ -215,6 +240,8 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     println("Number of nodes ",size(mesh.p,2))
     println("Number of Inside nodes ",length(mesh.InsideNodes))
     println("Number of surface elements ",size(mesh.surfaceT,2))
+
+    # return
 
     # Element centroids
     centroids::Matrix{Float64} = zeros(3,mesh.nt)
@@ -314,7 +341,7 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     # Newton-Raphson
     dmu::Vector{Float64} = zeros(mesh.nt)
     du::Vector{Float64} = zeros(mesh.nv+1)
-    while div > maxDeviation && att < 0 # maxAtt
+    while div > maxDeviation && att < maxAtt # maxAtt
 
         att += 1
         Hold .= H
@@ -407,9 +434,9 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     
 end # end of main
 
-meshSize = 4.0
-localSize = 0.1
-showGmsh = true
+meshSize = 40.0
+localSize = 1.0
+showGmsh = false
 saveMesh = false
 
 main(meshSize,localSize,showGmsh,saveMesh)
