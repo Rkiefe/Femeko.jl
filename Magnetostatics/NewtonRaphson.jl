@@ -226,6 +226,11 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
         elementID[k] = id
     end
     
+    println("Number of elements ",size(mesh.t,2))
+    println("Number of Inside elements ",length(mesh.InsideElements))
+    println("Number of nodes ",size(mesh.p,2))
+    println("Number of Inside nodes ",length(mesh.InsideNodes))
+    println("Number of surface elements ",size(mesh.surfaceT,2))
 
     if showGmsh
         # gmsh.option.setNumber("Mesh.Clip", 1)
@@ -234,14 +239,6 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
         gmsh.fltk.run()
     end
     gmsh.finalize()
-
-    println("Number of elements ",size(mesh.t,2))
-    println("Number of Inside elements ",length(mesh.InsideElements))
-    println("Number of nodes ",size(mesh.p,2))
-    println("Number of Inside nodes ",length(mesh.InsideNodes))
-    println("Number of surface elements ",size(mesh.surfaceT,2))
-
-    # return
 
     # Element centroids
     centroids::Matrix{Float64} = zeros(3,mesh.nt)
@@ -270,7 +267,7 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     
     att::Int32 = 0
     div::Float64 = maxDeviation + 1.0
-    while div > picardDeviation && att < maxAtt # maxAtt 
+    while div > picardDeviation && att < 1 # maxAtt 
 
         att += 1
         Hold .= H
@@ -427,6 +424,8 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
         div = mu0*maximum(abs.(H[mesh.InsideElements].-Hold[mesh.InsideElements]))
         println(att, " | mu0 |H(n)-H(n-1)| = ", div)
 
+        println(norm(du)/norm(u))
+
     end # Newton iteration
 
     
@@ -449,7 +448,7 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
 end # end of main
 
 meshSize = 40.0
-localSize = 1.0
+localSize = 0.5
 showGmsh = false
 saveMesh = false
 
