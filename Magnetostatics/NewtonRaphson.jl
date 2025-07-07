@@ -61,7 +61,7 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     # Convergence criteria
     picardDeviation::Float64 = 1e-3
     maxDeviation::Float64 = 1e-10
-    maxAtt::Int32 = 10
+    maxAtt::Int32 = 20
 
     # Data of magnetic materials
     folder::String = "Materials/"
@@ -141,9 +141,8 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     gmsh.initialize()
 
     # Create an empty container
-    # box = addCuboid([0,0,0],10.0*[1,1,1])
-    box = addCuboid([0,0,0],8.25*[1,1,1])
-    # box = addSphere([0,0,0],5*maximum(L))
+    box = addCuboid([0,0,0],8.75*[1,1,1])
+    # box = addCuboid([0,0,0],[70.0,20.0,500.0])
 
     # Get how many surfaces compose the bounding shell
     temp = gmsh.model.getEntities(2)            # Get all surfaces of current model
@@ -153,14 +152,24 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     cells = []
     cellLabels::Vector{String} = ["Air"]
 
-    # Add Gadolinium
-    L = [1.65,1.65,0.04] # [1,1,1]  [1.65,1.65,0.04]
-    addCuboid([0,0,0], L, cells, true)
+    # Add Gadolinium plates
+    addCuboid([0,0,0],[1.65,1.65,0.05], cells, true)
     push!(cellLabels,"Gd")
 
+    addCuboid([0,0,0.1+2*0.05],[1.65,1.65,0.05], cells, true)
+    push!(cellLabels,"Gd")
+
+
     # Add Iron
-    # addCuboid([0,0,0.75],[1,1,0.5],cells,true)
-    # push!(cellLabels,"Fe")
+    addCuboid([(1.65+0.1)/2,0,0],[0.1,1.65,0.05],cells,true)
+    push!(cellLabels,"Fe")
+
+    addCuboid([(1.65+0.1)/2,0,0.1+2*0.05],[0.1,1.65,0.05],cells,true)
+    push!(cellLabels,"Fe")
+
+
+
+
 
 
     # Fragment to make a unified geometry
@@ -234,7 +243,7 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     
     att::Int32 = 0
     div::Float64 = maxDeviation + 1.0
-    while div > picardDeviation && att < maxAtt
+    while div > picardDeviation && att < maxAtt # maxAtt 
 
         att += 1
         Hold .= H
@@ -283,6 +292,12 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
             
             # Interpolate the dataset for this elements
             mu[elements] .= spl(H[elements])
+
+            # idx = findall(findErr -> !isfinite(findErr), mu)
+            # if !isempty(idx)
+            #     println(idx)
+            #     error("Nans/Infs in mu")
+            # end
         end
 
         # Check deviation from previous result
@@ -299,7 +314,7 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     # Newton-Raphson
     dmu::Vector{Float64} = zeros(mesh.nt)
     du::Vector{Float64} = zeros(mesh.nv+1)
-    while div > maxDeviation && att < maxAtt
+    while div > maxDeviation && att < 0 # maxAtt
 
         att += 1
         Hold .= H
