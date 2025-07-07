@@ -86,6 +86,8 @@ Main install:
 - Press ']' key to switch to the package manager "pkg >"
 - `add Gmsh LinearAlgebra SparseArrays`
 
+In some magnetostatics implementations, the datasets are interpolated using `Dierckx`. Add it like you did with LinearAlgebra.
+
 If you want the built in plots:
 - `add GLMakie` or/and `add CairoMakie`
 
