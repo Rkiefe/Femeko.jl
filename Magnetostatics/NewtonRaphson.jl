@@ -60,7 +60,7 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
 
     # Convergence criteria
     picardDeviation::Float64 = 1e-3
-    maxDeviation::Float64 = 1e-6
+    maxDeviation::Float64 = 1e-10
     maxAtt::Int32 = 10
 
     # Data of magnetic materials
@@ -98,7 +98,7 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     materialProperties["Gd"].mu = materialProperties["Gd"].B./materialProperties["Gd"].HofM
     
     # Remove Inf
-    idx = findall(x -> x==Inf, materialProperties["Gd"].mu)
+    idx = findall(x -> !isfinite(x), materialProperties["Gd"].mu)
     materialProperties["Gd"].mu[idx] .= 0.0
     materialProperties["Gd"].mu[idx] .= maximum(materialProperties["Gd"].mu)
 
@@ -107,7 +107,7 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
                    materialProperties["Gd"].B./materialProperties["Gd"].HofM)
 
     # Remove -Inf
-    idx = findall(x -> x==-Inf, dmu)
+    idx = findall(x -> !isfinite(x), dmu)
     dmu[idx] .= 0.0
     dmu[idx] .= minimum(dmu)
 
@@ -122,7 +122,7 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     materialProperties["Fe"].mu = materialProperties["Fe"].B./materialProperties["Fe"].HofM
     
     # Remove Inf
-    idx = findall(x -> x==Inf, materialProperties["Fe"].mu)
+    idx = findall(x -> !isfinite(x), materialProperties["Fe"].mu)
     materialProperties["Fe"].mu[idx] .= 0.0
     materialProperties["Fe"].mu[idx] .= maximum(materialProperties["Fe"].mu)
 
@@ -131,7 +131,7 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
                    materialProperties["Fe"].B./materialProperties["Fe"].HofM)
 
     # Remove -Inf
-    idx = findall(x -> x==-Inf, dmu)
+    idx = findall(x -> !isfinite(x), dmu)
     dmu[idx] .= 0.0
     dmu[idx] .= minimum(dmu)
 
@@ -154,7 +154,8 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     cellLabels::Vector{String} = ["Air"]
 
     # Add Gadolinium
-    addCuboid([0,0,0],[1.65,1.65,0.04],cells,true)
+    L = [1.65,1.65,0.04] # [1,1,1]  [1.65,1.65,0.04]
+    addCuboid([0,0,0], L, cells, true)
     push!(cellLabels,"Gd")
 
     # Add Iron
@@ -225,10 +226,12 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     mu::Vector{Float64} = zeros(mesh.nt) .+ mu0
 
     # FEM
+    u::Vector{Float64} = zeros(mesh.nv+1)
+    
     H_vectorField::Matrix{Float64} = zeros(mesh.nt,3)
     H::Vector{Float64} = zeros(mesh.nt)
     Hold::Vector{Float64} = zeros(mesh.nt)
-
+    
     att::Int32 = 0
     div::Float64 = maxDeviation + 1.0
     while div > picardDeviation && att < maxAtt
@@ -240,9 +243,8 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
         A = stiffnessMatrix(mesh, mu)
 
         # Magnetic scalar potential
-        u::Vector{Float64} = [A Lag;Lag' 0]\[-RHS;0]
-        u = u[1:mesh.nv]
-
+        u = [A Lag;Lag' 0]\[-RHS;0]
+        
         # Magnetic field
         H_vectorField .= 0.0
         for k in 1:mesh.nt
@@ -273,7 +275,8 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
             # Get the data set of current cell ID
             key = cellLabels[id]
             spl = Spline1D(materialProperties[key].HofM,
-                           materialProperties[key].mu)
+                           materialProperties[key].mu
+                           ;bc="nearest") # nearest , extrapolate
 
             # Find all elements of current cell ID
             elements = findall(x -> x==id, elementID)
@@ -283,7 +286,7 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
         end
 
         # Check deviation from previous result
-        div = mu0*maximum(abs.(H.-Hold))
+        div = mu0*maximum(abs.(H[mesh.InsideElements].-Hold[mesh.InsideElements]))
         println(att, " | mu0 |H(n)-H(n-1)| = ", div)
 
     end # Picard Iteration
@@ -291,11 +294,85 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     # Remove the lagrange multiplier
     pop!(u) # Remove last element of u
 
-    # 
+    println("Newton Raphson")
+
+    # Newton-Raphson
+    dmu::Vector{Float64} = zeros(mesh.nt)
+    du::Vector{Float64} = zeros(mesh.nv+1)
+    while div > maxDeviation && att < maxAtt
+
+        att += 1
+        Hold .= H
+
+        # Update magnetic permeability
+        for i in 1:length(cells)
+
+            # Cell ID
+            id = cells[i][2]
+
+            # Get the data set of current cell ID
+            key = cellLabels[id]
+            spl = Spline1D(materialProperties[key].HofM,
+                           materialProperties[key].mu
+                           ;bc="nearest") # nearest , extrapolate
+
+            # Find all elements of current cell ID
+            elements = findall(x -> x==id, elementID)
+            
+            # Interpolate the dataset for this elements
+            mu[elements] .= spl(H[elements])
 
 
+            # d/dH mu
 
-    
+            # Get the data set of current cell ID
+            key = cellLabels[id]
+            spl = Spline1D(materialProperties[key].HofM,
+                           materialProperties[key].dmu
+                           ;bc="nearest") # nearest , extrapolate
+
+            dmu[elements] .= spl(H[elements])
+        end # Data interpolation
+
+        # Stiffness matrix
+        A = stiffnessMatrix(mesh, mu)
+
+        # Tangential stiffness matrix
+        At = tangentialStiffnessMatrix(mesh, H_vectorField, dmu)
+
+        # Correction to the magnetic scalar potential
+        du = [A+At Lag;Lag' 0]\[-RHS-A*u;0]
+        
+        # Update the potential
+        u .+= du[1:mesh.nv]
+
+        # Magnetic field
+        H_vectorField .= 0.0
+        for k in 1:mesh.nt
+            nds = mesh.t[:,k];
+
+            # Sum the contributions
+            for nd in nds
+                # obtain the element parameters
+                _,b,c,d = abcd(mesh.p,nds,nd)
+
+                H_vectorField[k,1] -= u[nd]*b;
+                H_vectorField[k,2] -= u[nd]*c;
+                H_vectorField[k,3] -= u[nd]*d;
+            end
+        end
+
+        # Magnetic field intensity
+        for k in 1:mesh.nt
+            H[k] = norm(H_vectorField[k,:])
+        end
+
+        # Check deviation from previous result
+        div = mu0*maximum(abs.(H[mesh.InsideElements].-Hold[mesh.InsideElements]))
+        println(att, " | mu0 |H(n)-H(n-1)| = ", div)
+
+    end # Newton iteration
+
     
     # Plot result | Uncomment "using GLMakie"
     fig = Figure()
@@ -317,7 +394,7 @@ end # end of main
 
 meshSize = 4.0
 localSize = 0.1
-showGmsh = false
+showGmsh = true
 saveMesh = false
 
 main(meshSize,localSize,showGmsh,saveMesh)

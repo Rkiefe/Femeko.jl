@@ -56,6 +56,49 @@ function localStiffnessMatrix(mesh::MESH,f::Vector{Float64})
     return Ak
 end # Local stiffnessmatrix in 100% Julia
 
+# Tangential stiffness matrix for Newton Iteration
+function tangentialStiffnessMatrix(mesh::MESH, H_vec::Matrix{Float64}, dmu::Vector{Float64})
+
+    At = spzeros(mesh.nv,mesh.nv)
+    Ak::Matrix{Float64} = zeros(16, mesh.nt)
+    b::Vector{Float64} = zeros(4)
+    c::Vector{Float64} = zeros(4)
+    d::Vector{Float64} = zeros(4)
+    aux::Matrix{Float64} = zeros(4,4)
+
+    for k in 1:mesh.nt
+        nds = @view mesh.t[:,k]
+        for i in 1:4
+            _,b[i],c[i],d[i] = abcd(mesh.p,nds,nds[i])
+        end
+
+        H::Float64 = norm(H_vec[k,:])
+        
+        for i in 1:4
+            for j in i:4
+                aux[i,j] = mesh.VE[k]*dmu[k]/H *
+                           (H_vec[k,1]*b[i] + H_vec[k,2]*c[i] + H_vec[k,3]*d[i]) *
+                           (H_vec[k,1]*b[j] + H_vec[k,2]*c[j] + H_vec[k,3]*d[j])
+            
+                aux[j,i] = aux[i,j]
+            end
+        end
+
+        Ak[:,k] = aux[:] # vec(aux)
+    end
+
+    # Update sparse global matrix
+    n = 0
+    for i in 1:4
+        for j in 1:4
+            n += 1
+            At += sparse(mesh.t[i,:],mesh.t[j,:],Ak[n,:],mesh.nv,mesh.nv)
+        end
+    end
+
+    return At
+end # Newton iteration matrix
+
 # Lagrange multiplier technique
 function lagrange(mesh::MESH)
     C::Vector{Float64} = zeros(mesh.nv)
