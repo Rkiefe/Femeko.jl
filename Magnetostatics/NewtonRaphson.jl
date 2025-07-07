@@ -60,7 +60,7 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
 
     # Convergence criteria
     picardDeviation::Float64 = 1e-4
-    maxDeviation::Float64 = 1e-10
+    maxDeviation::Float64 = 1e-4
     maxAtt::Int32 = 100
 
     # Data of magnetic materials
