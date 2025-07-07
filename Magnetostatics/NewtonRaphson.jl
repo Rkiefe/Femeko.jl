@@ -59,9 +59,9 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     Hext::Vector{Float64} = [0,0,1]./mu0    # A/m
 
     # Convergence criteria
-    picardDeviation::Float64 = 2.0 # 1e-4
+    picardDeviation::Float64 = 1e-4
     maxDeviation::Float64 = 1e-10
-    maxAtt::Int32 = 10
+    maxAtt::Int32 = 100
 
     # Data of magnetic materials
     folder::String = "Materials/"
@@ -320,11 +320,11 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
             # Interpolate the dataset for this elements
             mu[elements] .= spl(H[elements])
 
-            # idx = findall(findErr -> !isfinite(findErr), mu)
-            # if !isempty(idx)
-            #     println(idx)
-            #     error("Nans/Infs in mu")
-            # end
+            idx = findall(findErr -> !isfinite(findErr), mu)
+            if !isempty(idx)
+                println(idx)
+                error("Nans/Infs in mu")
+            end
         end
 
         # Check deviation from previous result
@@ -371,9 +371,23 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
             key = cellLabels[id]
             spl = Spline1D(materialProperties[key].HofM,
                            materialProperties[key].dmu
-                           ;bc="nearest") # nearest , extrapolate
+                           ;bc="extrapolate") # nearest , extrapolate
 
             dmu[elements] .= spl(H[elements])
+
+            # Check for nans
+            idx = findall(findErr -> !isfinite(findErr), mu)
+            if !isempty(idx)
+                println(idx)
+                error("Nans/Infs in mu")
+            end
+
+            idx = findall(findErr -> !isfinite(findErr), dmu)
+            if !isempty(idx)
+                println(idx)
+                error("Nans/Infs in dmu")
+            end
+
         end # Data interpolation
 
         # Stiffness matrix
