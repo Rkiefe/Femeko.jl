@@ -1,8 +1,13 @@
+#=
+    Newton Raphson (or Newton Galerkin) iteration method
+    for magnetostatics    
+=#
+
 
 include("../src/gmsh_wrapper.jl")
 include("../src/FEM.jl")
 
-# For plots | Uncomment the plot section of "main()"
+# For plots
 using GLMakie
 
 # To read data from files
@@ -56,11 +61,11 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     T::Float64 = 293.0
 
     # Applied field
-    Hext::Vector{Float64} = [0,0,1]./mu0    # A/m
+    Hext::Vector{Float64} = [1.35,0,0]./mu0    # A/m
 
     # Convergence criteria
     picardDeviation::Float64 = 1e-4
-    maxDeviation::Float64 = 1e-4
+    maxDeviation::Float64 = 1e-6
     maxAtt::Int32 = 100
 
     # Data of magnetic materials
@@ -115,8 +120,8 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
 
     
     # Load Iron data
-    materialProperties["Fe"].HofM = vec(readdlm(folder*"Pure_Iron_FEMM/H.dat"))  # A/m
-    materialProperties["Fe"].B = vec(readdlm(folder*"Pure_Iron_FEMM/B.dat"))     # T
+    materialProperties["Fe"].HofM = vec(readdlm(folder*"Pure_Iron_FEMM/H_Fe_extrap.dat"))  # A/m
+    materialProperties["Fe"].B = vec(readdlm(folder*"Pure_Iron_FEMM/B_Fe_extrap.dat"))     # T
 
     # Permeability
     materialProperties["Fe"].mu = materialProperties["Fe"].B./materialProperties["Fe"].HofM
@@ -148,8 +153,8 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     L::Vector{Float64} = [Leng, Leng, thick]
 
     # Create an empty container
-    box = addCuboid([0,0,0],5*maximum(L)*[1,1,1])
-    # box = addCuboid([0,0,0],[70.0,20.0,500.0])
+    # box = addCuboid([0,0,0],5*maximum(L)*[1,1,1])
+    box = addSphere([0,0,0],5*maximum(L))
 
     # Get how many surfaces compose the bounding shell
     temp = gmsh.model.getEntities(2)            # Get all surfaces of current model
@@ -159,41 +164,70 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     cells = []
     cellLabels::Vector{String} = ["Air"]
 
+
     # Add Gadolinium plates
-    addCuboid([0,0,0],L, cells, true)
+
+    # 1
+    y::Float64 = (spacing+2*thick)/2
+    addCuboid([0,0,y], L, cells, true)
     push!(cellLabels,"Gd")
 
-    addCuboid([0,0,spacing+2*thick],[Leng, Leng, thick], cells, true)
+    # 2
+    y += spacing+2*thick
+
+    addCuboid([0,0,y], L, cells, true)
     push!(cellLabels,"Gd")
 
+    # 3
+    y += spacing+2*thick
+
+    addCuboid([0,0,y], L, cells, true)
+    push!(cellLabels,"Gd")
+
+    # 4
+    y += spacing+2*thick
+
+    addCuboid([0,0,y], L, cells, true)
+    push!(cellLabels,"Gd")
+
+    # 5
+    y = -(spacing+2*thick)/2
+
+    addCuboid([0,0,y], L, cells, true)
+    push!(cellLabels,"Gd")
+
+    # 6
+    y -= spacing+2*thick
+
+    addCuboid([0,0,y], L, cells, true)
+    push!(cellLabels,"Gd")
+
+    # 7
+    y -= spacing+2*thick
+
+    addCuboid([0,0,y], L, cells, true)
+    push!(cellLabels,"Gd")
+
+    # 8
+    y -= spacing+2*thick
+
+    addCuboid([0,0,y], L, cells, true)
+    push!(cellLabels,"Gd")
 
     # Add Iron
     thickIron::Float64 = 1.0
-    addCuboid([(Leng+thickIron)/2, 0.0 , 0.0],
-              [thickIron, Leng, thick],
+    addCuboid([-(Leng+thickIron)/2, 0.0 , 0],
+              [thickIron, L[2], 2.1*y],
               cells,true)
 
     push!(cellLabels,"Fe")
 
-    addCuboid([-(Leng+thickIron)/2, 0.0 , 0.0],
-              [thickIron, Leng, thick],
+    addCuboid([(Leng+thickIron)/2, 0.0 , 0],
+              [thickIron, L[2], 2.1*y],
               cells,true)
 
     push!(cellLabels,"Fe")
-    
 
-    addCuboid([(Leng+thickIron)/2, 0.0, spacing+2*thick],
-              [thickIron, Leng, thick],
-              cells,true)
-    
-    push!(cellLabels,"Fe")
-
-    addCuboid([-(Leng+thickIron)/2, 0.0, spacing+2*thick],
-              [thickIron, Leng, thick],
-              cells,true)
-    
-    push!(cellLabels,"Fe")
-    
     
 
 
@@ -240,6 +274,8 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     end
     gmsh.finalize()
 
+    # return
+
     # Element centroids
     centroids::Matrix{Float64} = zeros(3,mesh.nt)
     for k in 1:mesh.nt
@@ -267,7 +303,7 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     
     att::Int32 = 0
     div::Float64 = maxDeviation + 1.0
-    while div > picardDeviation && att < 1 # maxAtt 
+    while div > picardDeviation && att < maxAtt # maxAtt 
 
         att += 1
         Hold .= H
@@ -309,7 +345,7 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
             key = cellLabels[id]
             spl = Spline1D(materialProperties[key].HofM,
                            materialProperties[key].mu
-                           ;bc="nearest") # nearest , extrapolate
+                           ) # ;bc="nearest") # nearest , extrapolate
 
             # Find all elements of current cell ID
             elements = findall(x -> x==id, elementID)
@@ -353,7 +389,7 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
             key = cellLabels[id]
             spl = Spline1D(materialProperties[key].HofM,
                            materialProperties[key].mu
-                           ;bc="nearest") # nearest , extrapolate
+                           ) # ;bc="nearest") # nearest , extrapolate
 
             # Find all elements of current cell ID
             elements = findall(x -> x==id, elementID)
@@ -368,7 +404,7 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
             key = cellLabels[id]
             spl = Spline1D(materialProperties[key].HofM,
                            materialProperties[key].dmu
-                           ;bc="extrapolate") # nearest , extrapolate
+                           ) # ;bc="extrapolate") # nearest , extrapolate
 
             dmu[elements] .= spl(H[elements])
 
@@ -423,12 +459,41 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
         # Check deviation from previous result
         div = mu0*maximum(abs.(H[mesh.InsideElements].-Hold[mesh.InsideElements]))
         println(att, " | mu0 |H(n)-H(n-1)| = ", div)
-
-        println(norm(du)/norm(u))
+        # println(norm(du[1:mesh.nv])/norm(u))
 
     end # Newton iteration
 
+    # Magnetic flux
+    B::Vector{Float64} = mu.*H
+
     
+    # Average magnetic field of Gd
+    H_avg::Float64 = 0.0
+    volume::Float64 = 0.0
+    for i in 1:length(cells)
+
+        # Cell ID
+        id = cells[i][2]
+
+        # Get the data set of current cell ID
+        key = cellLabels[id]
+
+        if key == "Gd"
+
+            # Find all elements of current cell ID
+            elements = findall(x -> x==id, elementID)
+        
+            for k in elements
+                volume += mesh.VE[k]
+                H_avg += H[k]*mesh.VE[k]
+            end
+
+        end # Only add the Gd elements
+
+    end # <H>
+    H_avg /= volume
+    println("mu_0 <H> = ", mu0*H_avg)
+
     # Plot result | Uncomment "using GLMakie"
     fig = Figure()
     ax = Axis3(fig[1, 1], aspect = :data, title="Magnetic field H")
@@ -436,9 +501,9 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
         centroids[1,mesh.InsideElements],
         centroids[2,mesh.InsideElements],
         centroids[3,mesh.InsideElements], 
-        color = mu0.*H[mesh.InsideElements], 
+        color = H[mesh.InsideElements], 
         colormap=:rainbow, 
-        markersize=20 .* mesh.VE[mesh.InsideElements]./maximum(mesh.VE[mesh.InsideElements]))
+        markersize=20) # 20 .* mesh.VE[mesh.InsideElements]./maximum(mesh.VE[mesh.InsideElements])
 
     Colorbar(fig[1, 2], scatterPlot, label="|H|") # Add a colorbar
     
@@ -447,9 +512,9 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     
 end # end of main
 
-meshSize = 40.0
-localSize = 0.5
-showGmsh = false
+meshSize = 82.5
+localSize = 1.0
+showGmsh = true
 saveMesh = false
 
 main(meshSize,localSize,showGmsh,saveMesh)
