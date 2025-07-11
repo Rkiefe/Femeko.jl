@@ -67,6 +67,7 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     picardDeviation::Float64 = 1e-4
     maxDeviation::Float64 = 1e-6
     maxAtt::Int32 = 100
+    relax::Float64 = 0.001 # Relaxation factor for N-R ]0, 1.0]
 
     # Data of magnetic materials
     folder::String = "Materials/"
@@ -303,7 +304,7 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     
     att::Int32 = 0
     div::Float64 = maxDeviation + 1.0
-    while div > picardDeviation && att < maxAtt # maxAtt 
+    while div > picardDeviation && att < 1 # maxAtt 
 
         att += 1
         Hold .= H
@@ -379,6 +380,49 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
         att += 1
         Hold .= H
 
+        # Stiffness matrix
+        A = stiffnessMatrix(mesh, mu)
+
+        # Tangential stiffness matrix
+        At = tangentialStiffnessMatrix(mesh, H_vectorField, dmu)
+
+        # Correction to the magnetic scalar potential
+        du = [A+At Lag;Lag' 0]\[-RHS-A*u;0]
+        
+        # Norm of correction over the value
+        println(att, " |du|/|u| = ", norm(du[1:mesh.nv])/norm(u))
+
+        # Update the potential
+        u .+= relax.*du[1:mesh.nv]
+
+        # Magnetic field
+        H_vectorField .= 0.0
+        for k in 1:mesh.nt
+            nds = @view mesh.t[:,k];
+
+            Hx::Float64 = 0
+            Hy::Float64 = 0
+            Hz::Float64 = 0
+            # Sum the contributions
+            for nd in nds
+                # obtain the element parameters
+                _,b,c,d = abcd(mesh.p,nds,nd)
+
+                Hx -= u[nd]*b
+                Hy -= u[nd]*c
+                Hz -= u[nd]*d
+            end
+            
+            H_vectorField[k,1] = Hx
+            H_vectorField[k,2] = Hy
+            H_vectorField[k,3] = Hz
+        end
+
+        # Magnetic field intensity
+        for k in 1:mesh.nt
+            H[k] = norm(H_vectorField[k,:])
+        end
+
         # Update magnetic permeability
         for i in 1:length(cells)
 
@@ -423,49 +467,14 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
 
         end # Data interpolation
 
-        # Stiffness matrix
-        A = stiffnessMatrix(mesh, mu)
-
-        # Tangential stiffness matrix
-        At = tangentialStiffnessMatrix(mesh, H_vectorField, dmu)
-
-        # Correction to the magnetic scalar potential
-        du = [A+At Lag;Lag' 0]\[-RHS-A*u;0]
-        
-        # Update the potential
-        u .+= du[1:mesh.nv]
-
-        # Magnetic field
-        H_vectorField .= 0.0
-        for k in 1:mesh.nt
-            nds = mesh.t[:,k];
-
-            # Sum the contributions
-            for nd in nds
-                # obtain the element parameters
-                _,b,c,d = abcd(mesh.p,nds,nd)
-
-                H_vectorField[k,1] -= u[nd]*b;
-                H_vectorField[k,2] -= u[nd]*c;
-                H_vectorField[k,3] -= u[nd]*d;
-            end
-        end
-
-        # Magnetic field intensity
-        for k in 1:mesh.nt
-            H[k] = norm(H_vectorField[k,:])
-        end
-
         # Check deviation from previous result
         div = mu0*maximum(abs.(H[mesh.InsideElements].-Hold[mesh.InsideElements]))
         println(att, " | mu0 |H(n)-H(n-1)| = ", div)
-        # println(norm(du[1:mesh.nv])/norm(u))
 
     end # Newton iteration
 
     # Magnetic flux
     B::Vector{Float64} = mu.*H
-
     
     # Average magnetic field of Gd
     H_avg::Float64 = 0.0
@@ -496,7 +505,7 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
 
     # Plot result | Uncomment "using GLMakie"
     fig = Figure()
-    ax = Axis3(fig[1, 1], aspect = :data, title="Magnetic field H")
+    ax = Axis3(fig[1, 1], aspect = :data, title="With relax = "*string(relax))
     scatterPlot = scatter!(ax, 
         centroids[1,mesh.InsideElements],
         centroids[2,mesh.InsideElements],
@@ -514,7 +523,7 @@ end # end of main
 
 meshSize = 82.5
 localSize = 1.0
-showGmsh = true
+showGmsh = false
 saveMesh = false
 
 main(meshSize,localSize,showGmsh,saveMesh)
