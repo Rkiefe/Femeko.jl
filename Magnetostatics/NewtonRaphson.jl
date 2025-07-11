@@ -8,7 +8,7 @@ include("../src/gmsh_wrapper.jl")
 include("../src/FEM.jl")
 
 # For plots
-using GLMakie
+# using CairoMakie
 
 # To read data from files
 using DelimitedFiles
@@ -66,7 +66,7 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     # Convergence criteria
     picardDeviation::Float64 = 1e-4
     maxDeviation::Float64 = 1e-6
-    maxAtt::Int32 = 100
+    maxAtt::Int32 = 2
     relax::Float64 = 0.001 # Relaxation factor for N-R ]0, 1.0]
 
     # Data of magnetic materials
@@ -503,22 +503,28 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     H_avg /= volume
     println("mu_0 <H> = ", mu0*H_avg)
 
-    # Plot result | Uncomment "using GLMakie"
-    fig = Figure()
-    ax = Axis3(fig[1, 1], aspect = :data, title="With relax = "*string(relax))
-    scatterPlot = scatter!(ax, 
-        centroids[1,mesh.InsideElements],
-        centroids[2,mesh.InsideElements],
-        centroids[3,mesh.InsideElements], 
-        color = H[mesh.InsideElements], 
-        colormap=:rainbow, 
-        markersize=20) # 20 .* mesh.VE[mesh.InsideElements]./maximum(mesh.VE[mesh.InsideElements])
+    # Open a file for writing (creates or overwrites)
+    open("output.txt", "w") do file
+        println(file, "relax = ", relax)
+    end
 
-    Colorbar(fig[1, 2], scatterPlot, label="|H|") # Add a colorbar
+    # Plot result | Uncomment "using GLMakie"
+    # fig = Figure()
+    # ax = Axis3(fig[1, 1], aspect = :data, title="With relax = "*string(relax))
+    # scatterPlot = scatter!(ax, 
+    #     centroids[1,mesh.InsideElements],
+    #     centroids[2,mesh.InsideElements],
+    #     centroids[3,mesh.InsideElements], 
+    #     color = H[mesh.InsideElements], 
+    #     colormap=:rainbow, 
+    #     markersize=20) # 20 .* mesh.VE[mesh.InsideElements]./maximum(mesh.VE[mesh.InsideElements])
+
+    # Colorbar(fig[1, 2], scatterPlot, label="|H|") # Add a colorbar
     
     # Display the figure (this will open an interactive window)
-    wait(display(fig))
-    
+    # wait(display(fig))
+    # save("relax_"*string(relax)*".png",fig)
+
 end # end of main
 
 meshSize = 82.5
