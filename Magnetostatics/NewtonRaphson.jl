@@ -506,6 +506,7 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     # Open a file for writing (creates or overwrites)
     open("output.txt", "w") do file
         println(file, "relax = ", relax)
+        println(file, "mu0 <H> = ", mu0*H_avg)
     end
 
     # Plot result | Uncomment "using GLMakie"
