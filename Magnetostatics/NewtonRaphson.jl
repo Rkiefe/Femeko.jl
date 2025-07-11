@@ -8,13 +8,15 @@ include("../src/gmsh_wrapper.jl")
 include("../src/FEM.jl")
 
 # For plots
-# using CairoMakie
+using GLMakie
 
 # To read data from files
 using DelimitedFiles
 
 # Wrapper to Fortran dierckx | Interpolation functions
 using Dierckx
+
+using IterativeSolvers
 
 mutable struct DATA
     # Magnetization data
@@ -55,7 +57,7 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     =#
 
     # vacuum magnetic permeability
-    mu0 = pi*4e-7      
+    mu0 = pi*4e-7
 
     # Temperature
     T::Float64 = 293.0
@@ -66,8 +68,8 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     # Convergence criteria
     picardDeviation::Float64 = 1e-4
     maxDeviation::Float64 = 1e-6
-    maxAtt::Int32 = 2
-    relax::Float64 = 0.001 # Relaxation factor for N-R ]0, 1.0]
+    maxAtt::Int32 = 10
+    relax::Float64 = 0.5 # Relaxation factor for N-R ]0, 1.0]
 
     # Data of magnetic materials
     folder::String = "Materials/"
@@ -312,9 +314,14 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
         # Stiffness matrix
         A = stiffnessMatrix(mesh, mu)
 
+        # Check condition number
+        # println("Condition: ", cond(Matrix([A Lag; Lag' 0])))
+
         # Magnetic scalar potential
-        u = [A Lag;Lag' 0]\[-RHS;0]
-        
+        # u = [A Lag;Lag' 0]\[-RHS;0]
+        u = minres([A Lag; Lag' 0], [-RHS; 0]
+                    ) # , verbose=true
+
         # Magnetic field
         H_vectorField .= 0.0
         for k in 1:mesh.nt
@@ -387,7 +394,8 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
         At = tangentialStiffnessMatrix(mesh, H_vectorField, dmu)
 
         # Correction to the magnetic scalar potential
-        du = [A+At Lag;Lag' 0]\[-RHS-A*u;0]
+        # du = [A+At Lag;Lag' 0]\[-RHS-A*u;0]
+        du = minres([A+At Lag;Lag' 0], [-RHS-A*u;0])
         
         # Norm of correction over the value
         println(att, " |du|/|u| = ", norm(du[1:mesh.nv])/norm(u))
@@ -504,33 +512,33 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     println("mu_0 <H> = ", mu0*H_avg)
 
     # Open a file for writing (creates or overwrites)
-    open("output.txt", "w") do file
+    open("output.txt", "a") do file
         println(file, "relax = ", relax)
         println(file, "mu0 <H> = ", mu0*H_avg)
     end
 
     # Plot result | Uncomment "using GLMakie"
-    # fig = Figure()
-    # ax = Axis3(fig[1, 1], aspect = :data, title="With relax = "*string(relax))
-    # scatterPlot = scatter!(ax, 
-    #     centroids[1,mesh.InsideElements],
-    #     centroids[2,mesh.InsideElements],
-    #     centroids[3,mesh.InsideElements], 
-    #     color = H[mesh.InsideElements], 
-    #     colormap=:rainbow, 
-    #     markersize=20) # 20 .* mesh.VE[mesh.InsideElements]./maximum(mesh.VE[mesh.InsideElements])
+    fig = Figure()
+    ax = Axis3(fig[1, 1], aspect = :data, title="With relax = "*string(relax))
+    scatterPlot = scatter!(ax, 
+        centroids[1,mesh.InsideElements],
+        centroids[2,mesh.InsideElements],
+        centroids[3,mesh.InsideElements], 
+        color = H[mesh.InsideElements], 
+        colormap=:rainbow, 
+        markersize=20 .* mesh.VE[mesh.InsideElements]./maximum(mesh.VE[mesh.InsideElements])) # 20 .* mesh.VE[mesh.InsideElements]./maximum(mesh.VE[mesh.InsideElements])
 
-    # Colorbar(fig[1, 2], scatterPlot, label="|H|") # Add a colorbar
+    Colorbar(fig[1, 2], scatterPlot, label="|H|") # Add a colorbar
     
     # Display the figure (this will open an interactive window)
-    # wait(display(fig))
+    wait(display(fig))
     # save("relax_"*string(relax)*".png",fig)
 
 end # end of main
 
-meshSize = 82.5
-localSize = 1.0
-showGmsh = false
+meshSize  = 40.5 # 82.5
+localSize = 0.5 # 1.0
+showGmsh = true
 saveMesh = false
 
 main(meshSize,localSize,showGmsh,saveMesh)
