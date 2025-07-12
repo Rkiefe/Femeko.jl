@@ -36,11 +36,11 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     Hext::Vector{Float64} = [1.35,0,0]     # T
 
     # Dimensions
-    L::Vector{Float64} = [10.0, 0.1, 5.0]
+    L::Vector{Float64} = [1.65, 1.65, 0.04]
     # L::Vector{Float64} = [1,1,1]
     
     # Relative magnetic permeability
-    permeability::Float64 = 14872
+    permeability::Float64 = 2
 
     # Create a geometry
     gmsh.initialize()
@@ -183,9 +183,9 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
 
 end # end of main
 
-meshSize = 50.0
-localSize = 1.0
-showGmsh = false
+meshSize = 8.25
+localSize = 0.1
+showGmsh = true
 saveMesh = false
 
 main(meshSize,localSize,showGmsh,saveMesh)
