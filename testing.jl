@@ -24,64 +24,28 @@ function userMade(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     addCuboid([-3*L[1]/4,0,0], L, cells, true)
 
     # Create a bounding shell
-    box = addSphere([0,0,0], 5*maximum(L), cells, true) # *[1,1,1]
+    box = addSphere([0,0,0], 5*maximum(L)) # *[1,1,1]
 
     # Fragment to make a unified geometry
-    gmsh.model.occ.fragment(cells, [])
+    gmsh.model.occ.fragment([(3,box)], cells)
     gmsh.model.occ.synchronize()
     
     # Get bounding shell surface id
     shell_id = gmsh.model.getBoundary([(3, box)], false, false, false)
     shell_id = [s[2] for s in shell_id]
 
-    # Generate Mesh
-    mesh = Mesh(cells,meshSize,localSize,saveMesh)
+    # Volume surface ids
+    internal_surfaces = gmsh.model.getBoundary(cells, false, false, false)
+    internal_surfaces = [s[2] for s in internal_surfaces]
 
-    gmsh.fltk.run()
-    gmsh.finalize()
+    println(shell_id)
+    println(internal_surfaces)    
+    println(setdiff(shell_id, internal_surfaces))
 
-    println("Number of elements ",size(mesh.t,2))
-    println("Number of Inside elements ",length(mesh.InsideElements))
-    println("Number of nodes ",size(mesh.p,2))
-    println("Number of Inside nodes ",length(mesh.InsideNodes))
-    println("Number of surface elements ",size(mesh.surfaceT,2))
-
-end
-
-function meshCAD(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
-    #=
-        Makes a model with cubes and spheres and refines the mesh on the spheres
-    
-        Input:
-            meshSize  - Mesh size (0 = let gmsh choose)
-            localSize - Size of mesh in every volume beyond the container (0 for no local refinement)
-            saveMesh  - Save mesh to a FEMCE compatible format 
-    =#
-    
-    # Create a geometry
-    gmsh.initialize()
-
-    # List of cells inside the container
-    cells = []
-
-    # Import cad file
-    box, bounding_shell_n_surfaces = importCAD("STEP_Models/Fennec_Fox.step",cells)
-
-    # Fragment to make a unified geometry
-    _, fragments = gmsh.model.occ.fragment([(3, box)], cells)
-    gmsh.model.occ.synchronize()
-
-    # Update container volume ID
-    box = fragments[1][1][2]
+    shell_id = setdiff(shell_id, internal_surfaces)
 
     # Generate Mesh
     mesh = Mesh(cells,meshSize,localSize,saveMesh)
-    
-    # Get bounding shell surface id
-    shell_id = gmsh.model.getAdjacencies(3, box)[2]
-
-    # Must remove the surface Id of the interior surfaces
-    shell_id = shell_id[bounding_shell_n_surfaces] # All other, are interior surfaces
 
     if showGmsh
         gmsh.fltk.run()
@@ -94,10 +58,37 @@ function meshCAD(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     println("Number of Inside nodes ",length(mesh.InsideNodes))
     println("Number of surface elements ",size(mesh.surfaceT,2))
 
-end # end of main
+    # Element centroids
+    centroids::Matrix{Float64} = zeros(3,mesh.nt)
+    for k in 1:mesh.nt
+        nds = mesh.t[:,k]
+        centroids[1,k] = sum(mesh.p[1,nds])/4
+        centroids[2,k] = sum(mesh.p[2,nds])/4
+        centroids[3,k] = sum(mesh.p[3,nds])/4
+    end
 
-meshSize = 0.0
-localSize = 0.0
+    # Plot result | Uncomment "using GLMakie"
+    fig = Figure()
+    ax = Axis3(fig[1, 1], aspect = :data, title="Mesh")
+    scatterPlot = scatter!(ax, 
+        centroids[1,mesh.InsideElements],
+        centroids[2,mesh.InsideElements],
+        centroids[3,mesh.InsideElements], 
+        color = :lightblue, 
+        markersize=20)
+        # markersize=20 .* mesh.VE[mesh.InsideElements]./maximum(mesh.VE[mesh.InsideElements]))
+        # colormap=:rainbow, 
+
+    # Colorbar(fig[1, 2], scatterPlot) # Add a colorbar
+    
+    # Display the figure (this will open an interactive window)
+    wait(display(fig)) # This is required only if runing outside the repl
+    
+
+end
+
+meshSize = 25.0
+localSize = 1.0
 showGmsh = true
 saveMesh = false
 
