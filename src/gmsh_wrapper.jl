@@ -326,16 +326,22 @@ function Mesh(cells,meshSize=0,localSize=0,saveMesh::Bool=false)
 
     # Mesh elements inside the container
     if !isempty(cells)
-        InsideElements = zeros(mesh.nt,1)
-        for k in 1:mesh.nt
-            etype,nodeTags,dim, id = gmsh.model.mesh.getElement(t_tags[k])
+
+        mesh.InsideElements = zeros(mesh.nt)
+        mesh.nInside = 0
+        for k::Int32 in 1:mesh.nt
             # element type , nodes of the element , dimension , id
+            _, _, _, id = gmsh.model.mesh.getElement(t_tags[k])
+
             if id in volumeID
-                InsideElements[k] = k
+                mesh.nInside += 1
+                mesh.InsideElements[mesh.nInside] = k
             end
         end
-        mesh.InsideElements = Int.(InsideElements[InsideElements.!=0])
-        mesh.nInside = length(mesh.InsideElements)
+
+        # Remove non-zeros
+        mesh.InsideElements = mesh.InsideElements[1:mesh.nInside]
+
     else
         mesh.InsideElements = []
         mesh.nInside = 0
