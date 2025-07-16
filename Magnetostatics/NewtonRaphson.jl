@@ -69,7 +69,7 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     picardDeviation::Float64 = 1e-4
     maxDeviation::Float64 = 1e-6
     maxAtt::Int32 = 10
-    relax::Float64 = 0.5 # Relaxation factor for N-R ]0, 1.0]
+    relax::Float64 = 1.0 # Relaxation factor for N-R ]0, 1.0]
 
     # Data of magnetic materials
     folder::String = "Materials/"
@@ -147,16 +147,11 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
 
     # 3D Model
     gmsh.initialize()
-
-    # Dimensions of each plate
-    spacing::Float64 = 1.25
-    thick::Float64 = 0.5
-    Leng::Float64 = 16.5
-
-    L::Vector{Float64} = [Leng, Leng, thick]
+    
+    # Dimensions of magnetic material
+    L::Vector{Float64} = [16.5, 16.5, 0.4]
 
     # Create an empty container
-    # box = addCuboid([0,0,0],5*maximum(L)*[1,1,1])
     box = addSphere([0,0,0],5*maximum(L))
 
     # Get how many surfaces compose the bounding shell
@@ -167,72 +162,9 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     cells = []
     cellLabels::Vector{String} = ["Air"]
 
-
-    # Add Gadolinium plates
-
-    # 1
-    y::Float64 = (spacing+2*thick)/2
-    addCuboid([0,0,y], L, cells, true)
+    # Add magnetic material
+    addCuboid([0,0,0], L, cells, true)
     push!(cellLabels,"Gd")
-
-    # 2
-    y += spacing+2*thick
-
-    addCuboid([0,0,y], L, cells, true)
-    push!(cellLabels,"Gd")
-
-    # 3
-    y += spacing+2*thick
-
-    addCuboid([0,0,y], L, cells, true)
-    push!(cellLabels,"Gd")
-
-    # 4
-    y += spacing+2*thick
-
-    addCuboid([0,0,y], L, cells, true)
-    push!(cellLabels,"Gd")
-
-    # 5
-    y = -(spacing+2*thick)/2
-
-    addCuboid([0,0,y], L, cells, true)
-    push!(cellLabels,"Gd")
-
-    # 6
-    y -= spacing+2*thick
-
-    addCuboid([0,0,y], L, cells, true)
-    push!(cellLabels,"Gd")
-
-    # 7
-    y -= spacing+2*thick
-
-    addCuboid([0,0,y], L, cells, true)
-    push!(cellLabels,"Gd")
-
-    # 8
-    y -= spacing+2*thick
-
-    addCuboid([0,0,y], L, cells, true)
-    push!(cellLabels,"Gd")
-
-    # Add Iron
-    thickIron::Float64 = 1.0
-    addCuboid([-(Leng+thickIron)/2, 0.0 , 0],
-              [thickIron, L[2], 2.1*y],
-              cells,true)
-
-    push!(cellLabels,"Fe")
-
-    addCuboid([(Leng+thickIron)/2, 0.0 , 0],
-              [thickIron, L[2], 2.1*y],
-              cells,true)
-
-    push!(cellLabels,"Fe")
-
-    
-
 
     # Fragment to make a unified geometry
     _, fragments = gmsh.model.occ.fragment([(3, box)], cells)
@@ -276,8 +208,6 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
         gmsh.fltk.run()
     end
     gmsh.finalize()
-
-    # return
 
     # Element centroids
     centroids::Matrix{Float64} = zeros(3,mesh.nt)
@@ -513,7 +443,7 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
 
     # Open a file for writing (creates or overwrites)
     open("output.txt", "a") do file
-        println(file, "relax = ", relax)
+        println(file, "Horizontal ", relax)
         println(file, "mu0 <H> = ", mu0*H_avg)
     end
 
@@ -524,10 +454,10 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
         centroids[1,mesh.InsideElements],
         centroids[2,mesh.InsideElements],
         centroids[3,mesh.InsideElements], 
-        color = H[mesh.InsideElements], 
+        color = mu0.*H[mesh.InsideElements], 
         colormap=:rainbow, 
-        markersize=20 .* mesh.VE[mesh.InsideElements]./maximum(mesh.VE[mesh.InsideElements])) # 20 .* mesh.VE[mesh.InsideElements]./maximum(mesh.VE[mesh.InsideElements])
-
+        markersize=20 .* mesh.VE[mesh.InsideElements]./maximum(mesh.VE[mesh.InsideElements]))
+        # markersize=20)
     Colorbar(fig[1, 2], scatterPlot, label="|H|") # Add a colorbar
     
     # Display the figure (this will open an interactive window)
@@ -536,9 +466,9 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
 
 end # end of main
 
-meshSize  = 40.5 # 82.5
-localSize = 0.5 # 1.0
-showGmsh = true
+meshSize  = 40.0
+localSize = 1.0
+showGmsh = false
 saveMesh = false
 
 main(meshSize,localSize,showGmsh,saveMesh)
