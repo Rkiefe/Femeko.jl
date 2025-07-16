@@ -22,14 +22,23 @@ function userMade(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     # List of cells inside the container
     cells = []
     addCuboid([-3*L[1]/4,0,0], L, cells, true)
+    addCuboid([-2*L[1]/5,0,0], L, cells, true)
 
     # Create a bounding shell
     box = addSphere([0,0,0], 5*maximum(L)) # *[1,1,1]
 
     # Fragment to make a unified geometry
-    gmsh.model.occ.fragment([(3,box)], cells)
+    fragments, _ = gmsh.model.occ.fragment(vcat(cells,[(3, box)]), [])
     gmsh.model.occ.synchronize()
+
+    # Update cell ids
+    cells = fragments[1:end-1]
+    println(cells)
     
+    # Set the box to the last volume
+    box = fragments[end][2]
+    println(box)
+
     # Get bounding shell surface id
     shell_id = gmsh.model.getBoundary([(3, box)], false, false, false)
     shell_id = [s[2] for s in shell_id]
