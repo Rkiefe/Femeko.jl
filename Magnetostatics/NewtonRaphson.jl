@@ -441,12 +441,6 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     H_avg /= volume
     println("mu_0 <H> = ", mu0*H_avg)
 
-    # Open a file for writing (creates or overwrites)
-    open("output.txt", "a") do file
-        println(file, "Horizontal ", relax)
-        println(file, "mu0 <H> = ", mu0*H_avg)
-    end
-
     # Plot result | Uncomment "using GLMakie"
     fig = Figure()
     ax = Axis3(fig[1, 1], aspect = :data, title="With relax = "*string(relax))
