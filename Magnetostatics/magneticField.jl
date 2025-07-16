@@ -49,13 +49,19 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     # List of cells inside the container
     cells = []
     addCuboid([0,0,0], L, cells, true)
-
-    # Create a bounding shell
-    box = addSphere([0,0,0], 5*maximum(L)) # *[1,1,1]
+    
+    # Add bounding shell
+    box = addSphere([0,0,0],5*maximum(L))
 
     # Fragment to make a unified geometry
-    gmsh.model.occ.fragment([(3,box)], cells)
+    fragments, _ = gmsh.model.occ.fragment(vcat(cells,[(3, box)]), [])
     gmsh.model.occ.synchronize()
+
+    # Update cell ids
+    cells = fragments[1:end-1]
+
+    # Set the box to the last volume
+    box = fragments[end][2]
 
     # Get bounding shell surface id
     shell_id = gmsh.model.getBoundary([(3, box)], false, false, false)
@@ -69,7 +75,6 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
 
     # Generate Mesh
     mesh = Mesh(cells,meshSize,localSize,saveMesh)
-
 
     println("Number of elements ",size(mesh.t,2))
     println("Number of Inside elements ",length(mesh.InsideElements))
