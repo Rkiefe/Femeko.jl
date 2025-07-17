@@ -63,7 +63,7 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     T::Float64 = 293.0
 
     # Applied field
-    Hext::Vector{Float64} = [1.35,0,0]./mu0    # A/m
+    Hext::Vector{Float64} = 1.2.*[1,0,0]./mu0    # A/m
 
     # Convergence criteria
     picardDeviation::Float64 = 1e-4
@@ -151,37 +151,39 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     # Dimensions of magnetic material
     L::Vector{Float64} = [16.5, 16.5, 0.4]
 
-    # Create an empty container
-    box = addSphere([0,0,0],5*maximum(L))
-
-    # Get how many surfaces compose the bounding shell
-    temp = gmsh.model.getEntities(2)            # Get all surfaces of current model
-    bounding_shell_n_surfaces = 1:length(temp)    # Get the number of surfaces in the bounding shell
-
-    # List of cells inside the container
+    # Array of volume cell IDs
     cells = []
-    cellLabels::Vector{String} = ["Air"]
 
-    # Add magnetic material
+    # Add material
     addCuboid([0,0,0], L, cells, true)
-    push!(cellLabels,"Gd")
+    cellLabels::Vector{String} = ["Gd"]
+
+    # Create bounding shell
+    box = addSphere([0,0,0], 5*maximum(L))
+    push!(cellLabels, "Air")
 
     # Fragment to make a unified geometry
-    _, fragments = gmsh.model.occ.fragment([(3, box)], cells)
+    fragments, _ = gmsh.model.occ.fragment(vcat(cells,[(3, box)]), [])
     gmsh.model.occ.synchronize()
 
-    # Update container volume ID
-    box = fragments[1][1][2]
+    # Update cell ids
+    cells = fragments[1:end-1]
+    
+    # Set the box to the last volume
+    box = fragments[end][2]
+
+    # Get bounding shell surface id
+    shell_id = gmsh.model.getBoundary([(3, box)], false, false, false) # (dim, tag)
+    shell_id = [s[2] for s in shell_id] # tag
+
+    # Volume surface ids
+    internal_surfaces = gmsh.model.getBoundary(cells, false, false, false) # (dim, tag)
+    internal_surfaces = [s[2] for s in internal_surfaces] # tag
+
+    shell_id = setdiff(shell_id, internal_surfaces) # Only the outer surfaces
 
     # Generate Mesh
     mesh = Mesh(cells,meshSize,localSize,saveMesh)
-    
-    # Get bounding shell surface id
-    shell_id = gmsh.model.getAdjacencies(3, box)[2]
-
-    # Must remove the surface Id of the interior surfaces
-    shell_id = shell_id[bounding_shell_n_surfaces] # All other, are interior surfaces
-
 
     # Get element tags to then use GMSH 'get' functions
     t_tags, _ = gmsh.model.mesh.getElementsByType(4)
@@ -189,9 +191,8 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     # Store cell id of each element
     elementID::Vector{Int32} = zeros(mesh.nt)
     for k in 1:mesh.nt
-        _, _, _, id = gmsh.model.mesh.getElement(t_tags[k])
         # element type , nodes of the element , dimension , id
-
+        _, _, _, id = gmsh.model.mesh.getElement(t_tags[k])
         elementID[k] = id
     end
     
@@ -248,9 +249,9 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
         # println("Condition: ", cond(Matrix([A Lag; Lag' 0])))
 
         # Magnetic scalar potential
-        # u = [A Lag;Lag' 0]\[-RHS;0]
-        u = minres([A Lag; Lag' 0], [-RHS; 0]
-                    ) # , verbose=true
+        u = [A Lag;Lag' 0]\[-RHS;0]
+        # u = minres([A Lag; Lag' 0], [-RHS; 0]
+                    # ) # , verbose=true
 
         # Magnetic field
         H_vectorField .= 0.0
@@ -324,8 +325,8 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
         At = tangentialStiffnessMatrix(mesh, H_vectorField, dmu)
 
         # Correction to the magnetic scalar potential
-        # du = [A+At Lag;Lag' 0]\[-RHS-A*u;0]
-        du = minres([A+At Lag;Lag' 0], [-RHS-A*u;0])
+        du = [A+At Lag;Lag' 0]\[-RHS-A*u;0]
+        # du = minres([A+At Lag;Lag' 0], [-RHS-A*u;0])
         
         # Norm of correction over the value
         println(att, " |du|/|u| = ", norm(du[1:mesh.nv])/norm(u))
