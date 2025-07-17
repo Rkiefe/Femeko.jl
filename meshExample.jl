@@ -79,23 +79,33 @@ function meshCAD(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     cells = []
 
     # Import cad file
-    box, bounding_shell_n_surfaces = importCAD("STEP_Models/Fennec_Fox.step",cells)
+    box = importCAD("STEP_Models/Fennec_Fox.STEP",cells)
 
     # Fragment to make a unified geometry
-    _, fragments = gmsh.model.occ.fragment([(3, box)], cells)
+    fragments, _ = gmsh.model.occ.fragment(vcat(cells,[(3, box)]), [])
     gmsh.model.occ.synchronize()
 
-    # Update container volume ID
-    box = fragments[1][1][2]
+    # Update cell ids
+    cells = fragments[1:end-1]
+    println(cells)
+    
+    # Set the box to the last volume
+    box = fragments[end][2]
+
+    # Get bounding shell surface id
+    shell_id = gmsh.model.getBoundary([(3, box)], false, false, false) # (dim, tag)
+    shell_id = [s[2] for s in shell_id] # tag
+
+    # Volume surface ids
+    internal_surfaces = gmsh.model.getBoundary(cells, false, false, false) # (dim, tag)
+    internal_surfaces = [s[2] for s in internal_surfaces] # tag
+
+    shell_id = setdiff(shell_id, internal_surfaces) # Only the outer surfaces
 
     # Generate Mesh
     mesh = Mesh(cells,meshSize,localSize,saveMesh)
-    
-    # Get bounding shell surface id
-    shell_id = gmsh.model.getAdjacencies(3, box)[2]
 
-    # Must remove the surface Id of the interior surfaces
-    shell_id = shell_id[bounding_shell_n_surfaces] # All other, are interior surfaces
+    println(shell_id)
 
     if showGmsh
         gmsh.fltk.run()
