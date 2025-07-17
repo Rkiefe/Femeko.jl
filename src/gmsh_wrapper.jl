@@ -174,10 +174,6 @@ function makeContainer(scale::Float64=5.0)
     dimensions = scale*L
 
     box = addSphere(center,dimensions)
-    # box = addCuboid(center,dimensions)
-
-    # Update model
-    gmsh.model.occ.synchronize()
 
     return box
 end # Create container based on current model surface
@@ -200,13 +196,7 @@ function importCAD(file::String, cells, setContainer::Bool=true, scale::Float64=
     # Make a container for the stl file
     if setContainer
         box = makeContainer(scale)
-
-        temp = gmsh.model.getEntities(2)            # Get all surfaces of current model
-        bounding_shell_n_surfaces = 1:length(temp)    # Get the number of surfaces in the bounding shell
-
-        gmsh.model.geo.synchronize()
-
-        return box, bounding_shell_n_surfaces
+        return box
     end
 
 end # Import cad geometry file

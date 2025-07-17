@@ -36,7 +36,7 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     Hext::Vector{Float64} = [1.35,0,0]     # T
 
     # Dimensions
-    L::Vector{Float64} = [1.65, 1.65, 0.04]
+    L::Vector{Float64} = [10.0, 10.0, 1.0]
     # L::Vector{Float64} = [1,1,1]
     
     # Relative magnetic permeability
@@ -45,13 +45,15 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     # Create a geometry
     gmsh.initialize()
 
-    # >> Model
     # List of cells inside the container
     cells = []
-    addCuboid([0,0,0], L, cells, true)
-    
-    # Add bounding shell
-    box = addSphere([0,0,0],5*maximum(L))
+
+    # Import cad file
+    # box = importCAD("../STEP_Models/plate.STEP",cells)
+
+    # Or create your own geometry
+    # addCuboid([0,0,0], L, cells, true)
+    # box = addSphere([0,0,0], 5*maximum(L))
 
     # Fragment to make a unified geometry
     fragments, _ = gmsh.model.occ.fragment(vcat(cells,[(3, box)]), [])
@@ -59,19 +61,19 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
 
     # Update cell ids
     cells = fragments[1:end-1]
-
+    
     # Set the box to the last volume
     box = fragments[end][2]
 
     # Get bounding shell surface id
-    shell_id = gmsh.model.getBoundary([(3, box)], false, false, false)
-    shell_id = [s[2] for s in shell_id]
+    shell_id = gmsh.model.getBoundary([(3, box)], false, false, false) # (dim, tag)
+    shell_id = [s[2] for s in shell_id] # tag
 
     # Volume surface ids
-    internal_surfaces = gmsh.model.getBoundary(cells, false, false, false)
-    internal_surfaces = [s[2] for s in internal_surfaces]
+    internal_surfaces = gmsh.model.getBoundary(cells, false, false, false) # (dim, tag)
+    internal_surfaces = [s[2] for s in internal_surfaces] # tag
 
-    shell_id = setdiff(shell_id, internal_surfaces)
+    shell_id = setdiff(shell_id, internal_surfaces) # Only the outer surfaces
 
     # Generate Mesh
     mesh = Mesh(cells,meshSize,localSize,saveMesh)
@@ -182,8 +184,8 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
 
 end # end of main
 
-meshSize = 8.25
-localSize = 0.1
+meshSize = 50.0
+localSize = 1.0
 showGmsh = true
 saveMesh = false
 
