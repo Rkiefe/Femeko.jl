@@ -148,19 +148,25 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     # 3D Model
     gmsh.initialize()
     
-    # Dimensions of magnetic material
-    L::Vector{Float64} = [16.5, 16.5, 0.4]
-
     # Array of volume cell IDs
     cells = []
 
-    # Add material
-    addCuboid([0,0,0], L, cells, true)
-    cellLabels::Vector{String} = ["Gd"]
-
-    # Create bounding shell
-    box = addSphere([0,0,0], 5*maximum(L))
+    # Import cad file
+    box = importCAD("../STEP_Models/cube.STEP", cells)
+    cellLabels = ["Gd"]
     push!(cellLabels, "Air")
+
+
+    # # Dimensions of magnetic material
+    # L::Vector{Float64} = [16.5, 16.5, 0.4]
+
+    # # Add material
+    # addCuboid([0,0,0], L, cells, true)
+    # cellLabels::Vector{String} = ["Gd"]
+
+    # # Create bounding shell
+    # box = addSphere([0,0,0], 5*maximum(L))
+    # push!(cellLabels, "Air")
 
     # Fragment to make a unified geometry
     fragments, _ = gmsh.model.occ.fragment(vcat(cells,[(3, box)]), [])
@@ -461,8 +467,8 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
 
 end # end of main
 
-meshSize  = 40.0
-localSize = 1.0
+meshSize  = 0.0
+localSize = 0.0
 showGmsh = false
 saveMesh = false
 
