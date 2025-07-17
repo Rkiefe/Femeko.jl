@@ -5,12 +5,10 @@
         The plate has a uniform, constant magnetic permeability
     
     Output:
-        Expect a 3D tetrahedral mesh as a MESH() struct and one figure.
-
-    Note:
-        You can replace the local stiffness matrix with a C++ version by adding
-        the FEMc.cpp file to the directory and replacing the function call by the
-        C++ wrapper function
+        Expect a 3D tetrahedral mesh as a MESH() struct and one figure
+        of the internal magnetic field of your geometry.
+        
+    
 =#
 
 include("../src/gmsh_wrapper.jl")
@@ -36,8 +34,7 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     Hext::Vector{Float64} = [1.35,0,0]     # T
 
     # Dimensions
-    L::Vector{Float64} = [10.0, 10.0, 1.0]
-    # L::Vector{Float64} = [1,1,1]
+    L::Vector{Float64} = [20.0, 20.0, 20.0]
     
     # Relative magnetic permeability
     permeability::Float64 = 2
@@ -49,11 +46,11 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     cells = []
 
     # Import cad file
-    # box = importCAD("../STEP_Models/plate.STEP",cells)
+    # box = importCAD("../STEP_Models/cube.STEP", cells)
 
     # Or create your own geometry
-    # addCuboid([0,0,0], L, cells, true)
-    # box = addSphere([0,0,0], 5*maximum(L))
+    addCuboid([0,0,0], L, cells, true)
+    box = addSphere([0,0,0], 5*maximum(L))
 
     # Fragment to make a unified geometry
     fragments, _ = gmsh.model.occ.fragment(vcat(cells,[(3, box)]), [])
@@ -114,24 +111,10 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
 
     # Stiffness matrix
     A = stiffnessMatrix(mesh,mu) 
-    
-    # Extend the matrix for the Lagrange multiplier technique
-    # mat = [A Lag;Lag' 0]
 
     # Magnetic scalar potential
     u::Vector{Float64} = [A Lag;Lag' 0]\[-RHS;0]
     u = u[1:mesh.nv]
-
-    #= Example of calling C++ to calculate the local stiffness matrix
-        
-        # Julia local stiffness matrix
-        Ak::Matrix{Float64} = @time localStiffnessMatrix(mesh,mu)
-
-        # C++ Local stiffness matrix
-        t::Matrix{Int32} = mesh.t .- 1 # C++ index starts at 0 # C++ index starts at 0
-        Ak::Matrix{Float64} = @time CstiffnessMatrix(mesh.p,t,mesh.VE,mu)
-    
-    =#
 
     # Magnetic field
     H_vectorField::Matrix{Float64} = zeros(mesh.nt,3)
@@ -162,8 +145,6 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     M_vectorField::Matrix{Float64} = chi.*H_vectorField[mesh.InsideElements,:]
     M::Vector{Float64} = chi.*H[mesh.InsideElements]
 
-    
-
     # Plot result | Uncomment "using GLMakie"
     fig = Figure()
     ax = Axis3(fig[1, 1], aspect = :data, title="Magnetic field H")
@@ -184,7 +165,7 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
 
 end # end of main
 
-meshSize = 50.0
+meshSize = 30.0
 localSize = 1.0
 showGmsh = true
 saveMesh = false
