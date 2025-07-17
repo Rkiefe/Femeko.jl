@@ -14,39 +14,43 @@ function userMade(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
 
     # Cuboid dimensions
     L::Vector{Float64} = [1.65, 1.65, 0.04]
-    # L::Vector{Float64} = [26, 0.2, 250]
 
-    # >> Model
-    # Create an empty container | Bounding shell
-    box = addSphere([0,0,0],5*maximum(L))
-
-    # Get how many surfaces compose the bounding shell
-    temp = gmsh.model.getEntities(2)            # Get all surfaces of current model
-    bounding_shell_n_surfaces = 1:length(temp)    # Get the number of surfaces in the bounding shell
+    # 3D Model
 
     # List of cells inside the container
     cells = []
 
-    # Add the cuboid
-    addCuboid([0,0,0],L,cells,true)
+    # Add a cuboid
+    addCuboid([0,0,0], L, cells, true) # position, dimensions, cell list, update cell list
+
+    # Create a bounding shell
+    box = addSphere([0,0,0],5*maximum(L)) # Don't update the cell list and get the volume id
 
     # Fragment to make a unified geometry
-    _, fragments = gmsh.model.occ.fragment([(3, box)], cells)
+    fragments, _ = gmsh.model.occ.fragment(vcat(cells,[(3, box)]), [])
     gmsh.model.occ.synchronize()
 
-    # Update container volume ID
-    box = fragments[1][1][2]
+    # Update cell ids
+    cells = fragments[1:end-1]
+    println(cells)
+    
+    # Set the box to the last volume
+    box = fragments[end][2]
+
+    # Get bounding shell surface id
+    shell_id = gmsh.model.getBoundary([(3, box)], false, false, false) # (dim, tag)
+    shell_id = [s[2] for s in shell_id] # tag
+
+    # Volume surface ids
+    internal_surfaces = gmsh.model.getBoundary(cells, false, false, false) # (dim, tag)
+    internal_surfaces = [s[2] for s in internal_surfaces] # tag
+
+    shell_id = setdiff(shell_id, internal_surfaces) # Only the outer surfaces
 
     # Generate Mesh
-    mesh = Mesh(cells,meshSize,localSize,saveMesh)
-    
-    # Get bounding shell surface id
-    shell_id = gmsh.model.getAdjacencies(3, box)[2]
+    mesh = Mesh(cells, meshSize, localSize, saveMesh)
 
-    # Must remove the surface Id of the interior surfaces
-    shell_id = shell_id[bounding_shell_n_surfaces] # All other, are interior surfaces
-
-    if showGmsh
+    if showGmsh # Show GUI
         gmsh.fltk.run()
     end
     gmsh.finalize()
@@ -111,6 +115,6 @@ localSize = 0.1
 showGmsh = true
 saveMesh = false
 
-userMade(meshSize,localSize,showGmsh,saveMesh)
-meshCAD(0,0,true,false)
+userMade(meshSize, localSize, showGmsh, saveMesh)
+meshCAD(0, 0, true, false)
 
