@@ -36,7 +36,7 @@ public:
 	Eigen::Vector3d uan; 	// Easy axis direction
 	Eigen::Vector3d Hext;  // Applied field
 
-	double totalTime = 1.0/0.0; // inf
+	double totalTime = 1.0/0.0; // inf | Not the best way to define it, but for now it works
 	double maxTorque = 1e-14;   // <|dm/dt|>
 	int maxAtt = 5000;
 
