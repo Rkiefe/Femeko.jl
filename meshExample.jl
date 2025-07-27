@@ -79,7 +79,7 @@ function meshCAD(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     cells = []
 
     # Import cad file
-    box = importCAD("STEP_Models/Fennec_Fox.STEP",cells)
+    box = importCAD("STEP_Models/Fennec_Fox.step",cells)
 
     # Fragment to make a unified geometry
     fragments, _ = gmsh.model.occ.fragment(vcat(cells,[(3, box)]), [])
