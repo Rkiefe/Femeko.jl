@@ -4,8 +4,11 @@
 =#
 
 include("src/gmsh_wrapper.jl")
+include("src/FEM.jl")
 
-function main(meshSize=0.0, localSize=0.0)
+using GLMakie
+
+function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 	gmsh.initialize()
 
 	cells = []
@@ -21,12 +24,15 @@ function main(meshSize=0.0, localSize=0.0)
 	gmsh.model.occ.fragment(vcat(cells,[(2,box)]), [])
 	gmsh.model.occ.synchronize()
 
+    # Generate mesh
 	mesh::MESH = Mesh2D(cells, meshSize, localSize)
 
 	# Run Gmsh GUI
-	gmsh.fltk.run()
+    if showGmsh
+	   gmsh.fltk.run()
+    end
 	gmsh.fltk.finalize()
 
 end
 
-main(0.5, 0.05)
+main(4, 0.1, true)
