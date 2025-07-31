@@ -95,7 +95,58 @@ function refineCell(cell,localSize,meshSize)
 
 end # Local mesh refinement on target cell
 
-# Make a cuboid based on its center
+# Local mesh refinement on target cell
+function refineCell2D(cell,localSize,meshSize)
+    #=
+        Sets every volume in 'cell' to be locally refined with target 'localSize' 
+    =#
+
+    # Get the boundary of the cell 
+    cell_boundary = gmsh.model.getBoundary(cell, false, false, false)
+
+    # Create a distance field for local refinement
+    distance_field = gmsh.model.mesh.field.add("Distance")
+    gmsh.model.mesh.field.setNumbers(distance_field, "CurvesList", [s[2] for s in cell_boundary])
+
+    # Create a threshold field that defines the refinement region
+    threshold_field = gmsh.model.mesh.field.add("Threshold")
+
+    gmsh.model.mesh.field.setNumber(threshold_field, "InField", distance_field)
+    gmsh.model.mesh.field.setNumber(threshold_field, "SizeMin", localSize)
+    gmsh.model.mesh.field.setNumber(threshold_field, "SizeMax", meshSize)
+    gmsh.model.mesh.field.setNumber(threshold_field, "DistMin", 0.0)
+    gmsh.model.mesh.field.setNumber(threshold_field, "DistMax", max(0.1*meshSize,10*localSize))
+
+    gmsh.model.mesh.field.setNumber(threshold_field, "Sigmoid", true)
+    gmsh.model.mesh.field.setAsBackgroundMesh(threshold_field)
+
+end # Local mesh refinement on target cell
+
+# Add 2d rectangle from its center
+function addRectangle(position, dimensions, cells=[])
+
+    x = position[1] - dimensions[1]/2
+    y = position[2] - dimensions[2]/2
+
+    id = gmsh.model.occ.addRectangle(x, y, position[3], 
+                                    dimensions[1], dimensions[2])
+
+    push!(cells,(2, id))
+    return id
+end
+
+# Add 2d disk (circular)
+function addDisk(position, radius, cells=[])
+    id = gmsh.model.occ.addDisk(position[1],
+                                position[2],
+                                position[3],
+                                radius,
+                                radius)
+    push!(cells,(2, id))
+    return id
+end
+
+# Add a cuboid based on its center
 function addCuboid(position,dimensions,cells=[],updateCells::Bool=false)
     #=
         Makes a cuboid based on its centroid position
@@ -116,7 +167,7 @@ function addCuboid(position,dimensions,cells=[],updateCells::Bool=false)
     return box
 end # Make a cuboid based on its center
 
-# Make a sphere
+# Add a sphere
 function addSphere(position,radius,cells=[],updateCells::Bool=false)
     #=
         Inputs:
@@ -139,7 +190,7 @@ function addSphere(position,radius,cells=[],updateCells::Bool=false)
     return sphere
 end # Make a sphere
 
-# Create container based on current model surface
+# Create container based on current model surface (3D only)
 function makeContainer(scale::Float64=5.0)
 
     # Get all surface entities
@@ -247,6 +298,7 @@ function findNodes(mesh::MESH,region::String,id)
     return nodes
 end
 
+# 3D
 function Mesh(cells,meshSize=0,localSize=0,saveMesh::Bool=false)
     #=
         Generates a 3d tetrahedral mesh considering that the model is made of 
@@ -372,7 +424,8 @@ function Mesh(cells,meshSize=0,localSize=0,saveMesh::Bool=false)
     return mesh
 end
 
-function Mesh2D(cells, meshSize=0.0, localSize=0.0)
+# 2D
+function Mesh2D(cells, meshSize=0.0, localSize=0.0, saveMesh=false)
     #=
         Generates a 2d triangle mesh considering that the model is made of 
         1 container and every other volume beyond the container is listed in the 'cells'
@@ -428,7 +481,7 @@ function Mesh2D(cells, meshSize=0.0, localSize=0.0)
         edges[end, i] = id; # Set the boundary edge id
     end
 
-    mesh.edges = edges
+    mesh.surfaceT = edges
     mesh.ne = size(edges, 2)
 
     # Mesh elements inside the container
@@ -459,8 +512,20 @@ function Mesh2D(cells, meshSize=0.0, localSize=0.0)
     mesh.InsideNodes = unique(vec(aux))
     mesh.nInsideNodes = length(mesh.InsideNodes)
 
+    # Save mesh 
+    if saveMesh
+        save2file("t.txt",mesh.t) # Save connectivity list to a .txt file
+        save2file("p.txt",mesh.p)
+        save2file("InsideNodes.txt",mesh.InsideNodes)
+        save2file("surfaceT.txt",mesh.surfaceT)
+        save2file("InsideElements.txt",mesh.InsideElements)
+        # save2file("VE.txt",mesh.VE)
+        # save2file("AE.txt",mesh.AE)
+        # save2file("normal.txt",mesh.normal)
+    end
+
     return mesh
-end
+end # 2D mesh generation
 
 # Normal to surface triangle
 function normal_surface(p,nds)
