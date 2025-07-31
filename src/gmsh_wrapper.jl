@@ -372,6 +372,96 @@ function Mesh(cells,meshSize=0,localSize=0,saveMesh::Bool=false)
     return mesh
 end
 
+function Mesh2D(cells, meshSize=0.0, localSize=0.0)
+    #=
+        Generates a 2d triangle mesh considering that the model is made of 
+        1 container and every other volume beyond the container is listed in the 'cells'
+
+        Inputs
+            cells       -> geometries that are inside the container
+            meshSize    -> overall target mesh size
+            localSize   -> Local mesh refinement
+    =#
+
+    mesh = MESH()
+
+    # Get the volume IDs of the cells inside the container
+    volumeID = []
+    if !isempty(cells)
+        for i in cells
+            append!(volumeID,i[2])
+        end
+    end
+
+    # Set local mesh size
+    if localSize>0.0 && !isempty(cells)
+        refineCell2D(cells, localSize, meshSize) # Set local refinement on the sphere Cell
+    end
+
+    # Set maximum element size
+    if meshSize > 0
+        gmsh.option.setNumber("Mesh.MeshSizeMax", meshSize)
+    end
+
+    # Generate 2D mesh
+    gmsh.model.mesh.generate(2)
+
+    # Get element connectivity
+    t_tags, t = gmsh.model.mesh.getElementsByType(2)
+    mesh.t = reshape(t,3,Int(size(t,1)/3))
+    mesh.nt = size(mesh.t,2)
+
+    # Get node coordinates
+    _,p,_ = gmsh.model.mesh.getNodes()
+    mesh.p = reshape(p, 3, Int(size(p,1)/3))
+    mesh.nv = size(mesh.p,2)
+
+    # # Get all boundary edges
+    edge_tags, edges = gmsh.model.mesh.getElementsByType(1)
+    edges = reshape(edges, 2, Int(size(edges,1)/2))
+
+    # Expand boundary edges to include boundary id
+    edges = [edges; UInt.(zeros(1,size(edges,2)))]
+    for i in 1:size(edges,2)
+        # Get ID of the element of the current surface triangle
+        _,_,_, id = gmsh.model.mesh.getElement(edge_tags[i])
+        edges[end, i] = id; # Set the boundary edge id
+    end
+
+    mesh.edges = edges
+    mesh.ne = size(edges, 2)
+
+    # Mesh elements inside the container
+    if !isempty(cells)
+
+        mesh.InsideElements = zeros(mesh.nt)
+        mesh.nInside = 0
+        for k in 1:mesh.nt
+            # element type , nodes of the element , dimension , id
+            _, _, _, id = gmsh.model.mesh.getElement(t_tags[k])
+
+            if id in volumeID
+                mesh.nInside += 1
+                mesh.InsideElements[mesh.nInside] = k
+            end
+        end
+
+        # Remove non-zeros
+        mesh.InsideElements = mesh.InsideElements[1:mesh.nInside]
+
+    else
+        mesh.InsideElements = []
+        mesh.nInside = 0
+    end
+
+    # Inside nodes
+    aux::Matrix{Int32} = mesh.t[:,mesh.InsideElements]
+    mesh.InsideNodes = unique(vec(aux))
+    mesh.nInsideNodes = length(mesh.InsideNodes)
+
+    return mesh
+end
+
 # Normal to surface triangle
 function normal_surface(p,nds)
     # Reshape coords into 3 points (x,y,z)
