@@ -43,11 +43,11 @@ This framework already has a few implementations such as `Magnetostatics`, `Micr
 ### Micromagnetics
 The Micromagnetics package has two distinct functionalities, based on the Landau-Lifshitz equation: the magnetization over time of the system; and an energy minimization by the steepest descent algorithm. The solver incorporates an external magnetic field, the demagnetizing field, the exchange field and the anisotropy field. This solver was validated against OOMMF, replicating Fig 2. of this article https://doi.org/10.1109/TMAG.2008.2001666 .
 
-![M_time_permalloy](https://github.com/user-attachments/assets/5434942c-a6dd-4444-aadf-c945c17e593b)
+<img width="551" height="443" alt="M_time_permalloy" src="https://github.com/user-attachments/assets/5434942c-a6dd-4444-aadf-c945c17e593b" />
+
 
 ### Magnetostatics
 Here is a direct output of magneticField.jl example `Magnetostatics`, the internal magnetic field of a plate aligned with the aplied field.
-<!-- ![H_plate](https://github.com/user-attachments/assets/0b03a7a4-1872-4402-a10f-1654ce149a1f) -->
 
 <img width="551" height="443" alt="H_plate" src="https://github.com/user-attachments/assets/0b03a7a4-1872-4402-a10f-1654ce149a1f" />
 
