@@ -9,7 +9,7 @@
         . Manage surface triangles and surface ID's
 =#
 
-using Gmsh
+using Gmsh, LinearAlgebra
 
 # Holds the mesh information needed for FEM simulations
 mutable struct MESH
