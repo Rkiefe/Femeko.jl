@@ -1,3 +1,8 @@
+#=
+    An example on how to create a 2D model and generate a mesh
+    with local refinement
+=#
+
 include("src/gmsh_wrapper.jl")
 
 function main(meshSize=0.0, localSize=0.0)
