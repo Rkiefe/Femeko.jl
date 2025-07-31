@@ -3,7 +3,6 @@
 =#
 
 include("src/gmsh_wrapper.jl")
-using LinearAlgebra
 using GLMakie
 
 function SecondOrder(showGmsh=true)

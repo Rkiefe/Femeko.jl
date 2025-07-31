@@ -4,7 +4,6 @@
 =#
 
 include("src/gmsh_wrapper.jl")
-using LinearAlgebra
 
 function userMade(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     #=
