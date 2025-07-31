@@ -13,7 +13,8 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 	cells = []
 
 	# Add a 2D rectangle
-	id = addRectangle([0,0,0], [2, 2], cells)
+	id = addRectangle([0,0,0], [1, 1], cells)
+    # id = addDisk([0,0,0], 1, cells)
 
 	# Add a container
 	# box = addRectangle([0,0,0], [2, 4])
@@ -26,11 +27,18 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     # Generate mesh
 	mesh::MESH = Mesh2D(cells, meshSize, localSize)
 
+    println("\nNumber of elements ",size(mesh.t,2))
+    println("Number of Inside elements ",length(mesh.InsideElements))
+    println("Number of nodes ",size(mesh.p,2))
+    println("Number of Inside nodes ",length(mesh.InsideNodes))
+    println("Number of surface elements ",size(mesh.surfaceT,2))
+
 	# Run Gmsh GUI
     if showGmsh
 	   gmsh.fltk.run()
     end
 	gmsh.fltk.finalize()
+
 
     # Element centroids
     centroids::Matrix{Float64} = zeros(2,mesh.nt)
@@ -140,8 +148,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     
     # Display the figure (this will open an interactive window)
     wait(display(fig)) # This is required only if runing outside the repl
-    
 
 end
 
-main(4, 0.1, true)
+main(1.0, 0.05, true)
