@@ -405,7 +405,7 @@ function Mesh(cells,meshSize=0,localSize=0,saveMesh::Bool=false)
     mesh.AE = zeros(mesh.ne)
     for i in 1:mesh.ne
         nds = @view mesh.surfaceT[1:3,i]
-        mesh.normal[:,i] = normal_surface(mesh.p,nds);
+        mesh.normal[:,i] = normalSurface(mesh.p,nds);
         mesh.AE[i] = areaTriangle(mesh.p[1,nds],mesh.p[2,nds],mesh.p[3,nds])
     end
 
@@ -512,6 +512,22 @@ function Mesh2D(cells, meshSize=0.0, localSize=0.0, saveMesh=false)
     mesh.InsideNodes = unique(vec(aux))
     mesh.nInsideNodes = length(mesh.InsideNodes)
 
+    # Area of each element
+    mesh.VE = zeros(mesh.nt)
+    for k in 1:mesh.nt
+        nds = @view mesh.t[:,k]
+        mesh.VE[k] = areaTriangle(  mesh.p[1,nds],
+                                    mesh.p[2,nds],
+                                    mesh.p[3,nds])
+    end
+
+    # Normal to each edge
+    mesh.normal = zeros(2, mesh.ne)
+    for e in 1:mesh.ne
+        nds = @view mesh.surfaceT[:, e]
+        mesh.normal[:, e] = normalEdge(mesh.p, nds)
+    end
+
     # Save mesh 
     if saveMesh
         save2file("t.txt",mesh.t) # Save connectivity list to a .txt file
@@ -519,16 +535,25 @@ function Mesh2D(cells, meshSize=0.0, localSize=0.0, saveMesh=false)
         save2file("InsideNodes.txt",mesh.InsideNodes)
         save2file("surfaceT.txt",mesh.surfaceT)
         save2file("InsideElements.txt",mesh.InsideElements)
-        # save2file("VE.txt",mesh.VE)
+        save2file("VE.txt",mesh.VE)
         # save2file("AE.txt",mesh.AE)
-        # save2file("normal.txt",mesh.normal)
+        save2file("normal.txt",mesh.normal)
     end
 
     return mesh
 end # 2D mesh generation
 
+function normalEdge(p, nds)
+    p1 = p[:, nds[1]]
+    p2 = p[:, nds[2]]
+    v = p2-p1
+    n = [-v[2], v[1]] # Normal to edge
+
+    return n./norm(n)
+end
+
 # Normal to surface triangle
-function normal_surface(p,nds)
+function normalSurface(p, nds)
     # Reshape coords into 3 points (x,y,z)
     p1 = p[:,nds[1]]
     p2 = p[:,nds[2]]
@@ -540,9 +565,8 @@ function normal_surface(p,nds)
     n = [v1[2]*v2[3] - v1[3]*v2[2],
          v1[3]*v2[1] - v1[1]*v2[3],
          v1[1]*v2[2] - v1[2]*v2[1]]
-    # Normalize
-    norm_n = sqrt(n[1]^2 + n[2]^2 + n[3]^2)
-    return n ./ norm_n
+
+    return n ./ sqrt(n[1]^2 + n[2]^2 + n[3]^2)
 end # Normal to surface triangle
 
 # Area of the 3D triangle
