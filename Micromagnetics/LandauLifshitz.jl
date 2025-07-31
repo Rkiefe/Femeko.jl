@@ -6,6 +6,68 @@
 # Include FEM functions
 include("../src/FEM.jl")
 
+# Demagnetizing field
+function demagField(mesh::MESH,fixed::Vector{Int32},free::Vector{Int32},A,m::Matrix{Float64})
+    #= 
+        Calculates the demagnetizing field attributed to a magnetization field
+        using FEM and a bounding shell
+
+        Inputs:
+            mesh    (mesh data)
+            fixed   (nodes for the boundary condition magnetic scalar potential = 0)
+            free    (nodes without imposed conditions)
+            A       (Stiffness matrix)
+            m       (Magnetization vector field, 3 by mesh.nv)
+    =#
+    
+    # Load vector
+    RHS::Vector{Float64} = zeros(mesh.nv)
+    for ik in 1:mesh.nInside
+        k = mesh.InsideElements[ik]
+        nds = @view mesh.t[1:4,k]
+
+        # Average magnetization in the element
+        aux = mean(m[:,nds],2)
+        for i in 1:4
+            _,b,c,d = abcd(mesh.p,nds,nds[i])
+            RHS[nds[i]] += mesh.VE[k]*dot([b,c,d],aux)
+        end
+    end
+
+    u::Vector{Float64} = zeros(mesh.nv)
+    u[free] = A[free,free]\RHS[free]
+
+    # Demagnetizing field | Elements
+    Hde::Matrix{Float64} = zeros(3,mesh.nInside)
+    for ik in 1:mesh.nInside
+        k = mesh.InsideElements[ik]
+        nds = @view mesh.t[:,k] # all nodes of that element
+
+        # Sum the contributions
+        for ind in 1:length(nds)
+            nd = nds[ind]
+
+            # obtain the element parameters
+            _,bi,ci,di = abcd(mesh.p,nds,nd)
+
+            Hde[1,ik] -= u[nd]*bi
+            Hde[2,ik] -= u[nd]*ci
+            Hde[3,ik] -= u[nd]*di
+        end
+    end
+
+    # Demagnetizing field | Nodes
+    Hd::Matrix{Float64} = zeros(3,mesh.nv)
+    for ik in 1:mesh.nInside
+        k = mesh.InsideElements[ik]
+        nds = mesh.t[:,k]
+        Hd[:,nds] .+= mesh.VE[k]*Hde[:,ik]
+    end
+    Hd = Hd[:,mesh.InsideNodes]
+
+    return Hd
+end # Demagnetizing field
+
 # Find new magnetization after time iteration
 function timeStep(m::Vector{Float64},H::Vector{Float64},Hold::Vector{Float64},
                   Heff::Vector{Float64},

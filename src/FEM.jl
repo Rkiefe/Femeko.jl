@@ -17,6 +17,29 @@ function abcd(p::Matrix{Float64},nodes::AbstractVector,nd::Int32)
     return r[1],r[2],r[3],r[4] # a b c d
 end # Basis function coef.
 
+# 2D linear basis function
+function abc(p::Matrix{Float64}, nds::AbstractVector, nd::Int32)
+
+    nd1::Int32 = 0
+    nd2::Int32 = 0
+    for i in nds
+        if i != nd 
+            if nd1==0
+                nd1 = i
+            else nd2==0
+                nd2 = i
+            end
+        end
+    end
+
+    M::Matrix{Float64} = [1 p[1,nd]  p[2,nd];
+                          1 p[1,nd1] p[2,nd1];
+                          1 p[1,nd2] p[2,nd2]]
+    S::Vector{Float64} = M\[1,0,0]
+
+    return S[1], S[2], S[3] # f = a + bx + cy
+end # 2D Linear basis function
+
 # Sparse, global stiffness matrix
 function stiffnessMatrix(mesh::MESH, f::Vector{Float64}=ones(mesh.nt))
     A = spzeros(mesh.nv,mesh.nv)
@@ -124,68 +147,6 @@ function BoundaryIntegral(mesh::MESH,F::Vector{Float64},shell_id)
 
     return RHS
 end # Boundary conditions
-
-# Demagnetizing field
-function demagField(mesh::MESH,fixed::Vector{Int32},free::Vector{Int32},A,m::Matrix{Float64})
-    #= 
-        Calculates the demagnetizing field attributed to a magnetization field
-        using FEM and a bounding shell
-
-        Inputs:
-            mesh    (mesh data)
-            fixed   (nodes for the boundary condition magnetic scalar potential = 0)
-            free    (nodes without imposed conditions)
-            A       (Stiffness matrix)
-            m       (Magnetization vector field, 3 by mesh.nv)
-    =#
-    
-    # Load vector
-    RHS::Vector{Float64} = zeros(mesh.nv)
-    for ik in 1:mesh.nInside
-        k = mesh.InsideElements[ik]
-        nds = @view mesh.t[1:4,k]
-
-        # Average magnetization in the element
-        aux = mean(m[:,nds],2)
-        for i in 1:4
-            _,b,c,d = abcd(mesh.p,nds,nds[i])
-            RHS[nds[i]] += mesh.VE[k]*dot([b,c,d],aux)
-        end
-    end
-
-    u::Vector{Float64} = zeros(mesh.nv)
-    u[free] = A[free,free]\RHS[free]
-
-    # Demagnetizing field | Elements
-    Hde::Matrix{Float64} = zeros(3,mesh.nInside)
-    for ik in 1:mesh.nInside
-        k = mesh.InsideElements[ik]
-        nds = @view mesh.t[:,k] # all nodes of that element
-
-        # Sum the contributions
-        for ind in 1:length(nds)
-            nd = nds[ind]
-
-            # obtain the element parameters
-            _,bi,ci,di = abcd(mesh.p,nds,nd)
-
-            Hde[1,ik] -= u[nd]*bi
-            Hde[2,ik] -= u[nd]*ci
-            Hde[3,ik] -= u[nd]*di
-        end
-    end
-
-    # Demagnetizing field | Nodes
-    Hd::Matrix{Float64} = zeros(3,mesh.nv)
-    for ik in 1:mesh.nInside
-        k = mesh.InsideElements[ik]
-        nds = mesh.t[:,k]
-        Hd[:,nds] .+= mesh.VE[k]*Hde[:,ik]
-    end
-    Hd = Hd[:,mesh.InsideNodes]
-
-    return Hd
-end
 
 # Mean function
 function mean(arr::Vector,dimension=1)

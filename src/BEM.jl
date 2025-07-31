@@ -5,43 +5,6 @@
 
 include("FEM.jl")
 
-# Demagntizing field with FEM/BEM
-function BEMdmag(mesh::MESH,m::Matrix{Float64},LHS::Matrix{Float64})
-    
-    RHS::Vector{Float64} = zeros(mesh.nv + mesh.ne)
-    for s in 1:mesh.ne
-        nds = @view mesh.surfaceT[1:3,s]
-        RHS[nds] .+= dot(mesh.normal[:,s],mean(m[:,nds],2))*mesh.AE[s]/3
-    end
-
-    # Magnetic scalar potential
-    u = LHS\-RHS
-
-    # Demag field | Elements
-    Hdk::Matrix{Float64} = zeros(3,mesh.nt)
-    for k in 1:mesh.nt
-        nds = mesh.t[:,k] # all nodes of that element
-
-        # Sum the contributions
-        for j in 1:4
-            _, b::Float64, c::Float64, d::Float64 = abcd(mesh.p,nds,nds[j])
-
-            Hdk[1,k] = Hdk[1,k] - u[nds[j]]*b;
-            Hdk[2,k] = Hdk[2,k] - u[nds[j]]*c;
-            Hdk[3,k] = Hdk[3,k] - u[nds[j]]*d;
-        end
-    end
-
-    # Demag field | Nodes
-    Hd::Matrix{Float64} = zeros(3,mesh.nv)
-    for k in 1:mesh.nt
-        nds = mesh.t[:,k]
-        Hd[:,nds] .+= mesh.VE[k].*Hdk[:,k]
-    end
-
-    return Hd
-end
-
 function denseStiffnessMatrix(mesh::MESH)
     #= 
         This is is the same as the FEM stiffness matrix, but using the dense Matrix
