@@ -1,5 +1,5 @@
 #=
-    A magnetic field simulation example in 2D
+    2D heat equation solver
 =#
 
 include("../src/gmsh_wrapper.jl")
