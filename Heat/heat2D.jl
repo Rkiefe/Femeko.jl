@@ -55,7 +55,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
     # Heat conduction
     thermalCond::Vector{Float64} = zeros(mesh.nt) .+ 1
-    thermalCond[mesh.InsideElements] .= 1
+    thermalCond[mesh.InsideElements] .= 2
 
     # Initial temperature
     T::Vector{Float64} = zeros(mesh.nv)
@@ -135,7 +135,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
         # display(fig)
         sleep(0.1)
     end
-    wait() # Wait before closing the figure
+    wait(display(fig)) # Wait before closing the figure
 
 end
 
