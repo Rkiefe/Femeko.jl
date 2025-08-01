@@ -70,9 +70,7 @@ end # View the mesh using Makie
 
 # Local mesh refinement on target cell
 function refineCell(cell,localSize,meshSize)
-    #=
-        Sets every volume in 'cell' to be locally refined with target 'localSize' 
-    =#
+    # Sets every volume in 'cell' to be locally refined with target 'localSize' 
 
     # Get the boundary of the cell 
     cell_boundary = gmsh.model.getBoundary(cell, false, false, false)
@@ -81,25 +79,13 @@ function refineCell(cell,localSize,meshSize)
     distance_field = gmsh.model.mesh.field.add("Distance")
     gmsh.model.mesh.field.setNumbers(distance_field, "FacesList", [s[2] for s in cell_boundary])
 
-    # Create a threshold field that defines the refinement region
-    threshold_field = gmsh.model.mesh.field.add("Threshold")
-
-    gmsh.model.mesh.field.setNumber(threshold_field, "InField", distance_field)
-    gmsh.model.mesh.field.setNumber(threshold_field, "SizeMin", localSize)
-    gmsh.model.mesh.field.setNumber(threshold_field, "SizeMax", meshSize)
-    gmsh.model.mesh.field.setNumber(threshold_field, "DistMin", 0.0)
-    gmsh.model.mesh.field.setNumber(threshold_field, "DistMax", max(0.1*meshSize,10*localSize))
-
-    gmsh.model.mesh.field.setNumber(threshold_field, "Sigmoid", true)
-    gmsh.model.mesh.field.setAsBackgroundMesh(threshold_field)
+    setDistanceField(distance_field, meshSize, localSize)
 
 end # Local mesh refinement on target cell
 
 # Local mesh refinement on target cell
 function refineCell2D(cell,localSize,meshSize)
-    #=
-        Sets every volume in 'cell' to be locally refined with target 'localSize' 
-    =#
+    # Sets every volume in 'cell' to be locally refined with target 'localSize' 
 
     # Get the boundary of the cell 
     cell_boundary = gmsh.model.getBoundary(cell, false, false, false)
@@ -108,6 +94,12 @@ function refineCell2D(cell,localSize,meshSize)
     distance_field = gmsh.model.mesh.field.add("Distance")
     gmsh.model.mesh.field.setNumbers(distance_field, "CurvesList", [s[2] for s in cell_boundary])
 
+    setDistanceField(distance_field, meshSize, localSize)
+
+end # Local mesh refinement on target cell
+
+function setDistanceField(distance_field, meshSize, localSize)
+
     # Create a threshold field that defines the refinement region
     threshold_field = gmsh.model.mesh.field.add("Threshold")
 
@@ -120,7 +112,8 @@ function refineCell2D(cell,localSize,meshSize)
     gmsh.model.mesh.field.setNumber(threshold_field, "Sigmoid", true)
     gmsh.model.mesh.field.setAsBackgroundMesh(threshold_field)
 
-end # Local mesh refinement on target cell
+end
+
 
 # Add 2d rectangle from its center
 function addRectangle(position, dimensions, cells=[])
