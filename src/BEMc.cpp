@@ -2,6 +2,9 @@
 /* 	   FEM-BEM approach
 	| A B | |u| = -|RHS|
 	| C D | |p|	   | 0 |
+
+	u -> function output (for example magnetostatic potential)
+	p -> gradient of u on the boundary
 */
 
 /* 
