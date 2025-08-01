@@ -7,12 +7,10 @@ function abcd(p::Matrix{Float64},nodes::AbstractVector,nd::Int32)
     y = @view p[2, [nd, n1, n2, n3]]
     z = @view p[3, [nd, n1, n2, n3]]
 
-    M::Matrix{Float64} = [1.0 x[1] y[1] z[1];
+    r::Vector{Float64} =[1.0 x[1] y[1] z[1];
                          1.0 x[2] y[2] z[2];
                          1.0 x[3] y[3] z[3];
-                         1.0 x[4] y[4] z[4]]
-
-    r::Vector{Float64} = M\[1;0;0;0]
+                         1.0 x[4] y[4] z[4]]\[1;0;0;0]
 
     return r[1],r[2],r[3],r[4] # a b c d
 end # Basis function coef.
