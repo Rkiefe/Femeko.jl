@@ -52,7 +52,7 @@ The Micromagnetics package has two distinct functionalities, based on the Landau
 <img width="551" height="443" alt="M_time_permalloy" src="https://github.com/user-attachments/assets/5434942c-a6dd-4444-aadf-c945c17e593b" />
 
 ### Heat
-Femeko is also capable of 2D and 3D Finite Element simulations. Here is a snapshot of a 2D heat simulation:
+Most implementations in Femeko have both a 2D and 3D version. Here is a snapshot of the 2D heat simulation
 
 <img width="551" height="443" alt="heat_2d" src="https://github.com/user-attachments/assets/232fba09-f23b-4201-9c46-4a996075fa89" />
 
