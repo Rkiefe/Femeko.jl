@@ -77,22 +77,12 @@ function refineCell(cell,localSize,meshSize)
 
     # Create a distance field for local refinement
     distance_field = gmsh.model.mesh.field.add("Distance")
-    gmsh.model.mesh.field.setNumbers(distance_field, "FacesList", [s[2] for s in cell_boundary])
 
-    setDistanceField(distance_field, meshSize, localSize)
-
-end # Local mesh refinement on target cell
-
-# Local mesh refinement on target cell
-function refineCell2D(cell,localSize,meshSize)
-    # Sets every volume in 'cell' to be locally refined with target 'localSize' 
-
-    # Get the boundary of the cell 
-    cell_boundary = gmsh.model.getBoundary(cell, false, false, false)
-
-    # Create a distance field for local refinement
-    distance_field = gmsh.model.mesh.field.add("Distance")
-    gmsh.model.mesh.field.setNumbers(distance_field, "CurvesList", [s[2] for s in cell_boundary])
+    if cell_boundary[1][1] < 2 # 1 -> curves
+        gmsh.model.mesh.field.setNumbers(distance_field, "CurvesList", [s[2] for s in cell_boundary])
+    else # 2 -> faces
+        gmsh.model.mesh.field.setNumbers(distance_field, "FacesList", [s[2] for s in cell_boundary])
+    end
 
     setDistanceField(distance_field, meshSize, localSize)
 
@@ -441,7 +431,7 @@ function Mesh2D(cells, meshSize=0.0, localSize=0.0, saveMesh=false)
 
     # Set local mesh size
     if localSize>0.0 && !isempty(cells)
-        refineCell2D(cells, localSize, meshSize) # Set local refinement on the sphere Cell
+        refineCell(cells, localSize, meshSize) # Set local refinement on the sphere Cell
     end
 
     # Set maximum element size
