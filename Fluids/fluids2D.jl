@@ -94,21 +94,35 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     end
 
 
+    # Pressure matrix
+    B1 = spzeros(nVertices, mesh.nv) # Vertices x Nodes
+    B2 = spzeros(nVertices, mesh.nv) # Vertices x Nodes
+    for k in 1:mesh.nt
+        nds = @view mesh.t[:,k]
+        for i in 1:3
+            a::Float64, b::Float64, c::Float64 = abc(mesh.p, nds[1:3], nds[i])
+            for j in 1:6
+                S = quadraticBasis2D(mesh.p, nds, nds[j])
+                
+                # 6 Node quadrature
+                b1::Float64 = 0.0
+                b2::Float64 = 0.0
+                for n in 1:6
+                    b1 -= (a + b*mesh.p[1,nds[n]] + c*mesh.p[2,nds[n]])*            # Linear
+                          (S[2] + 2*S[4]*mesh.p[1,nds[n]] + S[5]*mesh.p[2,nds[n]])  # Quadratic
+                    
+                    b2 -= (a + b*mesh.p[1,nds[n]] + c*mesh.p[2,nds[n]])*            # Linear
+                          (S[3] + S[5]*mesh.p[1,nds[n]] + 2*S[6]*mesh.p[2,nds[n]])  # Quadratic
+                end # 6 node quadrature (quadratic nodes)
+
+                B1[nds[i], nds[j]] += mesh.VE[k]*b1/6
+                B2[nds[i], nds[j]] += mesh.VE[k]*b2/6
+            end # Quadratic nodes loop
+        end # Linear nodes loop
+    end # Element loop
+
     return
 
-    # Testing quadratic basis functions
-    nds = @view mesh.t[:, 1]
-    S = quadraticBasis2D(mesh.p, nds, nds[3])
-
-    for nd in nds
-        x = mesh.p[1, nd]
-        y = mesh.p[2, nd]
-
-        f = S[1] + S[2]*x + S[3]*y + S[4]*x^2 + S[5]*x*y + S[6]*y^2
-        println(f)
-    end
-
-    return
 
     # Element centroids
     centroids::Matrix{Float64} = zeros(2, mesh.nt)
