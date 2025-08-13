@@ -1,5 +1,8 @@
 #=
     2D viscous fluid simulation
+
+    Currently not working. Likely due to node ordering from Gmsh... 
+    Trying to fix it likely revolves aroung 'sortMeshNodes'
 =#
 
 include("../src/gmsh_wrapper.jl")
