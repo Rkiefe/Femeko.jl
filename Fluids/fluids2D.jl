@@ -47,6 +47,13 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     # Get the number of mesh nodes (not counting the midpoints)
     nVertices = length(unique(vec(mesh.t[1:3,:])))
 
+    # Gmsh orders the nodes arbitrarily
+    # So I have to re-label the vertices and the midpoints
+
+    
+    return
+
+
     # Global Stiffness matrix
     A = spzeros(mesh.nv, mesh.nv)
 
@@ -95,8 +102,8 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
 
     # Pressure matrix
-    B1 = spzeros(nVertices, mesh.nv) # Vertices x Nodes
-    B2 = spzeros(nVertices, mesh.nv) # Vertices x Nodes
+    B1::Matrix{Float64} = zeros(nVertices, mesh.nv) # Vertices x Nodes
+    B2::Matrix{Float64} = zeros(nVertices, mesh.nv) # Vertices x Nodes
     for k in 1:mesh.nt
         nds = @view mesh.t[:,k]
         for i in 1:3
@@ -170,4 +177,4 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     # display(fig)
 end
 
-main(0.0, 0.0, false)
+main(0.0, 0.0, true)
