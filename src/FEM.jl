@@ -38,6 +38,28 @@ function abc(p::Matrix{Float64}, nds::AbstractVector, nd::Int32)
     return S[1], S[2], S[3] # f = a + bx + cy
 end # 2D Linear basis function
 
+
+# 2D quadratic basis function
+function quadraticBasis2D(p::Matrix{Float64}, nodes::AbstractVector,nd::Int32)
+    # f = S[1] + S[2]*x + S[3]*y + S[4]*x^2 + S[5]*x*y + S[6]*y^2
+
+    nds = nodes[nodes .!= nd]
+
+    x = @view p[1, [nd, nds[1], nds[2], nds[3], nds[4], nds[5]] ]
+    y = @view p[2, [nd, nds[1], nds[2], nds[3], nds[4], nds[5]] ]
+    z = @view p[3, [nd, nds[1], nds[2], nds[3], nds[4], nds[5]] ]
+
+    S::Vector{Float64} = [1.0 x[1] y[1] x[1]^2  x[1]*y[1] y[1]^2;
+                          1.0 x[2] y[2] x[2]^2  x[2]*y[2] y[2]^2;
+                          1.0 x[3] y[3] x[3]^2  x[3]*y[3] y[3]^2;
+                          1.0 x[4] y[4] x[4]^2  x[4]*y[4] y[4]^2;
+                          1.0 x[5] y[5] x[5]^2  x[5]*y[5] y[5]^2;
+                          1.0 x[6] y[6] x[6]^2  x[6]*y[6] y[6]^2]\[1;0;0;0;0;0]
+
+    return S
+end
+
+
 # Sparse, global stiffness matrix
 function stiffnessMatrix(mesh::MESH, f::Vector{Float64}=ones(mesh.nt))
     A = spzeros(mesh.nv,mesh.nv)
