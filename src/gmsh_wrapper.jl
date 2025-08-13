@@ -13,6 +13,10 @@ using Gmsh, LinearAlgebra
 
 # Holds the mesh information needed for FEM simulations
 mutable struct MESH
+
+    # Order | 1 - Linear, 2 - Quadratic
+    order::Int
+
     # Node coordinates
     p::Matrix{Float64}
 
@@ -282,7 +286,7 @@ function findNodes(mesh::MESH,region::String,id)
 end
 
 # 3D
-function Mesh(cells,meshSize=0,localSize=0,saveMesh::Bool=false)
+function Mesh(cells, meshSize=0, localSize=0, saveMesh::Bool=false)
     #=
         Generates a 3d tetrahedral mesh considering that the model is made of 
         1 container and every other volume beyond the container is listed in the 'cells'
@@ -408,7 +412,7 @@ function Mesh(cells,meshSize=0,localSize=0,saveMesh::Bool=false)
 end
 
 # 2D
-function Mesh2D(cells, meshSize=0.0, localSize=0.0, saveMesh=false)
+function Mesh2D(cells, meshSize=0.0, localSize=0.0, order::Int=1, saveMesh=false)
     #=
         Generates a 2d triangle mesh considering that the model is made of 
         1 container and every other volume beyond the container is listed in the 'cells'
@@ -420,6 +424,9 @@ function Mesh2D(cells, meshSize=0.0, localSize=0.0, saveMesh=false)
     =#
 
     mesh = MESH()
+
+    # Store the order
+    mesh.order = order
 
     # Get the volume IDs of the cells inside the container
     volumeID = []
@@ -439,12 +446,24 @@ function Mesh2D(cells, meshSize=0.0, localSize=0.0, saveMesh=false)
         gmsh.option.setNumber("Mesh.MeshSizeMax", meshSize)
     end
 
+    # Set mesh order
+    gmsh.option.setNumber("Mesh.ElementOrder", order) # Set to quadratic
+
     # Generate 2D mesh
     gmsh.model.mesh.generate(2)
 
     # Get element connectivity
-    t_tags, t = gmsh.model.mesh.getElementsByType(2)
-    mesh.t = reshape(t,3,Int(size(t,1)/3))
+
+    if order == 1
+        t_tags, t = gmsh.model.mesh.getElementsByType(2) # 3 node first order triangle
+        mesh.t = reshape(t,3,Int(size(t,1)/3))
+    
+    elseif order == 2
+        t_tags, t = gmsh.model.mesh.getElementsByType(9) # 6 node second order triangle
+        mesh.t = reshape(t, 6, Int(size(t, 1)/6))
+    
+    end
+
     mesh.nt = size(mesh.t,2)
 
     # Get node coordinates
@@ -452,9 +471,15 @@ function Mesh2D(cells, meshSize=0.0, localSize=0.0, saveMesh=false)
     mesh.p = reshape(p, 3, Int(size(p,1)/3))
     mesh.nv = size(mesh.p,2)
 
-    # # Get all boundary edges
-    edge_tags, edges = gmsh.model.mesh.getElementsByType(1)
-    edges = reshape(edges, 2, Int(size(edges,1)/2))
+    # Get all boundary edges
+    if order == 1
+        edge_tags, edges = gmsh.model.mesh.getElementsByType(1) # 2 node line
+        edges = reshape(edges, 2, Int(size(edges,1)/2))
+
+    elseif order == 2
+        edge_tags, edges = gmsh.model.mesh.getElementsByType(8) # 3 node second order line (2 nodes - vertices, 1 node - midpoint)
+        edges = reshape(edges, 3, Int(size(edges,1)/3))
+    end
 
     # Expand boundary edges to include boundary id
     edges = [edges; UInt.(zeros(1,size(edges,2)))]
@@ -498,7 +523,7 @@ function Mesh2D(cells, meshSize=0.0, localSize=0.0, saveMesh=false)
     # Area of each element
     mesh.VE = zeros(mesh.nt)
     for k in 1:mesh.nt
-        nds = @view mesh.t[:,k]
+        nds = @view mesh.t[1:3,k]
         mesh.VE[k] = areaTriangle(  mesh.p[1,nds],
                                     mesh.p[2,nds],
                                     mesh.p[3,nds])
@@ -507,7 +532,7 @@ function Mesh2D(cells, meshSize=0.0, localSize=0.0, saveMesh=false)
     # Normal to each edge
     mesh.normal = zeros(2, mesh.ne)
     for e in 1:mesh.ne
-        nds = @view mesh.surfaceT[:, e]
+        nds = @view mesh.surfaceT[1:2, e]
         mesh.normal[:, e] = normalEdge(mesh.p, nds)
     end
 
