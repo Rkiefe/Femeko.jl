@@ -7,6 +7,32 @@ include("../src/FEM.jl")
 
 # using GLMakie
 
+# Sort the quadratic mesh vertices and edge midpoints
+function sortMeshNodes(mesh::MESH)
+    # Vertices start from 1 to 'nVertices'. Edge midpoints start
+    # from 'nVertices' to mesh.nv
+
+    vertices::Vector{Int32} = unique(vec(mesh.t[1:3,:]))
+    nVertices = length(vertices)
+
+    edgeMidPoints::Vector{Int32} = unique(vec(mesh.t[4:6,:]))
+    nEdges::Int32 = length(edgeMidPoints)
+    
+    # Map the mesh nodes to the ordered array of nodes + edge midpoints
+    vertexID::Vector{Int32} = zeros(mesh.nv)
+    for i in 1:nVertices
+        vertexID[vertices[i]] = i
+
+    end
+
+    # Map the edge midpoints to the ordered array of nodes + edge midpoints
+    for i in 1:nEdges
+        vertexID[edgeMidPoints[i]] = nVertices + i
+    end
+
+    return vertexID, nVertices
+end
+
 function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
     # Simulation settings
@@ -44,15 +70,12 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     end
     gmsh.fltk.finalize()
 
-    # Get the number of mesh nodes (not counting the midpoints)
-    nVertices = length(unique(vec(mesh.t[1:3,:])))
-
     # Gmsh orders the nodes arbitrarily
     # So I have to re-label the vertices and the midpoints
+    vertexID::Vector{Int32}, nVertices::Int32 = sortMeshNodes(mesh)
 
-    
-    return
 
+    # return
 
     # Global Stiffness matrix
     A = spzeros(mesh.nv, mesh.nv)
@@ -96,10 +119,11 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     for i in 1:6
         for j in 1:6
             n += 1
-            A += sparse(mesh.t[i,:],mesh.t[j,:],Ak[n,:],mesh.nv,mesh.nv)
+            A += sparse(vertexID[mesh.t[i,:]],      # Convert original node ID to sorted node ID
+                        vertexID[mesh.t[j,:]],      # Convert original node ID to sorted node ID
+                        Ak[n,:], mesh.nv, mesh.nv)
         end
     end
-
 
     # Pressure matrix
     B1::Matrix{Float64} = zeros(nVertices, mesh.nv) # Vertices x Nodes
@@ -122,14 +146,46 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
                           (S[3] + S[5]*mesh.p[1,nds[n]] + 2*S[6]*mesh.p[2,nds[n]])  # Quadratic
                 end # 6 node quadrature (quadratic nodes)
 
-                B1[nds[i], nds[j]] += mesh.VE[k]*b1/6
-                B2[nds[i], nds[j]] += mesh.VE[k]*b2/6
+                # Convert original node ID to sorted node ID and update matrix
+                B1[vertexID[nds[i]], vertexID[nds[j]]] += mesh.VE[k]*b1/6
+                B2[vertexID[nds[i]], vertexID[nds[j]]] += mesh.VE[k]*b2/6
+            
             end # Quadratic nodes loop
         end # Linear nodes loop
     end # Element loop
 
-    return
 
+    # Full matrix
+    LHS =  [A zeros(mesh.nv, mesh.nv) B1'; 
+            zeros(mesh.nv, mesh.nv) A B2';
+            B1 B2 zeros(nVertices, nVertices)]
+
+    # Apply boundary conditions
+    # NOTE! The boundary ID must be checked manually from Gmsh GUI directly
+
+    # In Flow | Curve id: 2
+    inFlow::Int32 = 2
+    inFlowNodes::Vector{Int32}, _, _ = gmsh.model.mesh.getNodes(1, inFlow)
+
+    # No-slip boundary conditions
+    walls::Vector{Int32} = [1, 4, 5]
+    wallNodes::Vector{Int32} = Int32[]
+    for id in walls
+        nodes::Vector{Int32}, _, _ = gmsh.model.mesh.getNodes(1, id)
+        append!(wallNodes, nodes)
+    end
+
+    # Nodes with boundary conditions
+    fixed = [
+             vertexID[inFlowNodes]; 
+             vertexID[wallNodes];
+             mesh.nv .+ vertexID[inFlowNodes];
+             mesh.nv .+ vertexID[wallNodes];
+            ]
+
+
+
+    return
 
     # Element centroids
     centroids::Matrix{Float64} = zeros(2, mesh.nt)
@@ -177,4 +233,5 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     # display(fig)
 end
 
-main(0.0, 0.0, true)
+showGmsh = true
+main(0.0, 0.0, showGmsh)
