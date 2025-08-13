@@ -5,7 +5,7 @@
 include("../src/gmsh_wrapper.jl")
 include("../src/FEM.jl")
 
-# using GLMakie
+using GLMakie
 
 # Sort the quadratic mesh vertices and edge midpoints
 function sortMeshNodes(mesh::MESH)
@@ -36,7 +36,8 @@ end
 function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
     # Simulation settings
-    viscosity::Float64 = 1.0 
+    velocity::Vector{Float64} = [1.0, 0.0]
+    viscosity::Float64 = 1.0
 
     # Create model
     gmsh.initialize()
@@ -183,55 +184,54 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
              mesh.nv .+ vertexID[wallNodes];
             ]
 
+    free = setdiff(1:(2*mesh.nv + nVertices), fixed)
 
+    gD::Vector{Float64} = zeros(2*mesh.nv + nVertices)
+    gD[inFlowNodes] .= velocity[1]
+    gD[mesh.nv .+ inFlowNodes] .= velocity[2]
 
-    return
+    RHS = -LHS[free,fixed]*gD[fixed]
 
-    # Element centroids
-    centroids::Matrix{Float64} = zeros(2, mesh.nt)
-    for k in 1:mesh.nt
-        nds = mesh.t[1:3,k]
-        centroids[1,k] = sum(mesh.p[1,nds])/3
-        centroids[2,k] = sum(mesh.p[2,nds])/3
+    # Velocity and pressure (u and p)
+    UP::Vector{Float64} = zeros(2*mesh.nv + nVertices)
+    UP[fixed] .= gD[fixed]
+    UP[free] = LHS[free,free]\RHS    
+    
+    # Velocity
+    u::Matrix{Float64} = zeros(mesh.nv, 2)
+    u[:, 1] .= UP[1:mesh.nv]
+    u[:, 2] .= UP[mesh.nv+1:2*mesh.nv]
+
+    velocityNorm::Vector{Float64} = zeros(mesh.nv)
+    for i in 1:mesh.nv
+        velocityNorm[i] = sqrt(sum(u[i,:].^2))   
     end
 
+    # Pressure
+    p = UP[2*mesh.nv.+(1:nVertices)]
+
+    fig = Figure()
+    ax = Axis(fig[1, 1], aspect = DataAspect(), title="Fluid simulation")
     
+    # Velocity scatter plot
+    velocityPlot = Axis(fig[1, 1], title = "Velocity")
+    velocityScat = scatter!(velocityPlot, 
+                    mesh.p[1,vertexID], 
+                    mesh.p[2,vertexID], 
+                    color = velocityNorm,
+                    colormap = :thermal)
+    Colorbar(fig[2, 1], velocityScat, vertical = false, label = "Velocity")
+
+    # Pressure scatter plot
+    # pressurePlot = Axis(fig[1, 2], title = "Pressure")
+    # pressureScat = scatter!(pressurePlot,
+    #                          mesh.p[1,:], 
+    #                          mesh.p[2,:], 
+    #                          color = z2, colormap = :plasma)
+    # cb2 = Colorbar(fig[2, 2], sc2, vertical = false, label = "Value 2")
     
-    # Mass matrix
-    Mlocal::Matrix{Float64} = 1/12 *[2 1 1;
-                                     1 2 1;
-                                     1 1 2]
-
-    M = spzeros(mesh.nv,mesh.nv)
-    Mk::Matrix{Float64} = zeros(9, mesh.nt)
-    for k in 1:mesh.nt
-        nds = @view mesh.t[:,k]
-        Mk[:,k] = mesh.VE[k]*Mlocal[:];
-    end
-
-    # Update sparse global matrix
-    n = 0
-    for i in 1:3
-        for j in 1:3
-            n += 1
-            M += sparse(mesh.t[i,:],mesh.t[j,:],Mk[n,:],mesh.nv,mesh.nv)
-        end
-    end
-
-    # fig = Figure()
-    # ax = Axis(fig[1, 1], aspect = DataAspect(), title="Heat simulation")
-    # scatterPlot = scatter!(ax, 
-    #     mesh.p[1,:],
-    #     mesh.p[2,:],
-    #     color = T, 
-    #     colormap=:thermal, 
-    #     colorrange = (minimum(T), maximum(T)),
-    #     markersize=5) 
-
-    # Colorbar(fig[1, 2], scatterPlot, label="Temperature")
-    
-    # display(fig)
+    wait(display(fig))
 end
 
-showGmsh = true
+showGmsh = false
 main(0.0, 0.0, showGmsh)
