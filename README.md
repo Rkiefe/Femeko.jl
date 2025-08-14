@@ -19,14 +19,15 @@ You can access the node indices of the first element like this: `mesh.t[:,1]`, w
 ## Femeko.jl currently has full fledged implementations for
 - Magnetostatics (magnetic materials under applied fields, permanent magnets, etc)
 - Heat equation (with implicit time stepping)
+- Viscous fluid (in-compressible, static)
 - Micromagnetics (both in time and steepest descent energy minimization)
 
 Femeko has implementations for both 3D and 2D in each physics package (except micromagnetics, only 3D).
 
 ## Femeko.jl aims to have the following, in the future
 - Full Heat equation (with convection to a passing fluid)
-- Viscous fluid dynamics (in-compressible)
 - Elastostatics (stress)
+- Viscous fluid dynamics (in-compressible)
 
 ## Table of Contents
 - [Fully featured examples](#examples)
