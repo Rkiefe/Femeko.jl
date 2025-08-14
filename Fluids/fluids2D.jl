@@ -84,6 +84,8 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     # Define the obstacle as an extremely viscous object to set the internal velocity to zero
     mu[mesh.InsideElements] .= 1e3 * viscosity
 
+    println("Building stiffness matrix")
+
     # Global Stiffness matrix
     A = spzeros(mesh.nv, mesh.nv)
 
@@ -131,6 +133,8 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
                         Ak[n,:], mesh.nv, mesh.nv)
         end
     end
+
+    println("Building divergence matrix")
 
     # Pressure matrix
     B1::Matrix{Float64} = zeros(nVertices, mesh.nv) # Vertices x Nodes
@@ -200,6 +204,8 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
     RHS = -LHS[free,fixed]*gD[fixed]
 
+    println("Solving matrix equation")
+
     # Velocity and pressure (u and p)
     UP::Vector{Float64} = zeros(2*mesh.nv + nVertices)
     UP[fixed] .= gD[fixed]
@@ -224,6 +230,8 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
     y::Vector{Float64} = zeros(mesh.nv)
     y[vertexID[1:mesh.nv]] .= mesh.p[2,:]
+
+    println("Printing plots")
 
     # Plot results
     fig = Figure()
@@ -264,4 +272,4 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 end
 
 showGmsh = true
-main(10.0, 0.5, showGmsh)
+main(2.5, 0.25, showGmsh)
