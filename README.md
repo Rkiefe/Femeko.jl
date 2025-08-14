@@ -50,6 +50,7 @@ Example from `Magnetostatics`, the internal magnetic field of a plate aligned wi
 The Micromagnetics package has two distinct functionalities, based on the Landau-Lifshitz equation: the magnetization over time of the system; and an energy minimization by the steepest descent algorithm. The solver incorporates an external magnetic field, the demagnetizing field, the exchange field and the anisotropy field. This solver was validated against OOMMF, replicating Fig 2. of this article https://doi.org/10.1109/TMAG.2008.2001666 .
 
 <img width="551" height="443" alt="M_time_permalloy" src="https://github.com/user-attachments/assets/5434942c-a6dd-4444-aadf-c945c17e593b" />
+<img width="1920" height="1048" alt="Fluid_Simulation" src="https://github.com/user-attachments/assets/ad2c5697-aacd-41d0-8a19-7cfd24558fda" />
 
 ### Heat
 Most implementations in Femeko have both a 2D and 3D version. Here is a snapshot of the 2D heat simulation
