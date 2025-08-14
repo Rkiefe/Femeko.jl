@@ -78,6 +78,12 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     # So I have to re-label the vertices and the midpoints
     vertexID::Vector{Int32}, nVertices::Int32 = sortMeshNodes(mesh)
 
+    # Define the viscosity on the domain
+    mu::Vector{Float64} = zeros(mesh.nt) .+ viscosity
+
+    # Define the obstacle as an extremely viscous object to set the internal velocity to zero
+    mu[mesh.InsideElements] .= 1e3 * viscosity
+
     # Global Stiffness matrix
     A = spzeros(mesh.nv, mesh.nv)
 
@@ -106,7 +112,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
                 end 
                 aux /= 6
 
-                temp[i,j] = aux*mesh.VE[k]
+                temp[i,j] = mu[k]*aux*mesh.VE[k]
                 temp[j,i] = temp[i,j] # It is symmetric
             end
         end
@@ -175,6 +181,9 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
         append!(wallNodes, nodes)
     end
 
+    # Force velocity on the obstacle to zero
+    # println(mesh.InsideNodes)
+
     # Nodes with boundary conditions
     fixed = [
              vertexID[inFlowNodes]; 
@@ -228,12 +237,12 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     
     # Add vector field
     arrows2d!(x, y, u[:,1], u[:,2], 
-              # lengthscale = 0.2,
+              lengthscale = 0.5,
               color = velocityNorm)
 
     wait(display(fig))
 
 end
 
-showGmsh = false
-main(0.0, 0.0, showGmsh)
+showGmsh = true
+main(10.0, 0.5, showGmsh)
