@@ -227,20 +227,39 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
     # Plot results
     fig = Figure()
-    ax = Axis(fig[1, 1], aspect = DataAspect(), title="Fluid simulation")
-    scatterPlot = scatter!(ax, 
-        x,
-        y,
-        color = velocityNorm, 
-        colormap=:thermal)
-    Colorbar(fig[1, 2], scatterPlot, label="Velocity")
-    
+
     # Add vector field
-    arrows2d!(x, y, u[:,1], u[:,2], 
-              lengthscale = 0.5,
-              color = velocityNorm)
+    Axis(fig[1, 1], aspect = DataAspect(), title="Velocity field")
+    velocity_plot = arrows2d!(x, y, u[:,1], u[:,2], 
+                              lengthscale = 0.5,
+                              color = velocityNorm,
+                              colormap = :thermal)
+
+    Colorbar(fig[2, 1], velocity_plot, 
+             label = "Velocity", vertical = false)
+
+    # Add Pressure plot
+    xPressure::Vector{Float64} = zeros(nVertices)
+    yPressure::Vector{Float64} = zeros(nVertices)
+
+    # Vertices
+    vertices::Vector{Int32} = unique(vec(mesh.t[1:3,:]))
+    xPressure[vertexID[vertices]] .= mesh.p[1,vertices]
+    yPressure[vertexID[vertices]] .= mesh.p[2,vertices]
+
+
+    ax2 = Axis(fig[1, 2], aspect = DataAspect(), title="Pressure")
+    sc2 = scatter!( ax2, 
+                    xPressure, yPressure, 
+                    color=p, 
+                    colormap=:batlow,
+                    markersize=20)
+    
+    Colorbar(fig[2, 2], sc2,
+             label = "Pressure", vertical = false)
 
     wait(display(fig))
+
 
 end
 
