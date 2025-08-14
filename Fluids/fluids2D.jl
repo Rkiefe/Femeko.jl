@@ -78,9 +78,6 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     # So I have to re-label the vertices and the midpoints
     vertexID::Vector{Int32}, nVertices::Int32 = sortMeshNodes(mesh)
 
-
-    # return
-
     # Global Stiffness matrix
     A = spzeros(mesh.nv, mesh.nv)
 
@@ -158,7 +155,6 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
         end # Linear nodes loop
     end # Element loop
 
-
     # Full matrix
     LHS =  [A zeros(mesh.nv, mesh.nv) B1'; 
             zeros(mesh.nv, mesh.nv) A B2';
@@ -190,8 +186,8 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     free = setdiff(1:(2*mesh.nv + nVertices), fixed)
 
     gD::Vector{Float64} = zeros(2*mesh.nv + nVertices)
-    gD[inFlowNodes] .= velocity[1]
-    gD[mesh.nv .+ inFlowNodes] .= velocity[2]
+    gD[vertexID[inFlowNodes]] .= velocity[1]
+    gD[mesh.nv .+ vertexID[inFlowNodes]] .= velocity[2]
 
     RHS = -LHS[free,fixed]*gD[fixed]
 
@@ -213,27 +209,30 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     # Pressure
     p = UP[2*mesh.nv.+(1:nVertices)]
 
+    # Sort the coordinates
+    x::Vector{Float64} = zeros(mesh.nv)
+    x[vertexID[1:mesh.nv]] .= mesh.p[1,:]
+
+    y::Vector{Float64} = zeros(mesh.nv)
+    y[vertexID[1:mesh.nv]] .= mesh.p[2,:]
+
+    # Plot results
     fig = Figure()
     ax = Axis(fig[1, 1], aspect = DataAspect(), title="Fluid simulation")
+    scatterPlot = scatter!(ax, 
+        x,
+        y,
+        color = velocityNorm, 
+        colormap=:thermal)
+    Colorbar(fig[1, 2], scatterPlot, label="Velocity")
     
-    # Velocity scatter plot
-    velocityPlot = Axis(fig[1, 1], title = "Velocity")
-    velocityScat = scatter!(velocityPlot, 
-                    mesh.p[1,vertexID], 
-                    mesh.p[2,vertexID], 
-                    color = velocityNorm,
-                    colormap = :thermal)
-    Colorbar(fig[2, 1], velocityScat, vertical = false, label = "Velocity")
+    # Add vector field
+    arrows2d!(x, y, u[:,1], u[:,2], 
+              # lengthscale = 0.2,
+              color = velocityNorm)
 
-    # Pressure scatter plot
-    # pressurePlot = Axis(fig[1, 2], title = "Pressure")
-    # pressureScat = scatter!(pressurePlot,
-    #                          mesh.p[1,:], 
-    #                          mesh.p[2,:], 
-    #                          color = z2, colormap = :plasma)
-    # cb2 = Colorbar(fig[2, 2], sc2, vertical = false, label = "Value 2")
-    
     wait(display(fig))
+
 end
 
 showGmsh = false
