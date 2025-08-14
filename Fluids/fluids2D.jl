@@ -1,8 +1,8 @@
 #=
     2D viscous fluid simulation
 
-    Currently not working. Likely due to node ordering from Gmsh... 
-    Trying to fix it likely revolves aroung 'sortMeshNodes'
+    Gets the static velocity and pressure of a viscous fluid
+    flowing around an obstacle, following the stokes equation
 =#
 
 include("../src/gmsh_wrapper.jl")
@@ -12,8 +12,8 @@ using GLMakie
 
 # Sort the quadratic mesh vertices and edge midpoints
 function sortMeshNodes(mesh::MESH)
-    # Vertices start from 1 to 'nVertices'. Edge midpoints start
-    # from 'nVertices' to mesh.nv
+    # Vertices must start from 1 to 'nVertices'. Edge midpoints  must 
+    # start from 'nVertices'+1 to mesh.nv
 
     vertices::Vector{Int32} = unique(vec(mesh.t[1:3,:]))
     nVertices = length(vertices)
