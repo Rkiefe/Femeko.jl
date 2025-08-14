@@ -39,7 +39,7 @@ Femeko has implementations for both 3D and 2D in each physics package (except mi
 
 ## Examples
 
-This framework already has a few implementations such as `Magnetostatics`, `Micromagnetics`, `Heat` and `Fluids`. 
+Each physics package has its own folder: `Magnetostatics`, `Micromagnetics`, `Heat` and `Fluids`. 
 
 ### Magnetostatics
 Example from `Magnetostatics`, the internal magnetic field of a plate aligned with the applied field.
