@@ -99,6 +99,77 @@ function localStiffnessMatrix(mesh::MESH,f::Vector{Float64})
     return Ak
 end # Local stiffnessmatrix in 100% Julia
 
+# Tangential stiffness matrix for Newton Iteration
+function tangentialStiffnessMatrix(mesh::MESH, H_vec::Matrix{Float64}, dmu::Vector{Float64})
+
+    At = spzeros(mesh.nv,mesh.nv)
+    Ak::Matrix{Float64} = zeros(16, mesh.nt)
+    b::Vector{Float64} = zeros(4)
+    c::Vector{Float64} = zeros(4)
+    d::Vector{Float64} = zeros(4)
+    aux::Matrix{Float64} = zeros(4,4)
+
+    for k in 1:mesh.nt
+        nds = @view mesh.t[:,k]
+        for i in 1:4
+            _,b[i],c[i],d[i] = abcd(mesh.p,nds,nds[i])
+        end
+
+        H::Float64 = norm(H_vec[k,:])
+        
+        for i in 1:4
+            for j in i:4
+                aux[i,j] = mesh.VE[k]*dmu[k]/H *
+                           (H_vec[k,1]*b[i] + H_vec[k,2]*c[i] + H_vec[k,3]*d[i]) *
+                           (H_vec[k,1]*b[j] + H_vec[k,2]*c[j] + H_vec[k,3]*d[j])
+            
+                aux[j,i] = aux[i,j]
+            end
+        end
+
+        Ak[:,k] = aux[:] # vec(aux)
+    end
+
+    # Update sparse global matrix
+    n = 0
+    for i in 1:4
+        for j in 1:4
+            n += 1
+            At += sparse(mesh.t[i,:],mesh.t[j,:],Ak[n,:],mesh.nv,mesh.nv)
+        end
+    end
+
+    return At
+end # Newton iteration matrix
+
+# Lagrange multiplier technique
+function lagrange(mesh::MESH)
+    C::Vector{Float64} = zeros(mesh.nv)
+    for k in 1:mesh.nt
+        nds::AbstractVector{Int32} = @view mesh.t[:,k];   # Nodes of that element
+        C[nds] .+= mesh.VE[k]/4
+    end
+    return C
+end # Lagrange multiplier technique
+
+# Boundary condition
+function BoundaryIntegral(mesh::MESH,F::Vector{Float64},shell_id)
+    RHS::Vector{Float64} = zeros(mesh.nv);
+    for s in 1:mesh.ne
+
+        # Only integrate over the outer shell
+        if !(mesh.surfaceT[4,s] in shell_id)
+            continue
+        end
+        
+        RHS[mesh.surfaceT[1:3,s]] .+= dot(mesh.normal[:,s],F)*mesh.AE[s]/3;
+    end
+
+    return RHS
+end # Boundary conditions
+
+# ---- 2D matrix assembly ---- 
+
 # 2D Global stiffness matrix
 function stiffnessMatrix2D(mesh::MESH, mu::Vector{Float64})
     # Global sparse stiffness matrix
@@ -168,48 +239,29 @@ function quadraticLocalStiffnessMatrix2D(mesh::MESH, mu::Vector{Float64})
     return Ak
 end
 
-# Tangential stiffness matrix for Newton Iteration
-function tangentialStiffnessMatrix(mesh::MESH, H_vec::Matrix{Float64}, dmu::Vector{Float64})
+function massMatrix2D(mesh::MESH)
+    Mlocal::Matrix{Float64} = 1/12 *[2 1 1;
+                                     1 2 1;
+                                     1 1 2]
 
-    At = spzeros(mesh.nv,mesh.nv)
-    Ak::Matrix{Float64} = zeros(16, mesh.nt)
-    b::Vector{Float64} = zeros(4)
-    c::Vector{Float64} = zeros(4)
-    d::Vector{Float64} = zeros(4)
-    aux::Matrix{Float64} = zeros(4,4)
-
+    M = spzeros(mesh.nv,mesh.nv)
+    Mk::Matrix{Float64} = zeros(9, mesh.nt)
     for k in 1:mesh.nt
         nds = @view mesh.t[:,k]
-        for i in 1:4
-            _,b[i],c[i],d[i] = abcd(mesh.p,nds,nds[i])
-        end
-
-        H::Float64 = norm(H_vec[k,:])
-        
-        for i in 1:4
-            for j in i:4
-                aux[i,j] = mesh.VE[k]*dmu[k]/H *
-                           (H_vec[k,1]*b[i] + H_vec[k,2]*c[i] + H_vec[k,3]*d[i]) *
-                           (H_vec[k,1]*b[j] + H_vec[k,2]*c[j] + H_vec[k,3]*d[j])
-            
-                aux[j,i] = aux[i,j]
-            end
-        end
-
-        Ak[:,k] = aux[:] # vec(aux)
+        Mk[:,k] = mesh.VE[k]*Mlocal[:];
     end
 
     # Update sparse global matrix
     n = 0
-    for i in 1:4
-        for j in 1:4
+    for i in 1:3
+        for j in 1:3
             n += 1
-            At += sparse(mesh.t[i,:],mesh.t[j,:],Ak[n,:],mesh.nv,mesh.nv)
+            M += sparse(mesh.t[i,:],mesh.t[j,:],Mk[n,:],mesh.nv,mesh.nv)
         end
     end
 
-    return At
-end # Newton iteration matrix
+    return M
+end
 
 # 2D Sparse divergence matrix
 function divergenceMatrix2D(mesh::MESH, vertexID::Vector{Int32}, nVertices::Int32)
@@ -283,33 +335,6 @@ function localDivergenceMatrix2D(mesh::MESH)
 
     return B1k, B2k
 end # 2D Local dense divergence matrix
-
-
-# Lagrange multiplier technique
-function lagrange(mesh::MESH)
-    C::Vector{Float64} = zeros(mesh.nv)
-    for k in 1:mesh.nt
-        nds::AbstractVector{Int32} = @view mesh.t[:,k];   # Nodes of that element
-        C[nds] .+= mesh.VE[k]/4
-    end
-    return C
-end # Lagrange multiplier technique
-
-# Boundary condition
-function BoundaryIntegral(mesh::MESH,F::Vector{Float64},shell_id)
-    RHS::Vector{Float64} = zeros(mesh.nv);
-    for s in 1:mesh.ne
-
-        # Only integrate over the outer shell
-        if !(mesh.surfaceT[4,s] in shell_id)
-            continue
-        end
-        
-        RHS[mesh.surfaceT[1:3,s]] .+= dot(mesh.normal[:,s],F)*mesh.AE[s]/3;
-    end
-
-    return RHS
-end # Boundary conditions
 
 # Mean function
 function mean(arr::Vector,dimension=1)

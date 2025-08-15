@@ -66,25 +66,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     A = stiffnessMatrix2D(mesh, thermalCond)
 
     # Mass matrix
-    Mlocal::Matrix{Float64} = 1/12 *[2 1 1;
-                                     1 2 1;
-                                     1 1 2]
-
-    M = spzeros(mesh.nv,mesh.nv)
-    Mk::Matrix{Float64} = zeros(9, mesh.nt)
-    for k in 1:mesh.nt
-        nds = @view mesh.t[:,k]
-        Mk[:,k] = mesh.VE[k]*Mlocal[:];
-    end
-
-    # Update sparse global matrix
-    n = 0
-    for i in 1:3
-        for j in 1:3
-            n += 1
-            M += sparse(mesh.t[i,:],mesh.t[j,:],Mk[n,:],mesh.nv,mesh.nv)
-        end
-    end
+    M = massMatrix2D(mesh::MESH)
 
     fig = Figure()
     ax = Axis(fig[1, 1], aspect = DataAspect(), title="Heat simulation")
@@ -112,6 +94,8 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
         # display(fig)
         sleep(0.1)
     end
+    println("Simulation finished")
+    
     wait(display(fig)) # Wait before closing the figure
 
 end
