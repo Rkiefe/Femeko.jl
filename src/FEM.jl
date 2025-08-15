@@ -99,6 +99,7 @@ function localStiffnessMatrix(mesh::MESH,f::Vector{Float64})
     return Ak
 end # Local stiffnessmatrix in 100% Julia
 
+# 2D Global stiffness matrix
 function stiffnessMatrix2D(mesh::MESH, mu::Vector{Float64})
     # Global sparse stiffness matrix
     A = spzeros(mesh.nv,mesh.nv)
@@ -127,8 +128,7 @@ function stiffnessMatrix2D(mesh::MESH, mu::Vector{Float64})
     end
 
     return A
-end
-
+end # 2D Global stiffness matrix
 
 # Local 2D quadratic stiffness matrix
 function quadraticLocalStiffnessMatrix2D(mesh::MESH, mu::Vector{Float64})
