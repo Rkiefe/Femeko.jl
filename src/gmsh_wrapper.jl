@@ -645,3 +645,43 @@ function save2file(fileName,input)
         end
     end
 end # Save matrix to .txt file
+
+# Interpolation over a scattered mesh of nodes
+function interp2Dmesh(mesh::MESH, xq::Float64, yq::Float64, T::Vector{Float64})
+
+    # Find closest element to target coordinate
+    tag = 0
+    r = Inf
+    for i in 1:mesh.nt
+        nds = @view mesh.t[:,i]
+        center = mean(mesh.p[:,nds],2)
+
+        new_r = sqrt((center[1] - xq)^2 + (center[2] - yq)^2)
+        if new_r < r
+            r = new_r
+            tag = i
+        end
+    end
+
+    nds = @view mesh.t[:, tag]
+    P1 = mesh.p[:, nds[1]]
+    P2 = mesh.p[:, nds[2]]
+    P3 = mesh.p[:, nds[3]]
+
+    # Set the Z value to the temperature
+    P1[3] = T[nds[1]]
+    P2[3] = T[nds[2]]
+    P3[3] = T[nds[3]]
+
+    # Create a plane for interpolation
+    AB = P2-P1
+    AC = P3-P1
+    n = cross(AB, AC)
+    a, b, c = n
+    d = -dot(n, P1)
+
+    # Get the interpolation of the solution on the mesh element
+    zq = -(a*xq + b*yq + d)/c
+
+    return zq
+end
