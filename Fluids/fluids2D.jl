@@ -43,9 +43,9 @@ function fluid2D(mesh::MESH, velocity::Vector{Float64}, mu::Vector{Float64}, inF
                                                                   vertexID, 
                                                                   nVertices)
     # Full matrix
-    LHS =  [A zeros(mesh.nv, mesh.nv) B1'; 
-            zeros(mesh.nv, mesh.nv) A B2';
-            B1 B2 zeros(nVertices, nVertices)]
+    LHS =  [A spzeros(mesh.nv, mesh.nv) B1'; 
+            spzeros(mesh.nv, mesh.nv) A B2';
+            B1 B2 spzeros(nVertices, nVertices)]
 
     # Boundary conditions
 
