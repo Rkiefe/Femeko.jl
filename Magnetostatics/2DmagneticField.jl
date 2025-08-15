@@ -70,31 +70,34 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     mu::Vector{Float64} = ones(mesh.nt)
     mu[mesh.InsideElements] .= 2
 
-    # Stiffness matrix
-    A = spzeros(mesh.nv,mesh.nv)
+    # Global stiffness matrix
+    A = stiffnessMatrix2D(mesh, mu)
 
-    # Local stiffness matrix
-    Ak::Matrix{Float64} = zeros(9, mesh.nt)
-    b::Vector{Float64} = [0,0,0]
-    c::Vector{Float64} = [0,0,0]
-    for k in 1:mesh.nt
-        nds = @view mesh.t[:,k]
-        for i in 1:3
-            _, b[i], c[i] = abc(mesh.p, nds, nds[i])
-        end
+    # # Stiffness matrix
+    # A = spzeros(mesh.nv,mesh.nv)
 
-        aux = mesh.VE[k]*mu[k]*(b*b' + c*c')
-        Ak[:,k] = aux[:]
-    end
+    # # Local stiffness matrix
+    # Ak::Matrix{Float64} = zeros(9, mesh.nt)
+    # b::Vector{Float64} = [0,0,0]
+    # c::Vector{Float64} = [0,0,0]
+    # for k in 1:mesh.nt
+    #     nds = @view mesh.t[:,k]
+    #     for i in 1:3
+    #         _, b[i], c[i] = abc(mesh.p, nds, nds[i])
+    #     end
 
-    # Update sparse global matrix
-    n = 0
-    for i in 1:3
-        for j in 1:3
-            n += 1
-            A += sparse(mesh.t[i,:],mesh.t[j,:],Ak[n,:],mesh.nv,mesh.nv)
-        end
-    end
+    #     aux = mesh.VE[k]*mu[k]*(b*b' + c*c')
+    #     Ak[:,k] = aux[:]
+    # end
+
+    # # Update sparse global matrix
+    # n = 0
+    # for i in 1:3
+    #     for j in 1:3
+    #         n += 1
+    #         A += sparse(mesh.t[i,:],mesh.t[j,:],Ak[n,:],mesh.nv,mesh.nv)
+    #     end
+    # end
 
     # Vector of the border conditions
     RHS::Vector{Float64} = zeros(mesh.nv)
