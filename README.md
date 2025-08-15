@@ -53,7 +53,7 @@ Most implementations in Femeko have both a 2D and 3D version. Here is a snapshot
 <img width="551" height="443" alt="heat_2d" src="https://github.com/user-attachments/assets/232fba09-f23b-4201-9c46-4a996075fa89" />
 -->
 
-<img width="1920" height="1048" alt="Heat2D" src="https://github.com/user-attachments/assets/8649c1d9-ebe3-43eb-a7eb-9b100e8d104d" />
+<img width="1002" height="1001" alt="Heat2D" src="https://github.com/user-attachments/assets/2c7c0250-78b3-484a-9f52-2062bc3cbef1" />
 
 
 ### Fluids
