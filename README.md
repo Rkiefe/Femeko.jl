@@ -49,7 +49,12 @@ Example from `Magnetostatics`, the internal magnetic field of a plate aligned wi
 ### Heat
 Most implementations in Femeko have both a 2D and 3D version. Here is a snapshot of the 2D heat simulation
 
+<!--
 <img width="551" height="443" alt="heat_2d" src="https://github.com/user-attachments/assets/232fba09-f23b-4201-9c46-4a996075fa89" />
+-->
+
+<img width="1920" height="1048" alt="Heat2D" src="https://github.com/user-attachments/assets/8649c1d9-ebe3-43eb-a7eb-9b100e8d104d" />
+
 
 ### Fluids
 Femeko.jl can incorporate quadratic order elements, solving the stokes equation of a viscus fluid for both pressure and velocity.
