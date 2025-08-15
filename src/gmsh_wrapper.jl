@@ -551,6 +551,32 @@ function Mesh2D(cells, meshSize=0.0, localSize=0.0, order::Int=1, saveMesh=false
     return mesh
 end # 2D mesh generation
 
+# Sort the quadratic mesh vertices and edge midpoints
+function sortMeshNodes2D(mesh::MESH)
+    # Vertices must start from 1 to 'nVertices'. Edge midpoints  must 
+    # start from 'nVertices'+1 to mesh.nv
+
+    vertices::Vector{Int32} = unique(vec(mesh.t[1:3,:]))
+    nVertices::Int32 = length(vertices)
+
+    edgeMidPoints::Vector{Int32} = unique(vec(mesh.t[4:6,:]))
+    nEdges::Int32 = length(edgeMidPoints)
+    
+    # Map the mesh nodes to the ordered array of nodes + edge midpoints
+    vertexID::Vector{Int32} = zeros(mesh.nv)
+    for i in 1:nVertices
+        vertexID[vertices[i]] = i
+
+    end
+
+    # Map the edge midpoints to the ordered array of nodes + edge midpoints
+    for i in 1:nEdges
+        vertexID[edgeMidPoints[i]] = nVertices + i
+    end
+
+    return vertexID, nVertices
+end # Sort 2D quadratic mesh
+
 function normalEdge(p, nds)
     p1 = p[:, nds[1]]
     p2 = p[:, nds[2]]
