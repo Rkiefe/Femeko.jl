@@ -15,23 +15,23 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     nSteps::Int32 = totalTime/timeStep + 1
 
     # Create model
-	gmsh.initialize()
-	
+    gmsh.initialize()
+    
     # Add a 2D rectangle
-	cells = []
-	id = addRectangle([0,0,0], [1, 1], cells)
+    cells = []
+    id = addRectangle([0,0,0], [1, 1], cells)
     # id = addDisk([0,0,0], 1, cells)
 
-	# Add a container
-	# box = addRectangle([0,0,0], [2, 4])
+    # Add a container
+    # box = addRectangle([0,0,0], [2, 4])
     box = addDisk([0,0,0], 4)
 
-	# Combine the geometries
-	gmsh.model.occ.fragment(vcat(cells,[(2,box)]), [])
-	gmsh.model.occ.synchronize()
+    # Combine the geometries
+    gmsh.model.occ.fragment(vcat(cells,[(2,box)]), [])
+    gmsh.model.occ.synchronize()
 
     # Generate mesh
-	mesh::MESH = Mesh2D(cells, meshSize, localSize)
+    mesh::MESH = Mesh2D(cells, meshSize, localSize)
 
     println("\nNumber of elements ",size(mesh.t,2))
     println("Number of Inside elements ",length(mesh.InsideElements))
@@ -39,11 +39,11 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     println("Number of Inside nodes ",length(mesh.InsideNodes))
     println("Number of surface elements ",size(mesh.surfaceT,2))
 
-	# Run Gmsh GUI
+    # Run Gmsh GUI
     if showGmsh
-	   gmsh.fltk.run()
+       gmsh.fltk.run()
     end
-	gmsh.fltk.finalize()
+    gmsh.fltk.finalize()
 
     # Element centroids
     centroids::Matrix{Float64} = zeros(2,mesh.nt)
@@ -108,6 +108,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
         sleep(0.1)
     end
 
+
     println("Simulation finished")
     wait(display(fig)) # Wait before closing the figure
     
@@ -118,8 +119,9 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
     wait(display(fig)) # Wait before closing the figure
 
+    println("Final T at (xq,yq) = ", Tq[nSteps])
 
 end
 
-showGmsh = false
-main(4.0, 0.1, showGmsh) # 1.0, 0.05
+showGmsh = true
+main(0.05, 0.01, showGmsh) # 1.0, 0.05
