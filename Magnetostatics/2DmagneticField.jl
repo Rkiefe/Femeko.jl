@@ -73,7 +73,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     # Global stiffness matrix
     A = stiffnessMatrix2D(mesh, mu)
 
-    # Vector of the border conditions
+    # Boundary integral
     RHS::Vector{Float64} = zeros(mesh.nv)
     for e in 1:mesh.ne
         nds = @view mesh.surfaceT[:, e]
