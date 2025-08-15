@@ -180,6 +180,38 @@ function tangentialStiffnessMatrix(mesh::MESH, H_vec::Matrix{Float64}, dmu::Vect
     return At
 end # Newton iteration matrix
 
+function divergenceMatrix2D(mesh::MESH, vertexID::Vector{Int32}, nVertices::Int32)
+    B1::Matrix{Float64} = zeros(nVertices, mesh.nv) # Vertices x Nodes
+    B2::Matrix{Float64} = zeros(nVertices, mesh.nv) # Vertices x Nodes
+    for k in 1:mesh.nt
+        nds = @view mesh.t[:,k]
+        for i in 1:3
+            a::Float64, b::Float64, c::Float64 = abc(mesh.p, nds[1:3], nds[i])
+            for j in 1:6
+                S = quadraticBasis2D(mesh.p, nds, nds[j])
+                
+                # 6 Node quadrature
+                b1::Float64 = 0.0
+                b2::Float64 = 0.0
+                for n in 1:6
+                    b1 -= (a + b*mesh.p[1,nds[n]] + c*mesh.p[2,nds[n]])*            # Linear
+                          (S[2] + 2*S[4]*mesh.p[1,nds[n]] + S[5]*mesh.p[2,nds[n]])  # Quadratic
+                    
+                    b2 -= (a + b*mesh.p[1,nds[n]] + c*mesh.p[2,nds[n]])*            # Linear
+                          (S[3] + S[5]*mesh.p[1,nds[n]] + 2*S[6]*mesh.p[2,nds[n]])  # Quadratic
+                end # 6 node quadrature (quadratic nodes)
+
+                # Convert original node ID to sorted node ID and update matrix
+                B1[vertexID[nds[i]], vertexID[nds[j]]] += mesh.VE[k]*b1/6
+                B2[vertexID[nds[i]], vertexID[nds[j]]] += mesh.VE[k]*b2/6
+            
+            end # Quadratic nodes loop
+        end # Linear nodes loop
+    end # Element loop
+
+    return B1, B2
+end
+
 # Lagrange multiplier technique
 function lagrange(mesh::MESH)
     C::Vector{Float64} = zeros(mesh.nv)
