@@ -149,6 +149,9 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     walls::Vector{Int32} = [1, 4, 5]
     # note: the missing wall is an outflow
 
+
+
+
     # Run fluid simulation
     u::Matrix{Float64}, 
     p::Vector{Float64}, 
@@ -162,6 +165,12 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     for i in 1:mesh.nv
         velocityNorm[i] = sqrt(sum(u[i,:].^2))   
     end
+
+
+
+
+
+    # ----- Plot results ------
 
     # Sort the coordinates
     x::Vector{Float64} = zeros(mesh.nv)
