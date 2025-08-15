@@ -99,6 +99,44 @@ function localStiffnessMatrix(mesh::MESH,f::Vector{Float64})
     return Ak
 end # Local stiffnessmatrix in 100% Julia
 
+# Local 2D quadratic stiffness matrix
+function quadraticLocalStiffnessMatrix2D(mesh::MESH, mu::Vector{Float64})
+    # Local stiffness matrix
+    Ak::Matrix{Float64} = zeros(36, mesh.nt) # 6 x 6
+    temp::Matrix{Float64} = zeros(6,6)
+
+    for k in 1:mesh.nt
+        nds = @view mesh.t[:,k]
+
+        temp .= 0
+        for i in 1:length(nds)
+            Si = quadraticBasis2D(mesh.p, nds, nds[i])
+            
+            for j in i:length(nds)
+                Sj = quadraticBasis2D(mesh.p, nds, nds[j])
+
+                # 6 node quadrature
+                aux::Float64 = 0.0
+                for n in 1:6
+                    dxi::Float64 = Si[2] + 2*Si[4]*mesh.p[1,nds[n]] + Si[5]*mesh.p[2,nds[n]]
+                    dyi::Float64 = Si[3] + Si[5]*mesh.p[1,nds[n]] + 2*Si[6]*mesh.p[2,nds[n]] 
+                    dxj::Float64 = Sj[2] + 2*Sj[4]*mesh.p[1,nds[n]] + Sj[5]*mesh.p[2,nds[n]]
+                    dyj::Float64 = Sj[3] + Sj[5]*mesh.p[1,nds[n]] + 2*Sj[6]*mesh.p[2,nds[n]]
+                    aux += dxi*dxj + dyi*dyj
+                end 
+                aux /= 6
+
+                temp[i,j] = mu[k]*aux*mesh.VE[k]
+                temp[j,i] = temp[i,j] # It is symmetric
+            end
+        end
+
+        Ak[:,k] = vec(temp)
+    end # Local stiffness matrix
+
+    return Ak
+end
+
 # Tangential stiffness matrix for Newton Iteration
 function tangentialStiffnessMatrix(mesh::MESH, H_vec::Matrix{Float64}, dmu::Vector{Float64})
 
