@@ -11,7 +11,8 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
     # Simulation settings
     timeStep::Float64  = 0.001
-    totalTime::Float64 = 0.1
+    totalTime::Float64 = 0.05
+    nSteps::Int32 = totalTime/timeStep + 1
 
     # Create model
 	gmsh.initialize()
@@ -44,7 +45,6 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     end
 	gmsh.fltk.finalize()
 
-
     # Element centroids
     centroids::Matrix{Float64} = zeros(2,mesh.nt)
     for k in 1:mesh.nt
@@ -61,6 +61,10 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     T::Vector{Float64} = zeros(mesh.nv)
     T .= 0
     T[mesh.InsideNodes] .= 10
+
+    # Interpolate the result in this coordinate
+    xq = 0.75
+    yq = 0.0
 
     # Stiffness matrix
     A = stiffnessMatrix2D(mesh, thermalCond)
@@ -84,20 +88,38 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     display(fig) # This is required only if runing outside the repl
 
     # Time step
+    Tq::Vector{Float64} = zeros(nSteps)
     time::Float64 = 0.0
-    while time < totalTime
+    for i in 1:nSteps
+        
         time += timeStep
+
+        # New temperature
         T = (M + timeStep*A)\(M*T)
 
+        # Interpolate the result in a target coordinate
+        Tq[i] = interp2Dmesh(mesh, xq, yq, T)
+
+        # Update plot
         ax.title = string(time)*" s"
         scatterPlot.color = T
-        # display(fig)
+
+        # Pause to let user see the change gradually
         sleep(0.1)
     end
+
     println("Simulation finished")
-    
     wait(display(fig)) # Wait before closing the figure
+    
+    # Plot the interpolated result
+    fig, ax = scatter(0.0:timeStep:totalTime, Tq)
+    ax.ylabel = "Temperature"
+    ax.xlabel = "Time"
+
+    wait(display(fig)) # Wait before closing the figure
+
 
 end
 
-main(1.0, 0.05, false)
+showGmsh = false
+main(4.0, 0.1, showGmsh) # 1.0, 0.05
