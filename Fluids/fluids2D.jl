@@ -42,7 +42,6 @@ function fluid2D(mesh::MESH, velocity::Vector{Float64}, mu::Vector{Float64}, inF
     B1::Matrix{Float64}, B2::Matrix{Float64} = divergenceMatrix2D(mesh, 
                                                                   vertexID, 
                                                                   nVertices)
-
     # Full matrix
     LHS =  [A zeros(mesh.nv, mesh.nv) B1'; 
             zeros(mesh.nv, mesh.nv) A B2';

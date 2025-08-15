@@ -180,11 +180,48 @@ function tangentialStiffnessMatrix(mesh::MESH, H_vec::Matrix{Float64}, dmu::Vect
     return At
 end # Newton iteration matrix
 
+# 2D Sparse divergence matrix
 function divergenceMatrix2D(mesh::MESH, vertexID::Vector{Int32}, nVertices::Int32)
-    B1::Matrix{Float64} = zeros(nVertices, mesh.nv) # Vertices x Nodes
-    B2::Matrix{Float64} = zeros(nVertices, mesh.nv) # Vertices x Nodes
+    
+    # Global sparse divergence matrix
+    B1 = spzeros(nVertices, mesh.nv) # Vertices x Nodes
+    B2 = spzeros(nVertices, mesh.nv) # Vertices x Nodes
+    
+    # Local dense divergence matrix
+    B1k::Matrix{Float64}, 
+    B2k::Matrix{Float64} = localDivergenceMatrix2D(mesh::MESH)
+
+    # Update sparse global matrix
+    n = 0
+    for i in 1:3
+        for j in 1:6
+            n += 1
+            B1 += sparse(vertexID[mesh.t[i,:]],      # Convert original node ID to sorted node ID
+                         vertexID[mesh.t[j,:]],      # Convert original node ID to sorted node ID
+                         B1k[n,:], nVertices, mesh.nv)
+
+            B2 += sparse(vertexID[mesh.t[i,:]],      # Convert original node ID to sorted node ID
+                         vertexID[mesh.t[j,:]],      # Convert original node ID to sorted node ID
+                         B2k[n,:], nVertices, mesh.nv)
+        end
+    end
+
+    return B1, B2
+end # Sparse divergence matrix
+
+# 2D Local dense divergence matrix
+function localDivergenceMatrix2D(mesh::MESH)
+
+    # Local divergence matrix
+    B1k::Matrix{Float64} = zeros(18, mesh.nt)
+    B2k::Matrix{Float64} = zeros(18, mesh.nt)
+
+    B1_local::Matrix{Float64} = zeros(3,6) # Temporary for assembly of the local matrix
+    B2_local::Matrix{Float64} = zeros(3,6) # ...
+
     for k in 1:mesh.nt
         nds = @view mesh.t[:,k]
+
         for i in 1:3
             a::Float64, b::Float64, c::Float64 = abc(mesh.p, nds[1:3], nds[i])
             for j in 1:6
@@ -201,16 +238,21 @@ function divergenceMatrix2D(mesh::MESH, vertexID::Vector{Int32}, nVertices::Int3
                           (S[3] + S[5]*mesh.p[1,nds[n]] + 2*S[6]*mesh.p[2,nds[n]])  # Quadratic
                 end # 6 node quadrature (quadratic nodes)
 
-                # Convert original node ID to sorted node ID and update matrix
-                B1[vertexID[nds[i]], vertexID[nds[j]]] += mesh.VE[k]*b1/6
-                B2[vertexID[nds[i]], vertexID[nds[j]]] += mesh.VE[k]*b2/6
+                B1_local[i,j] = mesh.VE[k]*b1/6
+                B2_local[i,j] = mesh.VE[k]*b2/6
             
             end # Quadratic nodes loop
         end # Linear nodes loop
+
+        # Update local stiffness matrix
+        B1k[:,k] = vec(B1_local')
+        B2k[:,k] = vec(B2_local')
+
     end # Element loop
 
-    return B1, B2
-end
+    return B1k, B2k
+end # 2D Local dense divergence matrix
+
 
 # Lagrange multiplier technique
 function lagrange(mesh::MESH)
