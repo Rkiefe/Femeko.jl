@@ -63,30 +63,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     T[mesh.InsideNodes] .= 10
 
     # Stiffness matrix
-    A = spzeros(mesh.nv,mesh.nv)
-
-    # Local stiffness matrix
-    Ak::Matrix{Float64} = zeros(9, mesh.nt)
-    b::Vector{Float64} = [0,0,0]
-    c::Vector{Float64} = [0,0,0]
-    for k in 1:mesh.nt
-        nds = @view mesh.t[:,k]
-        for i in 1:3
-            _, b[i], c[i] = abc(mesh.p, nds, nds[i])
-        end
-
-        aux = mesh.VE[k]*thermalCond[k]*(b*b' + c*c')
-        Ak[:,k] = aux[:]
-    end
-
-    # Update sparse global matrix
-    n = 0
-    for i in 1:3
-        for j in 1:3
-            n += 1
-            A += sparse(mesh.t[i,:],mesh.t[j,:],Ak[n,:],mesh.nv,mesh.nv)
-        end
-    end
+    A = stiffnessMatrix2D(mesh, thermalCond)
 
     # Mass matrix
     Mlocal::Matrix{Float64} = 1/12 *[2 1 1;
