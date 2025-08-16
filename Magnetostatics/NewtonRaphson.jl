@@ -48,22 +48,20 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     relax::Float64 = 1.0 # Relaxation factor for N-R ]0, 1.0]
 
     # Data of magnetic materials
-    folder::String = "Materials/"
-
     materialProperties = Dict("Gd" => DATA(),
                               "Fe" => DATA())
     # Load Gd
     loadMaterial( materialProperties,
-                       "Materials",     # Folder with materials
-                       "Gd_MFT",        # Data folder of target material
-                       "Gd",            # Material name
+                       "Materials", # Folder with materials
+                       "Gd_MFT",    # Data folder of target material
+                       "Gd",        # Material name
                        7.9,
                        T)
 
     
     # Load Iron data
-    materialProperties["Fe"].HofM = vec(readdlm(folder*"Pure_Iron_FEMM/H_Fe_extrap.dat"))  # A/m
-    materialProperties["Fe"].B = vec(readdlm(folder*"Pure_Iron_FEMM/B_Fe_extrap.dat"))     # T
+    materialProperties["Fe"].HofM = vec(readdlm("Materials/Pure_Iron_FEMM/H_Fe_extrap.dat"))  # A/m
+    materialProperties["Fe"].B = vec(readdlm("Materials/Pure_Iron_FEMM/B_Fe_extrap.dat"))     # T
 
     # Get the permeability and its derivative
     materialPermeability(materialProperties, "Fe")
