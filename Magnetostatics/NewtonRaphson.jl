@@ -6,6 +6,7 @@
 
 include("../src/gmsh_wrapper.jl")
 include("../src/FEM.jl")
+include("../src/magneticProperties.jl")
 
 # For plots
 using GLMakie
@@ -18,31 +19,6 @@ using Dierckx
 
 using IterativeSolvers
 
-mutable struct DATA
-    # Magnetization data
-    M # ::Matrix{Float64}
-
-    # Magnetic field H
-    HofM::Vector{Float64}
-    
-    # Temperature
-    TofM::Vector{Float64}
-    
-    # Magnetic Flux
-    B::Vector{Float64}
-
-    # Density
-    rho::Float64
-
-    # Permeability mu = B/H
-    mu::Vector{Float64}
-
-    # d/dH mu (derivative of permeability)
-    dmu::Vector{Float64}
-
-    # Constructor
-    DATA() = new()
-end
 
 
 function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
@@ -76,74 +52,23 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
 
     materialProperties = Dict("Gd" => DATA(),
                               "Fe" => DATA())
-
-
-    # Load Gadolinium data
-    materialProperties["Gd"].M = readdlm(folder*"Gd_MFT/M.dat")                 # emu/g
-    materialProperties["Gd"].HofM = vec(readdlm(folder*"Gd_MFT/HofM.dat"))      # Oe
-    materialProperties["Gd"].TofM = vec(readdlm(folder*"Gd_MFT/TofM.dat"))      # K
-    materialProperties["Gd"].rho = 7.9 # g/cm3
-
-    # Convert data units
-    materialProperties["Gd"].M .*= materialProperties["Gd"].rho*1e3 # A/m
-    materialProperties["Gd"].HofM .*= 1e-4/mu0                      # A/m
-
-    # Interpolate data over the target temperature
-    spl = Spline2D( materialProperties["Gd"].HofM,
-                    materialProperties["Gd"].TofM,
-                    materialProperties["Gd"].M)
-
-    M::Vector{Float64} = zeros(length(materialProperties["Gd"].HofM))
-    for i in 1:length(M)
-        M[i] = spl(materialProperties["Gd"].HofM[i],T)
-    end
-    materialProperties["Gd"].M = M
-    
-    materialProperties["Gd"].B = mu0.*(materialProperties["Gd"].HofM .+
-                                       materialProperties["Gd"].M)
-
-    # Permeability
-    materialProperties["Gd"].mu = materialProperties["Gd"].B./materialProperties["Gd"].HofM
-    
-    # Remove Inf
-    idx = findall(x -> !isfinite(x), materialProperties["Gd"].mu)
-    materialProperties["Gd"].mu[idx] .= 0.0
-    materialProperties["Gd"].mu[idx] .= maximum(materialProperties["Gd"].mu)
-
-    # d/dH mu
-    dmu = gradient(materialProperties["Gd"].HofM, 
-                   materialProperties["Gd"].B./materialProperties["Gd"].HofM)
-
-    # Remove -Inf
-    idx = findall(x -> !isfinite(x), dmu)
-    dmu[idx] .= 0.0
-    dmu[idx] .= minimum(dmu)
-
-    materialProperties["Gd"].dmu = dmu
+    # Load Gd
+    loadMaterial( materialProperties,
+                       "Materials",     # Folder with materials
+                       "Gd_MFT",        # Data folder of target material
+                       "Gd",            # Material name
+                       7.9,
+                       T)
 
     
     # Load Iron data
     materialProperties["Fe"].HofM = vec(readdlm(folder*"Pure_Iron_FEMM/H_Fe_extrap.dat"))  # A/m
     materialProperties["Fe"].B = vec(readdlm(folder*"Pure_Iron_FEMM/B_Fe_extrap.dat"))     # T
 
-    # Permeability
-    materialProperties["Fe"].mu = materialProperties["Fe"].B./materialProperties["Fe"].HofM
-    
-    # Remove Inf
-    idx = findall(x -> !isfinite(x), materialProperties["Fe"].mu)
-    materialProperties["Fe"].mu[idx] .= 0.0
-    materialProperties["Fe"].mu[idx] .= maximum(materialProperties["Fe"].mu)
+    # Get the permeability and its derivative
+    materialPermeability(materialProperties, "Fe")
 
-    # d/dH mu
-    dmu = gradient(materialProperties["Fe"].HofM, 
-                   materialProperties["Fe"].B./materialProperties["Fe"].HofM)
 
-    # Remove -Inf
-    idx = findall(x -> !isfinite(x), dmu)
-    dmu[idx] .= 0.0
-    dmu[idx] .= minimum(dmu)
-
-    materialProperties["Fe"].dmu = dmu
 
     # 3D Model
     gmsh.initialize()
@@ -152,21 +77,18 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     cells = []
 
     # Import cad file
-    box = importCAD("../STEP_Models/cube.STEP", cells)
-    cellLabels = ["Gd"]
-    push!(cellLabels, "Air")
-
-
-    # # Dimensions of magnetic material
-    # L::Vector{Float64} = [16.5, 16.5, 0.4]
-
-    # # Add material
-    # addCuboid([0,0,0], L, cells, true)
-    # cellLabels::Vector{String} = ["Gd"]
-
-    # # Create bounding shell
-    # box = addSphere([0,0,0], 5*maximum(L))
+    # box = importCAD("../STEP_Models/cube.STEP", cells)
+    # cellLabels = ["Gd"]
     # push!(cellLabels, "Air")
+
+
+    # Add material
+    addCuboid([0,0,0], [1.0, 1.0, 1.0], cells, true)
+    cellLabels::Vector{String} = ["Gd"]
+
+    # Create bounding shell
+    box = addSphere([0,0,0], 5.0)
+    push!(cellLabels, "Air")
 
     # Fragment to make a unified geometry
     fragments, _ = gmsh.model.occ.fragment(vcat(cells,[(3, box)]), [])
@@ -467,9 +389,9 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
 
 end # end of main
 
-meshSize  = 0.0
-localSize = 0.0
-showGmsh = false
+meshSize  = 5.0
+localSize = 0.1
+showGmsh = true
 saveMesh = false
 
 main(meshSize,localSize,showGmsh,saveMesh)
