@@ -1,5 +1,6 @@
 #=
-    A magnetic field simulation example in 2D
+    An example on how to calculate the magnetostatic energy
+    of non linear materials in 2D
 =#
 
 include("../src/gmsh_wrapper.jl")
