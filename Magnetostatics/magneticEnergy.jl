@@ -20,10 +20,11 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     T::Float64 = 293.0
 
     # Applied field
-    Hext::Vector{Float64} = 1.2.*[1,0]./mu0    # A/m
+    Hext::Vector{Float64} = 1.35.*[1,0]./mu0    # A/m
 
     # Scale of the model
     scale = 1e-4 # cm2
+    depth = 1e-3 # 1 mm , same as FEMM default
 
     # Convergence criteria
     picardDeviation::Float64 = 1e-4
@@ -42,6 +43,9 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
                        7.9,
                        T)
 
+    # save2file("B.txt",materialProperties["Gd"].B)
+    # save2file("H.txt",materialProperties["Gd"].HofM)
+
     # Create a spline to interpolate the material properties
     spl = Spline1D(materialProperties["Gd"].HofM,
                    materialProperties["Gd"].mu
@@ -58,7 +62,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
     # Add a container
     # box = addRectangle([0,0,0], [2, 4])
-    box = addDisk([0,0,0], 4)
+    box = addDisk([0,0,0], 3)
 
     # Combine the geometries
     gmsh.model.occ.fragment(vcat(cells,[(2,box)]), [])
@@ -187,7 +191,14 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     # Magnetostatic Energy | Non Linear materials, following FEMM
     energy::Float64 = 0.0
 
-    for k in 1:mesh.nt
+    # Energy in free space
+    for k in setdiff(1:mesh.nt, mesh.InsideElements)
+        energyDensity::Float64 = 0.5*mu0*H[k]^2
+        energy += energyDensity*mesh.VE[k]
+    end
+
+    # Energy inside magnetic material
+    for k in mesh.InsideElements
         
         # Upper limit of the integral
         Bq::Float64 = B[k]
@@ -211,17 +222,17 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
         yin::Vector{Float64} = [materialProperties["Gd"].HofM[1:idx]; Hq]
 
         # Calculate the energy density for this element
-        energy += mesh.VE[k]*trapz(xin, yin) # Multiply by the volume to get the energy
+        energyDensity::Float64 = trapz(xin, yin)
+
+        # Multiply by the volume to get the energy
+        energy += mesh.VE[k]*energyDensity 
+
     end
 
     # Adjust the volume integral by the scale
-    energy *= scale
+    energy *= scale*depth
 
-    println(energy)
-
-    # 1245.0985376686588
-    # 1240.4364884508554
-
+    println("Energy: ",energy, " J")
 
     # Plot result | Uncomment "using GLMakie"
     fig = Figure()
@@ -241,4 +252,4 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
 end
 
-main(1.0, 0.05, true)
+main(1.0, 0.05, false)
