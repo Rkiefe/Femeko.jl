@@ -22,6 +22,9 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     # Applied field
     Hext::Vector{Float64} = 1.2.*[1,0]./mu0    # A/m
 
+    # Scale of the model
+    scale = 1e-4 # cm2
+
     # Convergence criteria
     picardDeviation::Float64 = 1e-4
     maxDeviation::Float64 = 1e-6
@@ -50,7 +53,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     cells = []
 
     # Add a 2D rectangle
-    id = addRectangle([0,0,0], [1, 1], cells)
+    id = addRectangle([0,0,0], [0.25, 1], cells)
     # id = addDisk([0,0,0], 1, cells)
 
     # Add a container
@@ -121,7 +124,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     u::Vector{Float64} = zeros(mesh.nv+1)
     
     # Magnetic field
-    H_vectorField::Matrix{Float64} = zeros(mesh.nt, 2)
+    H_field::Matrix{Float64} = zeros(mesh.nt, 2)
     H::Vector{Float64} = zeros(mesh.nt)
     Hold::Vector{Float64} = zeros(mesh.nt)
     
@@ -140,7 +143,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
         u = [A Lag;Lag' 0]\[-RHS;0]
 
         # Magnetic field
-        H_vectorField .= 0.0
+        H_field .= 0.0
         for k in 1:mesh.nt
             nds = @view mesh.t[:,k];
 
@@ -149,14 +152,14 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
                 # obtain the element parameters
                 _, bi, ci = abc(mesh.p, nds, nd)
 
-                H_vectorField[k,1] -= u[nd]*bi;
-                H_vectorField[k,2] -= u[nd]*ci;
+                H_field[k,1] -= u[nd]*bi;
+                H_field[k,2] -= u[nd]*ci;
             end
         end
 
         # Magnetic field intensity
         for k in 1:mesh.nt
-            H[k] = norm(H_vectorField[k,:])
+            H[k] = norm(H_field[k,:])
         end
 
         # Update magnetic permeability
@@ -174,6 +177,50 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
         println(att, " | mu0 |H(n)-H(n-1)| = ", div)
 
     end # Picard Iteration
+
+
+    # Magnetic flux density
+    B_field::Matrix{Float64} = mu.*H_field
+    B::Vector{Float64} = mu.*H
+
+
+    # Magnetostatic Energy | Non Linear materials, following FEMM
+    energy::Float64 = 0.0
+
+    for k in 1:mesh.nt
+        
+        # Upper limit of the integral
+        Bq::Float64 = B[k]
+
+        # Set the value of H at the integral limit
+        Hq::Float64 = interp1(materialProperties["Gd"].B, 
+                              materialProperties["Gd"].HofM, 
+                              Bq)
+
+        # find last index in B before Bq
+        idx = 0
+        for (i, v) in enumerate(materialProperties["Gd"].B)
+            if v > Bq
+                idx = i - 1
+                break
+            end
+        end
+
+        # Set the data from B[1] to Bq and H[1] to Hq 
+        xin::Vector{Float64} = [materialProperties["Gd"].B[1:idx]; Bq]
+        yin::Vector{Float64} = [materialProperties["Gd"].HofM[1:idx]; Hq]
+
+        # Calculate the energy density for this element
+        energy += mesh.VE[k]*trapz(xin, yin) # Multiply by the volume to get the energy
+    end
+
+    # Adjust the volume integral by the scale
+    energy *= scale
+
+    println(energy)
+
+    # 1245.0985376686588
+    # 1240.4364884508554
 
 
     # Plot result | Uncomment "using GLMakie"
@@ -194,4 +241,4 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
 end
 
-main(1.0, 0.05, false)
+main(1.0, 0.05, true)
