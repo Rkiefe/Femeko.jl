@@ -127,8 +127,8 @@ function addDisk(position, radius, cells=[])
     id = gmsh.model.occ.addDisk(position[1],
                                 position[2],
                                 position[3],
-                                radius,
-                                radius)
+                                0.5*radius,
+                                0.5*radius)
     push!(cells,(2, id))
     return id
 end
