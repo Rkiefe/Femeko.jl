@@ -14,10 +14,6 @@ using GLMakie
 # Wrapper to Fortran dierckx | Interpolation functions
 using Dierckx
 
-using IterativeSolvers
-
-
-
 function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     #=
         Makes a model with cubes and spheres and refines the mesh on the spheres
