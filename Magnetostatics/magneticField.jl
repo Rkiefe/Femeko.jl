@@ -17,6 +17,25 @@ include("../src/FEM.jl")
 # For plots | Uncomment the plot section of "main()"
 using GLMakie
 
+# Heaxgonal packing of disk 
+function hexagonalPacking(x_count, y_count, radius)
+
+    # Tight packing
+    spacing = 2.0*radius
+
+    # Add disks
+    for row in 0:y_count-1
+        y = (row - (y_count-1)/2) * spacing * sqrt(3)/2
+        x_offset = iseven(row) ? 0.0 : radius
+        
+        for col in 0:x_count-1
+            x = (col - (x_count-1)/2) * spacing + x_offset
+            addDisk([x, y, 0.0], radius, cells)
+        end
+    end
+
+end # Hexagonal packing of disks
+
 function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     #=
         Makes a model with cubes and spheres and refines the mesh on the spheres
