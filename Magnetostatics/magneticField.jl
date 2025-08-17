@@ -17,15 +17,16 @@ include("../src/FEM.jl")
 # For plots | Uncomment the plot section of "main()"
 using GLMakie
 
-# Heaxgonal packing of disk 
-function hexagonalPacking(nx, ny, nz, radius)
+# FCC packing of disk 
 
+function FCCpacking(nx, ny, nz, radius, cells)
+    
     for i in 0:nx-1
         for j in 0:ny-1
             for k in 0:nz-1
-                x = 2*i + ( mod(j+k, 2) )
-                y = sqrt(3)*(j + mod(k, 2)/3)
-                z = 2*sqrt(6)*k/3
+                x::Float64 = 2*i + ( mod(j+k, 2) )
+                y::Float64 = sqrt(3)*(j + mod(k, 2)/3)
+                z::Float64 = 2*sqrt(6)*k/3
                 
                 addSphere([x,y,z].*radius, radius, cells, true)
             end
@@ -33,9 +34,10 @@ function hexagonalPacking(nx, ny, nz, radius)
     end
 
     # Then a centered box would be:
-    # box = addSphere([(nx-1)*radius, (ny-1)*radius, (nz-1)*radius], 30*radius)
+    # box = addSphere([(nx-1)*radius, (ny-1)*radius, (nz-1)*radius], 5*max(nx,ny,nz)*radius)
+end
 
-end # Hexagonal packing of disks
+
 
 
 
