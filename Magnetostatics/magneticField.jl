@@ -18,23 +18,26 @@ include("../src/FEM.jl")
 using GLMakie
 
 # Heaxgonal packing of disk 
-function hexagonalPacking(x_count, y_count, radius)
+function hexagonalPacking(nx, ny, nz, radius)
 
-    # Tight packing
-    spacing = 2.0*radius
-
-    # Add disks
-    for row in 0:y_count-1
-        y = (row - (y_count-1)/2) * spacing * sqrt(3)/2
-        x_offset = iseven(row) ? 0.0 : radius
-        
-        for col in 0:x_count-1
-            x = (col - (x_count-1)/2) * spacing + x_offset
-            addDisk([x, y, 0.0], radius, cells)
+    for i in 0:nx-1
+        for j in 0:ny-1
+            for k in 0:nz-1
+                x = 2*i + ( mod(j+k, 2) )
+                y = sqrt(3)*(j + mod(k, 2)/3)
+                z = 2*sqrt(6)*k/3
+                
+                addSphere([x,y,z].*radius, radius, cells, true)
+            end
         end
     end
 
+    # Then a centered box would be:
+    # box = addSphere([(nx-1)*radius, (ny-1)*radius, (nz-1)*radius], 30*radius)
+
 end # Hexagonal packing of disks
+
+
 
 function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     #=
