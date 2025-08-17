@@ -15,7 +15,7 @@ using Dierckx
 function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
     # vacuum magnetic permeability
-    mu0 = pi*4e-7
+    mu0::Float64 = pi*4e-7
 
     # Temperature
     T::Float64 = 293.0
@@ -44,9 +44,6 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
                        7.9,
                        T)
 
-    # save2file("B.txt",materialProperties["Gd"].B)
-    # save2file("H.txt",materialProperties["Gd"].HofM)
-
     # Create a spline to interpolate the material properties
     spl = Spline1D(materialProperties["Gd"].HofM,
                    materialProperties["Gd"].mu
@@ -63,7 +60,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
     # Add a container
     # box = addRectangle([0,0,0], [2, 4])
-    box = addDisk([0,0,0], 1.5)
+    box = addDisk([0,0,0], 3.0)
 
     # Combine the geometries
     gmsh.model.occ.fragment(vcat(cells,[(2,box)]), [])
@@ -133,7 +130,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     H::Vector{Float64} = zeros(mesh.nt)
     Hold::Vector{Float64} = zeros(mesh.nt)
     
-    # Solve
+    # Picard iteration to handle non-linear material
     att::Int32 = 0
     div::Float64 = maxDeviation + 1.0
     while div > picardDeviation && att < maxAtt 
@@ -188,52 +185,14 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     B_field::Matrix{Float64} = mu.*H_field
     B::Vector{Float64} = mu.*H
 
-
-    # Magnetostatic Energy | Non Linear materials, following FEMM
-    energy::Float64 = 0.0
-
-    # Energy in free space
-    for k in setdiff(1:mesh.nt, mesh.InsideElements)
-        energyDensity::Float64 = 0.5*mu0*H[k]^2
-        energy += energyDensity*mesh.VE[k]
-    end
-
-    # Energy inside magnetic material
-    for k in mesh.InsideElements
-        
-        # Upper limit of the integral
-        Bq::Float64 = B[k]
-
-        # Set the value of H at the integral limit
-        Hq::Float64 = interp1(materialProperties["Gd"].B, 
-                              materialProperties["Gd"].HofM, 
-                              Bq)
-
-        # find last index in B before Bq
-        idx = 0
-        for (i, v) in enumerate(materialProperties["Gd"].B)
-            if v > Bq
-                idx = i - 1
-                break
-            end
-        end
-
-        # Set the data from B[1] to Bq and H[1] to Hq 
-        xin::Vector{Float64} = [materialProperties["Gd"].B[1:idx]; Bq]
-        yin::Vector{Float64} = [materialProperties["Gd"].HofM[1:idx]; Hq]
-
-        # Calculate the energy density for this element
-        energyDensity::Float64 = trapz(xin, yin)
-
-        # Multiply by the volume to get the energy
-        energy += mesh.VE[k]*energyDensity 
-
-    end
+    # Calculate the magnetostatic energy
+    energy::Float64 = getEnergy(mesh, materialProperties["Gd"], H, B)
 
     # Adjust the volume integral by the scale
     energy *= scale*depth
 
     println("Energy: ",energy, " J")
+
 
     # Plot result | Uncomment "using GLMakie"
     fig = Figure()

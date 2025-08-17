@@ -1,9 +1,9 @@
 # Handles magnetic materials and their datasets
 
-
 # To read data from files
 using DelimitedFiles
 
+# include("FEM.jl") # Needed for the interp function
 
 mutable struct DATA
     # Magnetization data
@@ -95,4 +95,61 @@ function materialPermeability(materialProperties, key::String)
     dmu[idx] .= minimum(dmu)
 
     materialProperties[key].dmu = dmu
+end
+
+# Magnetostatic energy
+function getEnergy(mesh::MESH, 
+                       data::DATA,
+                       H::Vector{Float64},
+                       B::Vector{Float64})
+
+    # Assumes all the materials have the same properties
+    # Calculates the magnetostatic energy following the same approach
+    # as in FEMM 
+    
+    # Magnetic permeability in a vacuum
+    mu0::Float64 = pi*4e-7
+
+    # Magnetostatic Energy | Non Linear materials, following FEMM
+    energy::Float64 = 0.0
+
+    # Energy in free space
+    for k in setdiff(1:mesh.nt, mesh.InsideElements)
+        energyDensity::Float64 = 0.5*mu0*H[k]^2
+        energy += energyDensity*mesh.VE[k]
+    end
+
+    # Energy inside magnetic material
+    for k in mesh.InsideElements
+        
+        # Upper limit of the integral
+        Bq::Float64 = B[k]
+
+        # Set the value of H at the integral limit
+        Hq::Float64 = interp1(data.B, 
+                              data.HofM, 
+                              Bq)
+
+        # find last index in B before Bq
+        idx = 0
+        for (i, v) in enumerate(data.B)
+            if v > Bq
+                idx = i - 1
+                break
+            end
+        end
+
+        # Set the data from B[1] to Bq and H[1] to Hq 
+        xin::Vector{Float64} = [data.B[1:idx]; Bq]
+        yin::Vector{Float64} = [data.HofM[1:idx]; Hq]
+
+        # Calculate the energy density for this element
+        energyDensity::Float64 = trapz(xin, yin)
+
+        # Multiply by the volume to get the energy
+        energy += mesh.VE[k]*energyDensity 
+
+    end
+
+    return energy
 end
