@@ -1,5 +1,10 @@
 # Handles magnetic materials and their datasets
 
+
+# To read data from files
+using DelimitedFiles
+
+
 mutable struct DATA
     # Magnetization data
     M # ::Matrix{Float64}

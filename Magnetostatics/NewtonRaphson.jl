@@ -11,9 +11,6 @@ include("../src/magneticProperties.jl")
 # For plots
 using GLMakie
 
-# To read data from files
-using DelimitedFiles
-
 # Wrapper to Fortran dierckx | Interpolation functions
 using Dierckx
 
