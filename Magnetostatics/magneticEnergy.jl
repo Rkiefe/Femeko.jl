@@ -62,7 +62,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
     # Add a container
     # box = addRectangle([0,0,0], [2, 4])
-    box = addDisk([0,0,0], 3)
+    box = addDisk([0,0,0], 1.5)
 
     # Combine the geometries
     gmsh.model.occ.fragment(vcat(cells,[(2,box)]), [])
@@ -252,4 +252,4 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
 end
 
-main(1.0, 0.05, false)
+main(1.0, 0.05, true)
