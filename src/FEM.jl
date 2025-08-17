@@ -426,3 +426,15 @@ function gradient(x::Vector{Float64},y::Vector{Float64})
 
     return z
 end
+
+# 1D numerical integration | trapezoidal integration
+function trapz(xin, yin)
+
+    # Apply the trapezoidal numerical integral
+    result::Float64 = 0.0
+    for i in 1:length(xin)-1
+        result += 0.5*(xin[i+1]-xin[i])*(yin[i] + yin[i+1])
+    end
+
+    return result
+end
