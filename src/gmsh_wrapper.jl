@@ -127,8 +127,8 @@ function addDisk(position, radius, cells=[])
     id = gmsh.model.occ.addDisk(position[1],
                                 position[2],
                                 position[3],
-                                0.5*radius,
-                                0.5*radius)
+                                radius,
+                                radius)
     push!(cells,(2, id))
     return id
 end
@@ -669,9 +669,16 @@ function interp2Dmesh(mesh::MESH, xq::Float64, yq::Float64, T::Vector{Float64})
     P3 = mesh.p[:, nds[3]]
 
     # Set the Z value to the temperature
-    P1[3] = T[nds[1]]
-    P2[3] = T[nds[2]]
-    P3[3] = T[nds[3]]
+    if length(T) == mesh.nv
+        P1[3] = T[nds[1]]
+        P2[3] = T[nds[2]]
+        P3[3] = T[nds[3]]
+    
+    else
+        P1[3] = T[tag]
+        P2[3] = T[tag]
+        P3[3] = T[tag]
+    end
 
     # Create a plane for interpolation
     AB = P2-P1
