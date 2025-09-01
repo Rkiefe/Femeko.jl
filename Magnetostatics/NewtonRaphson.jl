@@ -82,25 +82,8 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     box = addSphere([0,0,0], 5.0)
     push!(cellLabels, "Air")
 
-    # Fragment to make a unified geometry
-    fragments, _ = gmsh.model.occ.fragment(vcat(cells,[(3, box)]), [])
-    gmsh.model.occ.synchronize()
-
-    # Update cell ids
-    cells = fragments[1:end-1]
-    
-    # Set the box to the last volume
-    box = fragments[end][2]
-
-    # Get bounding shell surface id
-    shell_id = gmsh.model.getBoundary([(3, box)], false, false, false) # (dim, tag)
-    shell_id = [s[2] for s in shell_id] # tag
-
-    # Volume surface ids
-    internal_surfaces = gmsh.model.getBoundary(cells, false, false, false) # (dim, tag)
-    internal_surfaces = [s[2] for s in internal_surfaces] # tag
-
-    shell_id = setdiff(shell_id, internal_surfaces) # Only the outer surfaces
+    # Unify the volumes for a single geometry and get the bounding shell
+    shell_id = unifyModel(cells, box)
 
     # Generate Mesh
     mesh = Mesh(cells,meshSize,localSize,saveMesh)

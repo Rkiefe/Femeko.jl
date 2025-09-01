@@ -23,22 +23,8 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     # Create a bounding shell
     box = addSphere([0,0,0], 5)
 
-    # Fragment to make a unified geometry
-    fragments, _ = gmsh.model.occ.fragment(vcat(cells,[(3, box)]), [])
-    gmsh.model.occ.synchronize()
-
-    # Update cell ids
-    cells = fragments[1:end-1] # The last cell is the container
-    box = fragments[end][2]
-
-    # Get bounding shell surface id
-    shell_id = gmsh.model.getBoundary([(3, box)], false, false, false)
-    shell_id = [s[2] for s in shell_id] # Will include the inner surfaces
-    
-    internal_surfaces = gmsh.model.getBoundary(cells, false, false, false)
-    internal_surfaces = [s[2] for s in internal_surfaces]
-
-    shell_id = setdiff(shell_id, internal_surfaces) # Only the outer surfaces
+    # Unify the volumes for a single geometry and get the bounding shell
+    unifyModel(cells, box)
 
     # Generate Mesh
     mesh = Mesh(cells, meshSize, localSize, saveMesh)
