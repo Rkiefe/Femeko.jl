@@ -285,6 +285,32 @@ function findNodes(mesh::MESH,region::String,id)
     return nodes
 end
 
+# Unify the volumes and get the surface IDs of the bounding shell
+function unifyModel(cells, box)
+    
+    # Fragment to make a unified geometry
+    fragments, _ = gmsh.model.occ.fragment(vcat(cells,[(3, box)]), [])
+    gmsh.model.occ.synchronize()
+
+    # Update cell ids
+    cells = fragments[1:end-1]
+    
+    # Set the box to the last volume
+    box = fragments[end][2]
+
+    # Get bounding shell surface id
+    shell_id = gmsh.model.getBoundary([(3, box)], false, false, false) # (dim, tag)
+    shell_id = [s[2] for s in shell_id] # tag
+
+    # Volume surface ids
+    internal_surfaces = gmsh.model.getBoundary(cells, false, false, false) # (dim, tag)
+    internal_surfaces = [s[2] for s in internal_surfaces] # tag
+
+    shell_id = setdiff(shell_id, internal_surfaces) # Only the outer surfaces
+
+    return shell_id
+end # Unify the volumes
+
 # 3D
 function Mesh(cells, meshSize=0, localSize=0, saveMesh::Bool=false)
     #=
