@@ -28,6 +28,9 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     # vacuum magnetic permeability
     mu0 = pi*4e-7
 
+    # Scale of model
+    scale::Float64 = 1e-6 # cm^3 -> m^3
+
     # Temperature
     T::Float64 = 293.0
 
@@ -57,9 +60,7 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     materialProperties["Fe"].B = vec(readdlm("Materials/Pure_Iron_FEMM/B_Fe_extrap.dat"))     # T
 
     # Get the permeability and its derivative
-    materialPermeability(materialProperties, "Fe")
-
-
+    materialPermeability(materialProperties["Fe"])
 
     # 3D Model
     gmsh.initialize()
@@ -333,6 +334,13 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
 
     # Magnetic flux
     B::Vector{Float64} = mu.*H
+
+    # Calculate the magnetostatic energy
+    energy::Float64 = getEnergy(mesh, materialProperties["Gd"], H, B)
+
+    # Adjust the volume integral by the scale
+    energy *= scale
+    println("Energy (J): ", energy)
     
     # Average magnetic field of Gd
     H_avg::Float64 = 0.0
