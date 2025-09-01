@@ -31,7 +31,7 @@ mutable struct DATA
     DATA() = new()
 end
 
-function loadMaterial( materialProperties,      # Dict
+function loadMaterial( materialProperties,      # Dict or DATA
                        folder::String,          # Folder with materials
                        data::String,            # Data folder of target material
                        key::String,             # Material name
@@ -40,6 +40,43 @@ function loadMaterial( materialProperties,      # Dict
     
     # vacuum magnetic permeability
     mu0 = pi*4e-7
+
+    # If the user just wants the DATA struct, and not update a hashtable:
+    if typeof(materialProperties) == DATA
+        # Update material properties directly
+
+        # Load material properties
+        materialProperties.M = readdlm(folder*"/"*data*"/M.dat")                 # emu/g
+        materialProperties.HofM = vec(readdlm(folder*"/"*data*"/HofM.dat"))      # Oe
+        materialProperties.TofM = vec(readdlm(folder*"/"*data*"/TofM.dat"))      # K
+        materialProperties.rho = density # g/cm3
+
+        # Convert data units
+        materialProperties.M .*= materialProperties.rho*1e3 # A/m
+        materialProperties.HofM .*= 1e-4/mu0                      # A/m
+
+        # Interpolate data over the target temperature
+        spl = Spline2D( materialProperties.HofM,
+                        materialProperties.TofM,
+                        materialProperties.M)
+
+        M = zeros(length(materialProperties.HofM))::Vector{Float64}
+        for i in 1:length(M)
+            M[i] = spl(materialProperties.HofM[i], T)
+        end
+        materialProperties.M = M
+        
+        # Magnetic flux density
+        materialProperties.B = mu0.*(materialProperties.HofM .+
+                                     materialProperties.M)
+
+        # Get the permeability and its derivative
+        materialPermeability(materialProperties)
+
+        return
+    end
+
+    # Else, update the hashtable
 
     # Load material properties
     materialProperties[key].M = readdlm(folder*"/"*data*"/M.dat")                 # emu/g
@@ -56,7 +93,7 @@ function loadMaterial( materialProperties,      # Dict
                     materialProperties[key].TofM,
                     materialProperties[key].M)
 
-    M::Vector{Float64} = zeros(length(materialProperties[key].HofM))
+    M = zeros(length(materialProperties[key].HofM))::Vector{Float64}
     for i in 1:length(M)
         M[i] = spl(materialProperties[key].HofM[i], T)
     end
@@ -67,34 +104,35 @@ function loadMaterial( materialProperties,      # Dict
                                        materialProperties[key].M)
 
     # Get the permeability and its derivative
-    materialPermeability(materialProperties, key)
+    materialPermeability(materialProperties[key])
 
 end
 
-function materialPermeability(materialProperties, key::String)
+# Magnetic permeability from dataset
+function materialPermeability(data::DATA)
 
     # Sets the permeability of the material from the dataset
     # And the derivate of the permeability for the Newton Rapshon methods
     # And cleans NaN and Inf
 
     # Permeability
-    materialProperties[key].mu = materialProperties[key].B./materialProperties[key].HofM
+    data.mu = data.B./data.HofM
     
     # Remove Inf
-    idx = findall(x -> !isfinite(x), materialProperties[key].mu)
-    materialProperties[key].mu[idx] .= 0.0
-    materialProperties[key].mu[idx] .= maximum(materialProperties[key].mu)
+    idx = findall(x -> !isfinite(x), data.mu)
+    data.mu[idx] .= 0.0
+    data.mu[idx] .= maximum(data.mu)
 
     # d/dH mu
-    dmu = gradient(materialProperties[key].HofM, 
-                   materialProperties[key].B./materialProperties[key].HofM)
+    dmu = gradient(data.HofM, 
+                   data.B./data.HofM)
 
     # Remove -Inf
     idx = findall(x -> !isfinite(x), dmu)
     dmu[idx] .= 0.0
     dmu[idx] .= minimum(dmu)
 
-    materialProperties[key].dmu = dmu
+    data.dmu = dmu
 end
 
 # Magnetostatic energy

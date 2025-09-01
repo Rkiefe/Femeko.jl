@@ -34,19 +34,17 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     relax::Float64 = 1.0 # Relaxation factor for N-R ]0, 1.0]
 
     # Data of magnetic materials
-    materialProperties = Dict("Gd" => DATA())
-    
-    # Load Gd
-    loadMaterial( materialProperties,
-                       "Materials", # Folder with materials
-                       "Gd_MFT",    # Data folder of target material
-                       "Gd",        # Material name
-                       7.9,
-                       T)
+    data = DATA()
+    loadMaterial( data,
+                 "Materials", # Folder with materials
+                 "Gd_MFT",    # Data folder of target material
+                 "Gd",        # Material name
+                 7.9,
+                 T)
 
     # Create a spline to interpolate the material properties
-    spl = Spline1D(materialProperties["Gd"].HofM,
-                   materialProperties["Gd"].mu
+    spl = Spline1D(data.HofM,
+                   data.mu
                    ) # ;bc="nearest") # nearest , extrapolate
 
     # Create model
@@ -186,7 +184,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     B::Vector{Float64} = mu.*H
 
     # Calculate the magnetostatic energy
-    energy::Float64 = getEnergy(mesh, materialProperties["Gd"], H, B)
+    energy::Float64 = getEnergy(mesh, data, H, B)
 
     # Adjust the volume integral by the scale
     energy *= scale*depth
