@@ -137,9 +137,10 @@ end
 
 # Magnetostatic energy
 function getEnergy(mesh::MESH, 
-                       data::DATA,
-                       H::Vector{Float64},
-                       B::Vector{Float64})
+                   data::DATA,
+                   H::Vector{Float64},
+                   B::Vector{Float64},
+                   InsideOnly::Bool = false)
 
     # Assumes all the materials have the same properties
     # Calculates the magnetostatic energy following the same approach
@@ -152,9 +153,11 @@ function getEnergy(mesh::MESH,
     energy::Float64 = 0.0
 
     # Energy in free space
-    for k in setdiff(1:mesh.nt, mesh.InsideElements)
-        energyDensity::Float64 = 0.5*mu0*H[k]^2
-        energy += energyDensity*mesh.VE[k]
+    if !InsideOnly
+        for k in setdiff(1:mesh.nt, mesh.InsideElements)
+            energyDensity::Float64 = 0.5*mu0*H[k]^2
+            energy += energyDensity*mesh.VE[k]
+        end
     end
 
     # Energy inside magnetic material
