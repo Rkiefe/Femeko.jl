@@ -1,6 +1,9 @@
 #=
-    Main file for simulation of non-linear magnetic materials
-    with the Newton-Rapshon method
+    This showcases how to make many bodies, one inside the other
+    while making a unified mesh for the entire volume.
+
+    This example is for an iron sphere inside a gadolinium cube
+    and with a bouding shell (air)
 =#
 
 
