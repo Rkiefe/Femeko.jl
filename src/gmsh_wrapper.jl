@@ -286,14 +286,21 @@ function findNodes(mesh::MESH,region::String,id)
 end
 
 # Unify the volumes and get the surface IDs of the bounding shell
-function unifyModel(cells, box)
+function unifyModel(cells, box=-1)
     
+    inputBox::Bool = box > 0
+
     # Fragment to make a unified geometry
-    fragments, _ = gmsh.model.occ.fragment(vcat(cells,[(3, box)]), [])
+    if box > 0
+        fragments, _ = gmsh.model.occ.fragment(vcat(cells,[(3, box)]), [])
+    else
+        fragments, _ = gmsh.model.occ.fragment(cells, [])
+    end
+
     gmsh.model.occ.synchronize()
 
     # Update cell ids
-    cells = fragments[1:end-1]
+    cells .= box > 0 ? fragments[1:end-1] : fragments[1:end]
     
     # Set the box to the last volume
     box = fragments[end][2]
@@ -303,12 +310,26 @@ function unifyModel(cells, box)
     shell_id = [s[2] for s in shell_id] # tag
 
     # Volume surface ids
-    internal_surfaces = gmsh.model.getBoundary(cells, false, false, false) # (dim, tag)
+    if inputBox
+        internal_surfaces = gmsh.model.getBoundary(cells, false, false, false) # (dim, tag)
+    
+    else # The last cell is actually a box
+        internal_surfaces = gmsh.model.getBoundary(cells[1:end-1], false, false, false) # (dim, tag)
+    
+    end
     internal_surfaces = [s[2] for s in internal_surfaces] # tag
+
 
     shell_id = setdiff(shell_id, internal_surfaces) # Only the outer surfaces
 
-    return shell_id
+    # Must separate return logic to not mess the logic of older code
+    # otherwise shell_id will be a tuple in some cases
+    if inputBox
+        return shell_id
+    else
+        return shell_id, box
+    end
+
 end # Unify the volumes
 
 # 3D
