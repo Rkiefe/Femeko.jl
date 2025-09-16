@@ -9,9 +9,6 @@ include("../src/magneticProperties.jl")
 
 using GLMakie
 
-# Wrapper to Fortran dierckx | Interpolation functions
-using Dierckx
-
 function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
     # vacuum magnetic permeability
