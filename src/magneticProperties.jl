@@ -3,7 +3,8 @@
 # To read data from files
 using DelimitedFiles
 
-# include("FEM.jl") # Needed for the interp function
+# Wrapper to Fortran dierckx | Interpolation functions
+using Dierckx
 
 mutable struct DATA
     # Magnetization data
