@@ -218,50 +218,6 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
         att += 1
         Hold .= H
 
-        # Stiffness matrix
-        A = stiffnessMatrix(mesh, mu)
-
-        # Tangential stiffness matrix
-        At = tangentialStiffnessMatrix(mesh, H_vectorField, dmu)
-
-        # Correction to the magnetic scalar potential
-        du = [A+At Lag;Lag' 0]\[-RHS-A*u;0]
-        # du = minres([A+At Lag;Lag' 0], [-RHS-A*u;0])
-        
-        # Norm of correction over the value
-        println(att, " |du|/|u| = ", norm(du[1:mesh.nv])/norm(u))
-
-        # Update the potential
-        u .+= relax.*du[1:mesh.nv]
-
-        # Magnetic field
-        H_vectorField .= 0.0
-        for k in 1:mesh.nt
-            nds = @view mesh.t[:,k];
-
-            Hx::Float64 = 0
-            Hy::Float64 = 0
-            Hz::Float64 = 0
-            # Sum the contributions
-            for nd in nds
-                # obtain the element parameters
-                _,b,c,d = abcd(mesh.p,nds,nd)
-
-                Hx -= u[nd]*b
-                Hy -= u[nd]*c
-                Hz -= u[nd]*d
-            end
-            
-            H_vectorField[k,1] = Hx
-            H_vectorField[k,2] = Hy
-            H_vectorField[k,3] = Hz
-        end
-
-        # Magnetic field intensity
-        for k in 1:mesh.nt
-            H[k] = norm(H_vectorField[k,:])
-        end
-
         # Update magnetic permeability
         for i in 1:length(cells)
 
@@ -305,6 +261,50 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
             end
 
         end # Data interpolation
+
+        # Stiffness matrix
+        A = stiffnessMatrix(mesh, mu)
+
+        # Tangential stiffness matrix
+        At = tangentialStiffnessMatrix(mesh, H_vectorField, dmu)
+
+        # Correction to the magnetic scalar potential
+        du = [A+At Lag;Lag' 0]\[-RHS-A*u;0]
+        # du = minres([A+At Lag;Lag' 0], [-RHS-A*u;0])
+        
+        # Norm of correction over the value
+        println(att, " |du|/|u| = ", norm(du[1:mesh.nv])/norm(u))
+
+        # Update the potential
+        u .+= relax.*du[1:mesh.nv]
+
+        # Magnetic field
+        H_vectorField .= 0.0
+        for k in 1:mesh.nt
+            nds = @view mesh.t[:,k];
+
+            Hx::Float64 = 0
+            Hy::Float64 = 0
+            Hz::Float64 = 0
+            # Sum the contributions
+            for nd in nds
+                # obtain the element parameters
+                _,b,c,d = abcd(mesh.p,nds,nd)
+
+                Hx -= u[nd]*b
+                Hy -= u[nd]*c
+                Hz -= u[nd]*d
+            end
+            
+            H_vectorField[k,1] = Hx
+            H_vectorField[k,2] = Hy
+            H_vectorField[k,3] = Hz
+        end
+
+        # Magnetic field intensity
+        for k in 1:mesh.nt
+            H[k] = norm(H_vectorField[k,:])
+        end
 
         # Check deviation from previous result
         div = mu0*maximum(abs.(H[mesh.InsideElements].-Hold[mesh.InsideElements]))
