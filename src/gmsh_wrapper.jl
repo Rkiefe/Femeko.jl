@@ -119,6 +119,10 @@ function addRectangle(position, dimensions, cells=[])
                                     dimensions[1], dimensions[2])
 
     push!(cells,(2, id))
+
+    # Sync kernel before exiting
+    gmsh.model.occ.synchronize()
+    
     return id
 end
 
