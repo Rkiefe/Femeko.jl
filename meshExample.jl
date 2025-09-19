@@ -14,37 +14,23 @@ function userMade(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     # Cuboid dimensions
     L::Vector{Float64} = [1.65, 1.65, 0.04]
 
-    # 3D Model
-
-    # List of cells inside the container
+    # List of volume cells
     cells = []
 
     # Add a cuboid
     addCuboid([0,0,0], L, cells, true) # position, dimensions, cell list, update cell list
 
     # Create a bounding shell
-    box = addSphere([0,0,0],5*maximum(L)) # Don't update the cell list and get the volume id
+    box = addSphere([0,0,0], 5*maximum(L)) # Don't update the cell list and get the volume id
 
-    # Fragment to make a unified geometry
-    fragments, _ = gmsh.model.occ.fragment(vcat(cells,[(3, box)]), [])
-    gmsh.model.occ.synchronize()
-
-    # Update cell ids
-    cells = fragments[1:end-1]
-    println(cells)
-    
-    # Set the box to the last volume
-    box = fragments[end][2]
-
-    # Get bounding shell surface id
-    shell_id = gmsh.model.getBoundary([(3, box)], false, false, false) # (dim, tag)
-    shell_id = [s[2] for s in shell_id] # tag
+    # Unify the volumes for a single geometry and get the bounding shell
+    shell_id = unifyModel(cells, box)
 
     # Volume surface ids
     internal_surfaces = gmsh.model.getBoundary(cells, false, false, false) # (dim, tag)
     internal_surfaces = [s[2] for s in internal_surfaces] # tag
 
-    shell_id = setdiff(shell_id, internal_surfaces) # Only the outer surfaces
+    # shell_id = setdiff(shell_id, internal_surfaces) # Only the outer surfaces
 
     # Generate Mesh
     mesh = Mesh(cells, meshSize, localSize, saveMesh)
@@ -54,6 +40,8 @@ function userMade(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     end
     gmsh.finalize()
 
+    println("Outer shell ID: ", shell_id)
+    println("Internal surfaces: ", internal_surfaces)
     println("Number of elements ",size(mesh.t,2))
     println("Number of Inside elements ",length(mesh.InsideElements))
     println("Number of nodes ",size(mesh.p,2))
@@ -78,39 +66,25 @@ function meshCAD(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     cells = []
 
     # Import cad file
-    box = importCAD("STEP_Models/Fennec_Fox.step",cells)
+    box = importCAD("STEP_Models/Fennec_Fox.step", cells)
 
-    # Fragment to make a unified geometry
-    fragments, _ = gmsh.model.occ.fragment(vcat(cells,[(3, box)]), [])
-    gmsh.model.occ.synchronize()
-
-    # Update cell ids
-    cells = fragments[1:end-1]
-    println(cells)
-    
-    # Set the box to the last volume
-    box = fragments[end][2]
-
-    # Get bounding shell surface id
-    shell_id = gmsh.model.getBoundary([(3, box)], false, false, false) # (dim, tag)
-    shell_id = [s[2] for s in shell_id] # tag
+    # Unify the volumes for a single geometry and get the bounding shell
+    shell_id = unifyModel(cells, box)
 
     # Volume surface ids
     internal_surfaces = gmsh.model.getBoundary(cells, false, false, false) # (dim, tag)
     internal_surfaces = [s[2] for s in internal_surfaces] # tag
 
-    shell_id = setdiff(shell_id, internal_surfaces) # Only the outer surfaces
-
     # Generate Mesh
     mesh = Mesh(cells,meshSize,localSize,saveMesh)
-
-    println(shell_id)
 
     if showGmsh
         gmsh.fltk.run()
     end
     gmsh.finalize()
 
+    println("Outer shell ID: ", shell_id)
+    println("Internal surfaces: ", internal_surfaces)
     println("Number of elements ",size(mesh.t,2))
     println("Number of Inside elements ",length(mesh.InsideElements))
     println("Number of nodes ",size(mesh.p,2))
