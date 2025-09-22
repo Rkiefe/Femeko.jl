@@ -10,19 +10,19 @@ using Dierckx
 
 mutable struct DATA
     # Magnetization data
-    M # ::Matrix{Float64}
+    M # A/m
 
     # Magnetic field H
-    HofM::Vector{Float64}
+    HofM::Vector{Float64} # A/m
     
     # Temperature
-    TofM::Vector{Float64}
+    TofM::Vector{Float64} # K
     
     # Magnetic Flux
-    B::Vector{Float64}
+    B::Vector{Float64}  # T
 
     # Density
-    rho::Float64
+    rho::Float64 # g/cm3
 
     # Permeability mu = B/H
     mu::Vector{Float64}
@@ -88,7 +88,7 @@ function loadMaterial( materialProperties,      # Dict or DATA
     materialProperties[key].rho = density # g/cm3
 
     # Convert data units
-    materialProperties[key].M .*= materialProperties[key].rho*1e3 # A/m
+    materialProperties[key].M .*= materialProperties[key].rho*1e3  # A/m
     materialProperties[key].HofM .*= 1e-4/mu0                      # A/m
 
     # Interpolate data over the target temperature
