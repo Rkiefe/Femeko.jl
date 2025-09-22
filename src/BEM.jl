@@ -5,7 +5,7 @@
 
 include("FEM.jl")
 
-function denseStiffnessMatrix(mesh::MESH)
+function denseStiffnessMatrix(mesh::MESH, F::Vector{Float64}=ones(mesh.nt))
     #= 
         This is is the same as the FEM stiffness matrix, but using the dense Matrix
         data type instead of spzeros.
@@ -20,16 +20,16 @@ function denseStiffnessMatrix(mesh::MESH)
         for i in 1:4
             _,b[i],c[i],d[i] = abcd(mesh.p,nds,nds[i])
         end
-        A[nds,nds] .+= mesh.VE[k]*(b*b' + c*c' + d*d')
+        A[nds,nds] .+= mesh.VE[k]*(b*b' + c*c' + d*d')*F[k]
     end
 
     return A
 end
 
 function Bmatrix(mesh::MESH)
-    B::Matrix{Float64} = zeros(mesh.nv,mesh.ne)
+    B::Matrix{Float64} = zeros(mesh.nv, mesh.ne)
     for s in 1:mesh.ne
-        nds = mesh.surfaceT[1:3,s]
+        nds = mesh.surfaceT[1:3, s]
         B[nds,s] .+= mesh.AE[s]/3
     end
     return B
