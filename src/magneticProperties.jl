@@ -1,5 +1,7 @@
-# Handles magnetic materials and their datasets
-
+#=
+    Handles magnetic materials and their datasets
+    Requires FEM.jl for the gradient function
+=#
 # To read data from files
 using DelimitedFiles
 
