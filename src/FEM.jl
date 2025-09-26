@@ -427,6 +427,28 @@ function gradient(x::Vector{Float64},y::Vector{Float64})
     return z
 end
 
+# 2D Gradient function
+# Input 2D matrix, 1D vector for the rows, 1D vector for the columns
+function gradient(M::Matrix{Float64}, 
+                  H::Vector{Float64}, 
+                  T::Vector{Float64})
+    
+    dM_dT::Matrix{Float64} = zeros(size(M))
+    dM_dH::Matrix{Float64} = zeros(size(M))
+
+    for i in 1:length(H)
+        dM_dT[i, :] = gradient(T, M[i, :]) # For each field H', calculate dM/dT (H', T)
+            # H, T
+    end
+
+    for i in 1:length(T)
+        dM_dH[:, i] = gradient(H, M[:, i]) # For each temperature T', calculate dM/dH (H, T')
+            # H, T
+    end
+
+    return dM_dH, dM_dT
+end
+
 # 1D numerical integration | trapezoidal integration
 function trapz(xin, yin)
 
