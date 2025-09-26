@@ -1,0 +1,6 @@
+
+# Dont update the magnetic materials folder
+Magnetostatics/Materials/
+
+# Dont upload testing files
+Magnetostatics/Testing/
