@@ -1,6 +1,6 @@
 #=
     Handles magnetic materials and their datasets
-    Requires FEM.jl for the gradient function
+    Requires FEM.jl for the gradient and trapz functions
 =#
 # To read data from files
 using DelimitedFiles
@@ -136,6 +136,60 @@ function materialPermeability(data::DATA)
     dmu[idx] .= minimum(dmu)
 
     data.dmu = dmu
+end
+
+# Get magnetic entropy change from magnetization data
+function deltaS(data::DATA, 
+                Mdata::Matrix{Float64}, 
+                T::Float64, 
+                H0::Float64, Hf::Float64)
+    #=
+        . Mdata is the original dataset, M(H,T) [emu/g]
+        . data is the processed dataset with all the info such as 
+        the temperature span, the magnetic field range, permeability, etc
+        
+            dS(H, T) = integral_0^H dM/dT (H', T) dH'
+    =#
+    
+    # For now, don't let users calculate delta S with inverted paths
+    if Hf < H0
+        error("Error in deltaS(), Hf < H0.")
+    end
+
+    mu0::Float64 = pi*4e-7
+
+    # Set the integral range
+    Hrange::Vector{Float64} = [H0]
+    Hi::Int32 = 0
+    for (i, H) in enumerate(data.HofM)
+        
+        # Set the start of the range
+        if Hi == 0 && H > H0
+            Hi = i # The first index where H > H0
+        end
+
+        if H >= Hf
+            Hrange = vcat(Hrange, data.HofM[Hi:i-1])
+            push!(Hrange, Hf)
+            break
+        end
+    end
+
+    # Gradient over the temperature for each magnetic field
+    _, dM_dT = gradient(Mdata, data.HofM, data.TofM) # emu/g/K
+
+    # Interpolate for the target temperature, over the magnetic field range
+    dM_dT_spline = Spline2D(data.HofM, data.TofM, dM_dT)
+    
+    dM::Vector{Float64} = zeros(length(Hrange)) # emu/g/K
+    for (iH, H) in enumerate(Hrange)
+        dM[iH] = dM_dT_spline(H, T) # emu/g/K
+    end
+
+    # Entropy change
+    dS::Float64 = trapz(Hrange.*mu0, dM)
+
+    return dS
 end
 
 # Magnetostatic energy
