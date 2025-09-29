@@ -140,9 +140,10 @@ end
 
 # Get magnetic entropy change from magnetization data
 function deltaS(data::DATA, 
-                Mdata::Matrix{Float64}, 
-                T::Float64, 
-                H0::Float64, Hf::Float64)
+                Mdata::Matrix{Float64}, # emu/g
+                T::Float64,  # K
+                H0::Float64, # A/m
+                Hf::Float64) # A/m
     #=
         . Mdata is the original dataset, M(H,T) [emu/g]
         . data is the processed dataset with all the info such as 
