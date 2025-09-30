@@ -31,33 +31,34 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     # Temperature
     T::Float64 = 293.0
 
-    # Applied field
-    Hext::Vector{Float64} = 1.2.*[1,0,0]./mu0    # A/m
+    # Applied field A/m
+    Hext::Vector{Float64} = 0.5.*[  1.0, 
+                                    0.0, 
+                                    0.0]/mu0
 
     # Convergence criteria
-    picardDeviation::Float64 = 1e-4
-    maxDeviation::Float64 = 1e-6
-    maxAtt::Int32 = 10
+    picardDeviation::Float64 = 1e-6
+    maxDeviation::Float64 = Inf # Inf -> Don't run the N-R method
+    maxAtt::Int32 = 100
     relax::Float64 = 1.0 # Relaxation factor for N-R ]0, 1.0]
 
     # Data of magnetic materials
-    materialProperties = Dict("Gd" => DATA(),
-                              "Fe" => DATA())
+    data = DATA()
+
     # Load Gd
-    loadMaterial( materialProperties,
-                       "Materials", # Folder with materials
-                       "Gd_MFT",    # Data folder of target material
-                       "Gd",        # Material name
-                       7.9,
-                       T)
+    density::Float64 = 7.9 # g/cm3
+    loadMaterial( data,
+                  "Materials",  # Folder with materials
+                  "Gd_MFT",     # Data folder of target material
+                  "Gd",         # Material name
+                  density,      # g/cm3
+                  T)
 
-    
-    # Load Iron data
-    materialProperties["Fe"].HofM = vec(readdlm("Materials/Pure_Iron_FEMM/H_Fe_extrap.dat"))  # A/m
-    materialProperties["Fe"].B = vec(readdlm("Materials/Pure_Iron_FEMM/B_Fe_extrap.dat"))     # T
-
-    # Get the permeability and its derivative
-    materialPermeability(materialProperties["Fe"])
+    # Spline for interpolation of the permeability
+    spl = Spline1D(data.HofM,
+                   data.mu
+                   # ; bc="nearest" # nearest extrapolate
+                   )
 
     # 3D Model
     gmsh.initialize()
@@ -67,17 +68,12 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
 
     # Import cad file
     # box = importCAD("../STEP_Models/cube.STEP", cells)
-    # cellLabels = ["Gd"]
-    # push!(cellLabels, "Air")
-
 
     # Add material
     addCuboid([0,0,0], [1.0, 1.0, 1.0], cells, true)
-    cellLabels::Vector{String} = ["Gd"]
 
     # Create bounding shell
     box = addSphere([0,0,0], 5.0)
-    push!(cellLabels, "Air")
 
     # Unify the volumes for a single geometry and get the bounding shell
     shell_id = unifyModel(cells, box)
@@ -120,7 +116,7 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     end
 
     # Boundary conditions
-    RHS::Vector{Float64} = BoundaryIntegral(mesh,mu0.*Hext,shell_id)
+    RHS::Vector{Float64} = BoundaryIntegral(mesh, mu0.*Hext, shell_id)
 
     # Lagrange multiplier technique
     Lag::Vector{Float64} = lagrange(mesh)
@@ -131,13 +127,13 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     # FEM
     u::Vector{Float64} = zeros(mesh.nv+1)
     
-    H_vectorField::Matrix{Float64} = zeros(mesh.nt,3)
+    Hfield::Matrix{Float64} = zeros(3, mesh.nt)
     H::Vector{Float64} = zeros(mesh.nt)
     Hold::Vector{Float64} = zeros(mesh.nt)
     
     att::Int32 = 0
-    div::Float64 = maxDeviation + 1.0
-    while div > picardDeviation && att < 1 # maxAtt 
+    div::Float64 = Inf
+    @time while div > picardDeviation && att < maxAtt 
 
         att += 1
         Hold .= H
@@ -145,16 +141,11 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
         # Stiffness matrix
         A = stiffnessMatrix(mesh, mu)
 
-        # Check condition number
-        # println("Condition: ", cond(Matrix([A Lag; Lag' 0])))
-
         # Magnetic scalar potential
         u = [A Lag;Lag' 0]\[-RHS;0]
-        # u = minres([A Lag; Lag' 0], [-RHS; 0]
-                    # ) # , verbose=true
 
         # Magnetic field
-        H_vectorField .= 0.0
+        Hfield .= 0.0
         for k in 1:mesh.nt
             nds = mesh.t[:,k];
 
@@ -163,40 +154,24 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
                 # obtain the element parameters
                 _,b,c,d = abcd(mesh.p,nds,nd)
 
-                H_vectorField[k,1] -= u[nd]*b;
-                H_vectorField[k,2] -= u[nd]*c;
-                H_vectorField[k,3] -= u[nd]*d;
+                Hfield[1,k] -= u[nd]*b;
+                Hfield[2,k] -= u[nd]*c;
+                Hfield[3,k] -= u[nd]*d;
             end
         end
 
         # Magnetic field intensity
         for k in 1:mesh.nt
-            H[k] = norm(H_vectorField[k,:])
+            H[k] = norm(Hfield[:, k])
         end
 
-        # Update magnetic permeability
-        for i in 1:length(cells)
+        # Update magnetic permeability            
+        mu[mesh.InsideElements] .= spl(H[mesh.InsideElements])
 
-            # Cell ID
-            id = cells[i][2]
-
-            # Get the data set of current cell ID
-            key = cellLabels[id]
-            spl = Spline1D(materialProperties[key].HofM,
-                           materialProperties[key].mu
-                           ) # ;bc="nearest") # nearest , extrapolate
-
-            # Find all elements of current cell ID
-            elements = findall(x -> x==id, elementID)
-            
-            # Interpolate the dataset for this elements
-            mu[elements] .= spl(H[elements])
-
-            idx = findall(findErr -> !isfinite(findErr), mu)
-            if !isempty(idx)
-                println(idx)
-                error("Nans/Infs in mu")
-            end
+        idx = findall(findErr -> !isfinite(findErr), mu)
+        if !isempty(idx)
+            println(idx)
+            error("Nans/Infs in mu")
         end
 
         # Check deviation from previous result
@@ -219,58 +194,41 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
         Hold .= H
 
         # Update magnetic permeability
-        for i in 1:length(cells)
+        spl = Spline1D( data.HofM,
+                        data.mu
+                        # ;bc="nearest"   # extrapolate
+                        )
 
-            # Cell ID
-            id = cells[i][2]
+        mu[mesh.InsideElements] .= spl(H[mesh.InsideElements])
+        
+        # d/dH mu
+        spl = Spline1D( data.HofM,
+                        data.dmu
+                       ) # ;bc="extrapolate") # nearest , extrapolate
 
-            # Get the data set of current cell ID
-            key = cellLabels[id]
-            spl = Spline1D(materialProperties[key].HofM,
-                           materialProperties[key].mu
-                           ) # ;bc="nearest") # nearest , extrapolate
+        dmu[mesh.InsideElements] .= spl(H[mesh.InsideElements])
 
-            # Find all elements of current cell ID
-            elements = findall(x -> x==id, elementID)
-            
-            # Interpolate the dataset for this elements
-            mu[elements] .= spl(H[elements])
+        # Check for nans
+        idx = findall(findErr -> !isfinite(findErr), mu)
+        if !isempty(idx)
+            println(idx)
+            error("Nans/Infs in mu")
+        end
 
-
-            # d/dH mu
-
-            # Get the data set of current cell ID
-            key = cellLabels[id]
-            spl = Spline1D(materialProperties[key].HofM,
-                           materialProperties[key].dmu
-                           ) # ;bc="extrapolate") # nearest , extrapolate
-
-            dmu[elements] .= spl(H[elements])
-
-            # Check for nans
-            idx = findall(findErr -> !isfinite(findErr), mu)
-            if !isempty(idx)
-                println(idx)
-                error("Nans/Infs in mu")
-            end
-
-            idx = findall(findErr -> !isfinite(findErr), dmu)
-            if !isempty(idx)
-                println(idx)
-                error("Nans/Infs in dmu")
-            end
-
-        end # Data interpolation
+        idx = findall(findErr -> !isfinite(findErr), dmu)
+        if !isempty(idx)
+            println(idx)
+            error("Nans/Infs in dmu")
+        end
 
         # Stiffness matrix
         A = stiffnessMatrix(mesh, mu)
 
         # Tangential stiffness matrix
-        At = tangentialStiffnessMatrix(mesh, H_vectorField, dmu)
+        At = tangentialStiffnessMatrix(mesh, Hfield, dmu)
 
         # Correction to the magnetic scalar potential
         du = [A+At Lag;Lag' 0]\[-RHS-A*u;0]
-        # du = minres([A+At Lag;Lag' 0], [-RHS-A*u;0])
         
         # Norm of correction over the value
         println(att, " |du|/|u| = ", norm(du[1:mesh.nv])/norm(u))
@@ -279,7 +237,7 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
         u .+= relax.*du[1:mesh.nv]
 
         # Magnetic field
-        H_vectorField .= 0.0
+        Hfield .= 0.0
         for k in 1:mesh.nt
             nds = @view mesh.t[:,k];
 
@@ -296,14 +254,14 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
                 Hz -= u[nd]*d
             end
             
-            H_vectorField[k,1] = Hx
-            H_vectorField[k,2] = Hy
-            H_vectorField[k,3] = Hz
+            Hfield[1, k] = Hx
+            Hfield[2, k] = Hy
+            Hfield[3, k] = Hz
         end
 
         # Magnetic field intensity
         for k in 1:mesh.nt
-            H[k] = norm(H_vectorField[k,:])
+            H[k] = norm(Hfield[:, k])
         end
 
         # Check deviation from previous result
@@ -316,62 +274,62 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     B::Vector{Float64} = mu.*H
 
     # Calculate the magnetostatic energy
-    energy::Float64 = getEnergy(mesh, materialProperties["Gd"], H, B)
+    energy::Float64 = getEnergy(mesh, data, H, B)
 
     # Adjust the volume integral by the scale
     energy *= scale
     println("Energy (J): ", energy)
+
+    # Magnetization
+    chi::Vector{Float64} = mu./mu0 .- 1.0
+    M::Vector{Float64} = chi.*H
+
+    Mfield::Matrix{Float64} = zeros(3, mesh.nt)
+    Mfield[1, :] = chi.*Hfield[1, :]
+    Mfield[2, :] = chi.*Hfield[2, :]
+    Mfield[3, :] = chi.*Hfield[3, :]
     
-    # Average magnetic field of Gd
-    H_avg::Float64 = 0.0
+    # Average magnetization
+    M_avg::Float64 = 0.0
     volume::Float64 = 0.0
-    for i in 1:length(cells)
-
-        # Cell ID
-        id = cells[i][2]
-
-        # Get the data set of current cell ID
-        key = cellLabels[id]
-
-        if key == "Gd"
-
-            # Find all elements of current cell ID
-            elements = findall(x -> x==id, elementID)
-        
-            for k in elements
-                volume += mesh.VE[k]
-                H_avg += H[k]*mesh.VE[k]
-            end
-
-        end # Only add the Gd elements
-
+    for k in mesh.InsideElements
+        volume += mesh.VE[k]
+        M_avg += M[k]*mesh.VE[k]
     end # <H>
-    H_avg /= volume
-    println("mu_0 <H> = ", mu0*H_avg)
+    M_avg /= volume
+    println("<M> (emu/g) = ", M_avg/(density*1e3))
 
-    # Plot result | Uncomment "using GLMakie"
+    # Output plot
+    println("Generating plots...")
     fig = Figure()
-    ax = Axis3(fig[1, 1], aspect = :data, title="With relax = "*string(relax))
-    scatterPlot = scatter!(ax, 
-        centroids[1,mesh.InsideElements],
-        centroids[2,mesh.InsideElements],
-        centroids[3,mesh.InsideElements], 
-        color = mu0.*H[mesh.InsideElements], 
-        colormap=:rainbow, 
-        markersize=20 .* mesh.VE[mesh.InsideElements]./maximum(mesh.VE[mesh.InsideElements]))
-        # markersize=20)
-    Colorbar(fig[1, 2], scatterPlot, label="|H|") # Add a colorbar
-    
-    # Display the figure (this will open an interactive window)
+    Axis3(fig[1, 1], aspect = :data)
+
+    ax::Vector{Float64} = Mfield[1,mesh.InsideElements]./M[mesh.InsideElements]
+    ay::Vector{Float64} = Mfield[2,mesh.InsideElements]./M[mesh.InsideElements]
+    az::Vector{Float64} = Mfield[3,mesh.InsideElements]./M[mesh.InsideElements]
+
+    graph = arrows3d!(    centroids[1,mesh.InsideElements]
+                        , centroids[2,mesh.InsideElements]
+                        , centroids[3,mesh.InsideElements]
+                        , ax
+                        , ay
+                        , az
+                        , color = M[mesh.InsideElements]./(density*1e3)
+                        , lengthscale = 0.1
+                        , colormap = :turbo
+                        )
+
+    Colorbar(fig[1, 2], graph, label = "M (emu/g)"
+             #, vertical = false
+             )
+
     wait(display(fig))
-    # save("relax_"*string(relax)*".png",fig)
 
 end # end of main
 
 meshSize  = 5.0
 localSize = 0.1
 showGmsh = true
-saveMesh = false
 
-main(meshSize,localSize,showGmsh,saveMesh)
+main(meshSize, localSize, showGmsh)
 
