@@ -115,13 +115,13 @@ function tangentialStiffnessMatrix(mesh::MESH, H_vec::Matrix{Float64}, dmu::Vect
             _,b[i],c[i],d[i] = abcd(mesh.p,nds,nds[i])
         end
 
-        H::Float64 = norm(H_vec[k,:])
+        H::Float64 = norm(H_vec[:, k])
         
         for i in 1:4
             for j in i:4
                 aux[i,j] = mesh.VE[k]*dmu[k]/H *
-                           (H_vec[k,1]*b[i] + H_vec[k,2]*c[i] + H_vec[k,3]*d[i]) *
-                           (H_vec[k,1]*b[j] + H_vec[k,2]*c[j] + H_vec[k,3]*d[j])
+                           (H_vec[1, k]*b[i] + H_vec[2, k]*c[i] + H_vec[3, k]*d[i]) *
+                           (H_vec[1, k]*b[j] + H_vec[2, k]*c[j] + H_vec[3, k]*d[j])
             
                 aux[j,i] = aux[i,j]
             end
