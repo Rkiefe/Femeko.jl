@@ -17,30 +17,6 @@ include("../src/FEM.jl")
 # For plots | Uncomment the plot section of "main()"
 using GLMakie
 
-# FCC packing of disk 
-
-function FCCpacking(nx, ny, nz, radius, cells)
-    
-    for i in 0:nx-1
-        for j in 0:ny-1
-            for k in 0:nz-1
-                x::Float64 = 2*i + ( mod(j+k, 2) )
-                y::Float64 = sqrt(3)*(j + mod(k, 2)/3)
-                z::Float64 = 2*sqrt(6)*k/3
-                
-                addSphere([x,y,z].*radius, radius, cells, true)
-            end
-        end
-    end
-
-    # Then a centered box would be:
-    # box = addSphere([(nx-1)*radius, (ny-1)*radius, (nz-1)*radius], 5*max(nx,ny,nz)*radius)
-end
-
-
-
-
-
 function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     #=
         Makes a model with cubes and spheres and refines the mesh on the spheres
@@ -55,13 +31,13 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
 
     # Applied field
     mu0 = pi*4e-7      # vacuum magnetic permeability
-    Hext::Vector{Float64} = [1.35,0,0]     # T
+    Hext::Vector{Float64} = [1.0, 0.0, 0.0]/mu0     # A/m
 
     # Dimensions
     L::Vector{Float64} = [20.0, 20.0, 20.0]
     
     # Relative magnetic permeability
-    permeability::Float64 = 2
+    permeability::Float64 = mu0*(1 + 2) # mu0(1+chi)
 
     # Create a geometry
     gmsh.initialize()
@@ -89,9 +65,9 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     println("Number of surface elements ",size(mesh.surfaceT,2))
 
     if showGmsh
-        # gmsh.option.setNumber("Mesh.Clip", 1)
-        # gmsh.option.setNumber("Mesh.VolumeFaces", 1)
-        # gmsh.option.setNumber("General.ClipWholeElements", 1)
+        gmsh.option.setNumber("Mesh.Clip", 1)
+        gmsh.option.setNumber("General.ClipWholeElements", 1)
+        gmsh.option.setNumber("Mesh.VolumeFaces", 1)
         gmsh.fltk.run()
     end
     gmsh.finalize()
@@ -107,17 +83,17 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
 
     # FEM
     # Relative magnetic permeability 
-    mu::Vector{Float64} = ones(mesh.nt);
+    mu::Vector{Float64} = zeros(mesh.nt) .+ mu0
     mu[mesh.InsideElements] .= permeability
 
     # Boundary conditions
-    RHS::Vector{Float64} = BoundaryIntegral(mesh,Hext,shell_id)
+    RHS::Vector{Float64} = BoundaryIntegral(mesh, mu0*Hext, shell_id)
 
     # Lagrange multiplier technique
     Lag::Vector{Float64} = lagrange(mesh)
 
     # Stiffness matrix
-    A = stiffnessMatrix(mesh,mu) 
+    A = stiffnessMatrix(mesh, mu)
 
     # Magnetic scalar potential
     u::Vector{Float64} = [A Lag;Lag' 0]\[-RHS;0]
@@ -148,7 +124,7 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     B::Vector{Float64} = mu.*H
 
     # Magnetization
-    chi::Float64 = (permeability - 1)/mu0;
+    chi::Float64 = permeability/mu0 - 1
     M_vectorField::Matrix{Float64} = chi.*H_vectorField[mesh.InsideElements,:]
     M::Vector{Float64} = chi.*H[mesh.InsideElements]
 
@@ -156,14 +132,14 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     fig = Figure()
     ax = Axis3(fig[1, 1], aspect = :data, title="Magnetic field H")
     scatterPlot = scatter!(ax, 
-        centroids[1,mesh.InsideElements],
-        centroids[2,mesh.InsideElements],
-        centroids[3,mesh.InsideElements], 
+        centroids[1, mesh.InsideElements],
+        centroids[2, mesh.InsideElements],
+        centroids[3, mesh.InsideElements], 
         color = B[mesh.InsideElements], 
         colormap=:rainbow, 
         markersize=20) # 20 .* mesh.VE[mesh.InsideElements]./maximum(mesh.VE[mesh.InsideElements])
 
-    Colorbar(fig[1, 2], scatterPlot, label="H field strength") # Add a colorbar
+    Colorbar(fig[1, 2], scatterPlot, label="|B| (T)") # Add a colorbar
     
     # Display the figure (this will open an interactive window)
     wait(display(fig)) # This is required only if runing outside the repl
@@ -175,7 +151,6 @@ end # end of main
 meshSize = 30.0
 localSize = 1.0
 showGmsh = true
-saveMesh = false
 
-main(meshSize,localSize,showGmsh,saveMesh)
+main(meshSize, localSize, showGmsh)
 
