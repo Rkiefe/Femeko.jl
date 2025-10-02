@@ -628,6 +628,7 @@ function sortMeshNodes2D(mesh::MESH)
     return vertexID, nVertices
 end # Sort 2D quadratic mesh
 
+# Get the normal vector to the boundary edge
 function normalEdge(p, nds)
     p1 = p[:, nds[1]]
     p2 = p[:, nds[2]]
@@ -688,6 +689,7 @@ function elementVolume(p,nds)
     return volume
 end # Mesh element volume
 
+# Save variable to .txt
 function save2file(fileName,input)
     # Saves matrix to a .txt file
     open(fileName, "w") do io
@@ -742,4 +744,25 @@ function interp2Dmesh(mesh::MESH, xq::Float64, yq::Float64, T::Vector{Float64})
     zq = -(a*xq + b*yq + d)/c
 
     return zq
+end # Interpolate value over the mesh nodes
+
+# Sets a volume element to each surface element
+function surface2volume(mesh::MESH)
+    surface2element::Vector{Int32} = zeros(mesh.ne)
+
+    for s in 1:mesh.ne
+        surface_nds = @view mesh.surfaceT[1:3, s]
+
+        for k in 1:mesh.nt
+            nds = @view mesh.t[1:4, k]
+            overlap = intersect(nds, surface_nds)
+
+            if length(overlap) > 2 # Found the surface element
+                surface2element[s] = k
+                break
+            end
+        end
+    end
+
+    return surface2element
 end
