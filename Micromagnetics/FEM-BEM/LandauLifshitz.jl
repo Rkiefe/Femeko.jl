@@ -14,9 +14,23 @@ import Distributions as Dist
 function BEMdmag(mesh::MESH,m::Matrix{Float64},LHS::Matrix{Float64})
     
     RHS::Vector{Float64} = zeros(mesh.nv + mesh.ne)
-    for s in 1:mesh.ne
-        nds = @view mesh.surfaceT[1:3,s]
-        RHS[nds] .+= dot(mesh.normal[:,s],mean(m[:,nds],2))*mesh.AE[s]/3
+    
+    # Boundary integral version of RHS
+    # for s in 1:mesh.ne
+    #     nds = @view mesh.surfaceT[1:3,s]
+    #     RHS[nds] .+= dot(mesh.normal[:,s],mean(m[:,nds],2))*mesh.AE[s]/3
+    # end
+
+    # Volume integral version of RHS
+    for k in 1:mesh.nt
+        nds = @view mesh.t[1:4, k]
+        for i = 1:4
+          _, bi::Float64, ci::Float64, di::Float64 = abcd(mesh.p, nds, nds[i])
+          
+          RHS[nds[i]] += mesh.VE[k]*(
+                         m[1, nds[i]]*bi + m[2, nds[i]]*ci + m[3, nds[i]]*di
+                                    )
+        end
     end
 
     # Magnetic scalar potential
