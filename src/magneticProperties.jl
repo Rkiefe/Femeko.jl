@@ -128,7 +128,7 @@ function materialPermeability(data::DATA)
 
     # d/dH mu
     dmu = gradient(data.HofM, 
-                   data.B./data.HofM)
+                   data.mu)
 
     # Remove -Inf
     idx = findall(x -> !isfinite(x), dmu)
