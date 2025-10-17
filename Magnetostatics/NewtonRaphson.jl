@@ -9,7 +9,7 @@ include("../src/FEM.jl")
 include("../src/magneticProperties.jl")
 
 # For plots
-using GLMakie
+# using GLMakie
 
 function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     #=
@@ -29,7 +29,7 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     scale::Float64 = 1e-6 # cm^3 -> m^3
 
     # Temperature
-    T::Float64 = 293.0
+    T::Float64 = 280.0
 
     # Applied field A/m
     Hext::Vector{Float64} = 0.5.*[  1.0, 
@@ -59,6 +59,7 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
                    data.mu
                    # ; bc="nearest" # nearest extrapolate
                    )
+
 
     # 3D Model
     gmsh.initialize()
