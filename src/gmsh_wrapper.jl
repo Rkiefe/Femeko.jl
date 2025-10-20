@@ -766,3 +766,14 @@ function surface2volume(mesh::MESH)
 
     return surface2element
 end
+
+# Calculates the size of the variable and prints if verbose
+function memory(var, verbose::Bool=true)
+    mem::Float64 = Base.summarysize(var)/(1024*1024)
+    
+    if verbose
+        println("Var size (MB): ", mem)
+    end
+
+    return mem
+end
