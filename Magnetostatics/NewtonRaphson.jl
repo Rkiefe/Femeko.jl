@@ -8,8 +8,7 @@ include("../src/gmsh_wrapper.jl")
 include("../src/FEM.jl")
 include("../src/magneticProperties.jl")
 
-# For plots
-# using GLMakie
+using GLMakie
 
 function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     #=
@@ -37,8 +36,8 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
                                     0.0]/mu0
 
     # Convergence criteria
-    picardDeviation::Float64 = 1e-2
-    maxDeviation::Float64 = 1e-6 # Inf -> Don't run the N-R method
+    picardDeviation::Float64 = 1e-4
+    maxDeviation::Float64 = Inf # Inf -> Don't run the N-R method
     maxAtt::Int32 = 100
     relax::Float64 = 1.0 # Relaxation factor for N-R ]0, 1.0]
 
