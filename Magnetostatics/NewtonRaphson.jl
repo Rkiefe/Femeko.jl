@@ -81,17 +81,6 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
 
     # Generate Mesh
     mesh = Mesh(cells,meshSize,localSize,saveMesh)
-
-    # Get element tags to then use GMSH 'get' functions
-    t_tags, _ = gmsh.model.mesh.getElementsByType(4)
-
-    # Store cell id of each element
-    elementID::Vector{Int32} = zeros(mesh.nt)
-    for k in 1:mesh.nt
-        # element type , nodes of the element , dimension , id
-        _, _, _, id = gmsh.model.mesh.getElement(t_tags[k])
-        elementID[k] = id
-    end
     
     println("Number of elements ",size(mesh.t,2))
     println("Number of Inside elements ",length(mesh.InsideElements))
