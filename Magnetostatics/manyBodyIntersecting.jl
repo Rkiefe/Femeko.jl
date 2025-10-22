@@ -28,19 +28,18 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     # vacuum magnetic permeability
     mu0 = pi*4e-7
 
-    # Scale of model
-    scale::Float64 = 1e-6 # cm^3 -> m^3
-
     # Temperature
     T::Float64 = 293.0
 
-    # Applied field
-    Hext::Vector{Float64} = 1.2.*[1,0,0]./mu0    # A/m
+    # Applied field | A/m
+    Hext::Vector{Float64} = 1.0/mu0*[1.0,
+                                     0.0,
+                                     0.0]
 
     # Convergence criteria
-    picardDeviation::Float64 = 1e-4
+    picardDeviation::Float64 = 1e-2
     maxDeviation::Float64 = 1e-6
-    maxAtt::Int32 = 10
+    maxAtt::Int32 = 100
     relax::Float64 = 1.0 # Relaxation factor for N-R ]0, 1.0]
 
     # Data of magnetic materials
@@ -53,7 +52,6 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
                        "Gd",        # Material name
                        7.9,
                        T)
-
     
     # Load Iron data
     materialProperties["Fe"].HofM = vec(readdlm("Materials/Pure_Iron_FEMM/H_Fe_extrap.dat"))  # A/m
@@ -67,19 +65,15 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     
     # Array of volume cell IDs
     cells = []
-
-    # Import cad file
-    # box = importCAD("../STEP_Models/cube.STEP", cells)
-    # cellLabels = ["Gd"]
-    # push!(cellLabels, "Air")
-
-    # Add Gd cube
-    addCuboid([0,0,0], [1.0, 1.0, 1.0], cells, true)
-    cellLabels::Vector{String} = ["Gd"]
+    cellLabels = []
 
     # Add a Fe sphere
     addSphere([0,0,0], 0.125, cells, true)
     push!(cellLabels, "Fe")
+
+    # Add Gd cube
+    addCuboid([0,0,0], [1.0, 1.0, 1.0], cells, true)
+    push!(cellLabels, "Gd")
 
     # Unify model since there are cell intersections
     unifyModel(cells)
@@ -119,35 +113,29 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     end
     gmsh.finalize()
 
-    println(shell_id)
-    println(cells)
-    println(box)
-
     # Element centroids
-    centroids::Matrix{Float64} = zeros(3,mesh.nt)
+    centroids::Matrix{Float64} = zeros(3, mesh.nt)
     for k in 1:mesh.nt
-        nds = mesh.t[:,k]
-        centroids[1,k] = sum(mesh.p[1,nds])/4
-        centroids[2,k] = sum(mesh.p[2,nds])/4
-        centroids[3,k] = sum(mesh.p[3,nds])/4
+        nds = @view mesh.t[:, k]
+        centroids[:, k] = mean(mesh.p[:, nds], 2)
     end
 
     # Check cell IDs
         # fig = Figure()
         # ax = Axis3(fig[1, 1], aspect = :data, title="Mesh and Cell Id")
         # scatterPlot = scatter!(ax, 
-        #     centroids[1,:], # mesh.InsideElements
-        #     centroids[2,:], # mesh.InsideElements
-        #     centroids[3,:], # mesh.InsideElements
+        #     centroids[1, :], # mesh.InsideElements
+        #     centroids[2, :], # mesh.InsideElements
+        #     centroids[3, :], # mesh.InsideElements
         #     color=elementID[:], # mesh.InsideElements
-        #     colormap=:rainbow,  # :CMRmap :viridis :redsblues
+        #     colormap=:rainbow,  # :CMRmap :redsblues
         #     markersize=20)
         #     # markersize=20 .* mesh.VE[mesh.InsideElements]./maximum(mesh.VE[mesh.InsideElements]))
         #     # color = mu0.*H[mesh.InsideElements], 
         # Colorbar(fig[1, 2], scatterPlot, label="Element ID") # Add a colorbar
         
         # # Display the figure (this will open an interactive window)
-        # wait(display(fig))
+        # wait(display(fig)); return
 
     # Boundary conditions
     RHS::Vector{Float64} = BoundaryIntegral(mesh,mu0.*Hext,shell_id)
@@ -161,7 +149,7 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     # FEM
     u::Vector{Float64} = zeros(mesh.nv+1)
     
-    H_vectorField::Matrix{Float64} = zeros(mesh.nt,3)
+    Hfield::Matrix{Float64} = zeros(3, mesh.nt)
     H::Vector{Float64} = zeros(mesh.nt)
     Hold::Vector{Float64} = zeros(mesh.nt)
     
@@ -182,7 +170,7 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
         u = [A Lag;Lag' 0]\[-RHS;0]
 
         # Magnetic field
-        H_vectorField .= 0.0
+        Hfield .= 0.0
         for k in 1:mesh.nt
             nds = mesh.t[:,k];
 
@@ -191,15 +179,15 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
                 # obtain the element parameters
                 _,b,c,d = abcd(mesh.p,nds,nd)
 
-                H_vectorField[k,1] -= u[nd]*b;
-                H_vectorField[k,2] -= u[nd]*c;
-                H_vectorField[k,3] -= u[nd]*d;
+                Hfield[1, k] -= u[nd]*b;
+                Hfield[2, k] -= u[nd]*c;
+                Hfield[3, k] -= u[nd]*d;
             end
         end
 
         # Magnetic field intensity
         for k in 1:mesh.nt
-            H[k] = norm(H_vectorField[k,:])
+            H[k] = norm(Hfield[:, k])
         end
 
         # Update magnetic permeability
@@ -255,7 +243,7 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
         A = stiffnessMatrix(mesh, mu)
 
         # Tangential stiffness matrix
-        At = tangentialStiffnessMatrix(mesh, H_vectorField, dmu)
+        At = tangentialStiffnessMatrix(mesh, Hfield, dmu)
 
         # Correction to the magnetic scalar potential
         du = [A+At Lag;Lag' 0]\[-RHS-A*u;0]
@@ -267,7 +255,7 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
         u .+= relax.*du[1:mesh.nv]
 
         # Magnetic field
-        H_vectorField .= 0.0
+        Hfield .= 0.0
         for k in 1:mesh.nt
             nds = @view mesh.t[:,k];
 
@@ -284,14 +272,14 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
                 Hz -= u[nd]*d
             end
             
-            H_vectorField[k,1] = Hx
-            H_vectorField[k,2] = Hy
-            H_vectorField[k,3] = Hz
+            Hfield[1, k] = Hx
+            Hfield[2, k] = Hy
+            Hfield[3, k] = Hz
         end
 
         # Magnetic field intensity
         for k in 1:mesh.nt
-            H[k] = norm(H_vectorField[k,:])
+            H[k] = norm(Hfield[:, k])
         end
 
         # Update magnetic permeability
@@ -358,34 +346,59 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     B::Vector{Float64} = mu.*H
 
     # Calculate the magnetostatic energy
-    # energy::Float64 = getEnergy(mesh, materialProperties["Gd"], H, B)
+    # >> not implemented for heterogeneous materials
+    
+    # Magnetization
+    chi::Vector{Float64} = mu./mu0 .- 1.0
 
-    # Adjust the volume integral by the scale
-    # energy *= scale
-    # println("Energy (J): ", energy)
-    
+    M::Vector{Float64} = chi.*H
+
+    Mfield::Matrix{Float64} = zeros(3, mesh.nt)
+    Mfield[1, :] = chi.*Hfield[1, :]
+    Mfield[2, :] = chi.*Hfield[2, :]
+    Mfield[3, :] = chi.*Hfield[3, :]
+
     # Plot result | Uncomment "using GLMakie"
+    println("Generating plots...")
+
     fig = Figure()
-    ax = Axis3(fig[1, 1], aspect = :data, title="With relax = "*string(relax))
-    scatterPlot = scatter!(ax, 
-        centroids[1,mesh.InsideElements],
-        centroids[2,mesh.InsideElements],
-        centroids[3,mesh.InsideElements], 
-        color = mu0.*H[mesh.InsideElements], 
-        colormap=:CMRmap, # :rainbow :CMRmap
-        markersize=20 .* mesh.VE[mesh.InsideElements]./maximum(mesh.VE[mesh.InsideElements]))
-        # markersize=20)
-    Colorbar(fig[1, 2], scatterPlot, label="|H|") # Add a colorbar
+    ax = Axis3(fig[1, 1], aspect = :data)
     
-    # Display the figure (this will open an interactive window)
+    # graph = scatterPlot = scatter!(ax, 
+    #     centroids[1,mesh.InsideElements],
+    #     centroids[2,mesh.InsideElements],
+    #     centroids[3,mesh.InsideElements], 
+    #     color = M[mesh.InsideElements]./(7.9*1e3)
+    #     , colormap=:turbo # :CMRmap :rainbow :CMRmap
+    #     , markersize=20 .* mesh.VE[mesh.InsideElements]./maximum(mesh.VE[mesh.InsideElements])
+    #     # , markersize=20
+    #     )
+
+    ux::Vector{Float64} = Mfield[1, mesh.InsideElements]
+    uy::Vector{Float64} = Mfield[2, mesh.InsideElements]
+    uz::Vector{Float64} = Mfield[3, mesh.InsideElements]
+
+    graph= arrows3d!(ax, centroids[1, mesh.InsideElements]
+                , centroids[2, mesh.InsideElements]
+                , centroids[3, mesh.InsideElements]
+                , ux./maximum(M[mesh.InsideElements])
+                , uy./maximum(M[mesh.InsideElements])
+                , uz./maximum(M[mesh.InsideElements])
+                , color = M[mesh.InsideElements]./(7.9*1e3)
+                , lengthscale = 0.1
+                , colormap = :turbo
+                )
+
+    Colorbar(fig[1, 2], graph, label="M (emu/g)")
+    
     wait(display(fig))
-    # save("relax_"*string(relax)*".png",fig)
+    # save("fig.png",fig)
 
 end # end of main
 
 meshSize  = 4.0
 localSize = 0.1
-showGmsh = true
+showGmsh = false
 saveMesh = false
 
 main(meshSize,localSize,showGmsh,saveMesh)
