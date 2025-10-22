@@ -358,6 +358,24 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=true, saveMesh=false)
     Mfield[2, :] = chi.*Hfield[2, :]
     Mfield[3, :] = chi.*Hfield[3, :]
 
+    # Cell ID of Gd
+    i = 2
+    id = cells[i][2]
+
+    # Find all elements of current cell ID
+    elements = findall(x -> x==id, elementID)
+
+    # Average magnetization of Gd
+    M_avg::Float64 = 0.0
+    volume::Float64 = 0.0
+    for k in elements
+        volume += mesh.VE[k]
+        M_avg  += mesh.VE[k]*M[k]
+    end
+    M_avg /= volume
+    println("\n<M> (emu/g) = ", M_avg/(7.9*1e3))
+
+
     # Plot result | Uncomment "using GLMakie"
     println("Generating plots...")
 
