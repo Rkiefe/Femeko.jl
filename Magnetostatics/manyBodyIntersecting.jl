@@ -48,7 +48,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=true, saveMesh=false)
     # Load Gd
     loadMaterial( materialProperties,
                        "Materials", # Folder with materials
-                       "Gd_Ising",  # Data folder of target material
+                       "Gd_MFT",  # Data folder of target material
                        "Gd",        # Material name
                        7.9,
                        T)
