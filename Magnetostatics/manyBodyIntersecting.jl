@@ -14,7 +14,7 @@ include("../src/magneticProperties.jl")
 # For plots
 using GLMakie
 
-function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
+function main(meshSize=0.0, localSize=0.0, showGmsh=true, saveMesh=false)
     #=
         Makes a model with cubes and spheres and refines the mesh on the spheres
     
@@ -79,7 +79,7 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     unifyModel(cells)
 
     # Create bounding shell
-    box = addSphere([0,0,0], 8.0)
+    box = addSphere([0,0,0], 5.0)
     push!(cellLabels, "Air")
 
     # Unify the volumes for a single geometry and get the bounding shell
@@ -106,9 +106,9 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     println("Number of surface elements ",size(mesh.surfaceT,2))
 
     if showGmsh
-        # gmsh.option.setNumber("Mesh.Clip", 1)
-        # gmsh.option.setNumber("Mesh.VolumeFaces", 1)
-        # gmsh.option.setNumber("General.ClipWholeElements", 1)
+        gmsh.option.setNumber("Mesh.Clip", 1)
+        gmsh.option.setNumber("Mesh.VolumeFaces", 1)
+        gmsh.option.setNumber("General.ClipWholeElements", 1)
         gmsh.fltk.run()
     end
     gmsh.finalize()
@@ -394,12 +394,11 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     wait(display(fig))
     # save("fig.png",fig)
 
-end # end of main
+end
 
-meshSize  = 4.0
+meshSize  = 2.5
 localSize = 0.1
-showGmsh = false
-saveMesh = false
+showGmsh = true
 
-main(meshSize,localSize,showGmsh,saveMesh)
+main(meshSize, localSize, showGmsh)
 
