@@ -134,6 +134,10 @@ function addDisk(position, radius, cells=[])
                                 radius,
                                 radius)
     push!(cells,(2, id))
+    
+    # Sync kernel before exiting
+    gmsh.model.occ.synchronize()
+    
     return id
 end
 
