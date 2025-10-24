@@ -320,7 +320,24 @@ function unifyModel(cells, box=-1)
     gmsh.model.occ.synchronize()
 
     # Update cell ids
-    cells .= box > 0 ? fragments[1:end-1] : fragments[1:end]
+    newCells = box > 0 ? fragments[1:end-1] : fragments[1:end]
+
+    if length(newCells) > length(cells)
+        println("Warning: 'unifyModel' outputs more cells it received \n")
+
+        # Update 'cells' with the new cells up to the same number of cells
+        for i in 1:length(cells)
+            cells[i] = (cells[i][1], newCells[i][2])
+        end
+
+        # Push the new cells
+        for i in length(cells)+1:length(newCells)
+            push!(cells, newCells[i])
+        end
+
+    else
+        cells .= newCells
+    end
     
     # Set the box to the last volume
     box = fragments[end][2]
