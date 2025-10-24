@@ -247,7 +247,16 @@ function importCAD(file::String, cells, setContainer::Bool=true, scale::Float64=
 
 end # Import cad geometry file
 
-function findNodes(mesh::MESH,region::String,id)
+# Boolean subtract the geometries
+function occCut(cell1, cell2)
+
+    outDimTags = gmsh.model.occ.cut(cell1, cell2)[1]
+    gmsh.model.occ.synchronize()
+
+    return outDimTags
+end
+
+function findNodes(mesh::MESH, region::String, id)
     # region    - face | volume
     # id        - Int or vector of Int 
 
@@ -295,12 +304,15 @@ end
 
 # Unify the volumes and get the surface IDs of the bounding shell
 function unifyModel(cells, box=-1)
+    # Works for both 2D and 3D geometries
     
-    inputBox::Bool = box > 0
+    dim = cells[1][1] # Get dimension of the model
+
+    inputBox::Bool = box > 0 # Check if a bounding cell was provided
 
     # Fragment to make a unified geometry
     if box > 0
-        fragments, _ = gmsh.model.occ.fragment(vcat(cells,[(3, box)]), [])
+        fragments, _ = gmsh.model.occ.fragment(vcat(cells,[(dim, box)]), [])
     else
         fragments, _ = gmsh.model.occ.fragment(cells, [])
     end
@@ -314,7 +326,7 @@ function unifyModel(cells, box=-1)
     box = fragments[end][2]
 
     # Get bounding shell surface id
-    shell_id = gmsh.model.getBoundary([(3, box)], false, false, false) # (dim, tag)
+    shell_id = gmsh.model.getBoundary([(dim, box)], false, false, false) # (dim, tag)
     shell_id = [s[2] for s in shell_id] # tag
 
     # Volume surface ids
