@@ -58,8 +58,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     box = addDisk([0,0,0], 5.0)
 
     # Combine the geometries
-    gmsh.model.occ.fragment(vcat(cells,[(2,box)]), [])
-    gmsh.model.occ.synchronize()
+    unifyModel(cells, box)
 
     # Generate mesh
     mesh::MESH = Mesh2D(cells, meshSize, localSize)
