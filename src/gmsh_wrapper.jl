@@ -115,7 +115,7 @@ function addRectangle(position, dimensions, cells=[])
     x = position[1] - dimensions[1]/2
     y = position[2] - dimensions[2]/2
 
-    id = gmsh.model.occ.addRectangle(x, y, position[3], 
+    id = gmsh.model.occ.addRectangle(x, y, 0.0, 
                                     dimensions[1], dimensions[2])
 
     push!(cells,(2, id))
@@ -130,7 +130,7 @@ end
 function addDisk(position, radius, cells=[])
     id = gmsh.model.occ.addDisk(position[1],
                                 position[2],
-                                position[3],
+                                0.0,
                                 radius,
                                 radius)
     push!(cells,(2, id))
