@@ -84,7 +84,7 @@ function meshCAD(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     gmsh.finalize()
 
     println("Outer shell ID: ", shell_id)
-    println("Internal surfaces: ", internal_surfaces)
+    # println("Internal surfaces: ", internal_surfaces)
     println("Number of elements ",size(mesh.t,2))
     println("Number of Inside elements ",length(mesh.InsideElements))
     println("Number of nodes ",size(mesh.p,2))
