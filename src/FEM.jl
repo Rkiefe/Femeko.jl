@@ -171,7 +171,7 @@ end # Boundary conditions
 # ---- 2D matrix assembly ---- 
 
 # 2D Global stiffness matrix
-function stiffnessMatrix2D(mesh::MESH, mu::Vector{Float64})
+function stiffnessMatrix2D(mesh::MESH, mu::Vector{Float64}=ones(mesh.nt))
     # Global sparse stiffness matrix
     A = spzeros(mesh.nv,mesh.nv)
 
