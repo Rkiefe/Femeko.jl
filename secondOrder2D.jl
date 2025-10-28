@@ -7,9 +7,7 @@ include("src/gmsh_wrapper.jl")
 using GLMakie
 
 function test(showGmsh=true)
-    #=
-        Make your own model with cuboids and spheres
-    =#
+    
     gmsh.initialize()
     gmsh.option.setNumber("Mesh.ElementOrder", 2)       # Set to quadratic
     gmsh.option.setNumber("Mesh.SecondOrderLinear", 1)  # Dont conform at the boundary
@@ -61,6 +59,5 @@ function test(showGmsh=true)
              mesh.p[3, nds[1:3]])
     
     wait(display(fig))
-
 
 end
