@@ -2,6 +2,9 @@
     An example on how to calculate the lowest order nedelec shape function
     on any edge of the mesh and how to attribute a local edge label 
     to the Gmsh edges using Femeko datastructures
+
+    No implementation so far runs with 2D Nedelec elements, but there is a Femeko implementation
+    of 3D Nedelec elements for magnetostatics
 =#
 
 include("../src/gmsh_wrapper.jl")
