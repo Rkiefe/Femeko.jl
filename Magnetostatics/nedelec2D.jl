@@ -101,7 +101,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
     # Testing Nedelec basis function
     k = 1   # Global element label (any from 1 to mesh.nt)
-    ie = 3  # Local edge label (from 1 to 3)
+    ie = 1  # Local edge label (from 1 to 3)
     
     # Global node labels of the edge
     edge_nds = NodesFromLocalEdge(mesh, k, ie)
@@ -140,7 +140,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     curlN = [0.0, 0.0, 2*(bi*cj - bj*ci)*edgeLength]
     
     # or using the cross product directly
-    curlN = 2.0*edgeLength.*cross([bi, ci, 0.0], [bj, cj, 0.0])
+    curlN = 2.0*edgeLength.*cross([bi, ci, 0.0], [bj, cj, 0.0]); println(curlN[3])
  
     # Plot
     println("Generating plots...")
