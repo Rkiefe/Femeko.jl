@@ -1,14 +1,16 @@
 #=
-    Simulation:
-        Simulates the magnetostatic interaction between a magnetic plate
-        and a uniform external magnetic field
-        The plate has a uniform, constant magnetic permeability
+        Calculate the magnetostatic interaction between linear magnetic materials and a source field
     
-    Output:
-        Expect a 3D tetrahedral mesh as a MESH() struct and one figure
-        of the internal magnetic field of your geometry.
-        
-    
+    Using: 
+        - linear Lagrange shape elements
+        - The magnetostatic scalar potential
+        - Magnetic permeability
+
+    Why:
+        - Simple to implement
+        - Fast
+
+    There is a more advanced Femeko implementation with Nedelec shape elements, which should be more stable
 =#
 
 include("../src/gmsh_wrapper.jl")
