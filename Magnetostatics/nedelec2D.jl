@@ -76,8 +76,13 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     mesh.p = reshape(p, 3, Int(length(p)/3))
     mesh.nv = size(mesh.p, 2)
 
+    # Edges (mid-points)
+    edges = unique(mesh.t[4:6, :])
+    ne = length(edges)
+
     println("\nNumber of elements: ", mesh.nt)
     println("Number of vertices: ", mesh.nv)
+    println("Number of edges: ", ne)
     println("")
 
     # Run Gmsh GUI
@@ -85,10 +90,6 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
        gmsh.fltk.run()
     end
     gmsh.fltk.finalize()
-
-    # Edges (mid-points)
-    edges = unique(mesh.t[4:6, :])
-    ne = length(edges)
 
     # Map the global edge label to an ordered, local edge label
     # (the global edge label is not ordered with the node label)
@@ -135,6 +136,12 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
         normN[i] = norm(N[:, i])
     end
 
+    # Curl of the Nedelec shape function
+    curlN = [0.0, 0.0, 2*(bi*cj - bj*ci)*edgeLength]
+    
+    # or using the cross product directly
+    curlN = 2.0*edgeLength.*cross([bi, ci, 0.0], [bj, cj, 0.0])
+ 
     # Plot
     println("Generating plots...")
     fig = Figure()
