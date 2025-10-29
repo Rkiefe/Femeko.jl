@@ -90,8 +90,8 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     cells = []
 
     # Add magnetic geometry
-    id = addCuboid([0.0, 0.0, 0.0], [1.0, 1.0, 1.0], cells, true)
-    # id = addSphere([0.0, 0.0, 0.0], 0.5, cells, true)
+    # id = addCuboid([0.0, 0.0, 0.0], [1.0, 1.0, 1.0], cells, true)
+    id = addSphere([0.0, 0.0, 0.0], 0.5, cells, true)
 
     # Add a container
     box = addSphere([0.0, 0.0, 0.0], 5.0)
@@ -276,7 +276,9 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     end
 
     println("\nGenerating plots...")
-    elements = mesh.InsideElements # or all element -> 1:mesh.nt
+    elements =  
+                1:mesh.nt
+                # mesh.InsideElements
 
     x = zeros(length(elements))
     y = zeros(length(elements))
@@ -301,7 +303,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
                         Bfield[2, elements], 
                         Bfield[3, elements]
                         , color = B[elements]
-                        , lengthscale = 0.1
+                        , lengthscale = 0.2
                         , colormap = :turbo
                     )
 
