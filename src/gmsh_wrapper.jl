@@ -370,9 +370,9 @@ function unifyModel(cells, box=-1)
 end # Unify the volumes
 
 # 3D
-function Mesh(cells, meshSize=0, localSize=0, saveMesh::Bool=false)
+function Mesh(cells, meshSize=0.0, localSize=0.0, saveMesh::Bool=false, order=1)
     #=
-        Generates a 3d tetrahedral mesh considering that the model is made of 
+        Generates a 3d second-order tetrahedral mesh considering that the model is made of 
         1 container and every other volume beyond the container is listed in the 'cells'
 
         Inputs
@@ -381,6 +381,11 @@ function Mesh(cells, meshSize=0, localSize=0, saveMesh::Bool=false)
             localSize   -> Local mesh refinement
     =#
 
+    if order > 1
+        gmsh.option.setNumber("Mesh.ElementOrder", 2)       # Set to quadratic
+        gmsh.option.setNumber("Mesh.SecondOrderLinear", 1)  # Dont conform at the boundary
+    end
+
     # Make a mesh object
     mesh = MESH()
 
@@ -388,15 +393,13 @@ function Mesh(cells, meshSize=0, localSize=0, saveMesh::Bool=false)
     volumeID = []
     if !isempty(cells)
         for i in cells
-            append!(volumeID,i[2])
+            append!(volumeID, i[2])
         end
     end
-
-    # >> Mesh settings
     
     # Set local mesh size
     if localSize>0 && !isempty(cells)
-        refineCell(cells,localSize,meshSize) # Set local refinement on the sphere Cell
+        refineCell(cells, localSize, meshSize) # Set local refinement on the sphere Cell
     end
 
     # Set maximum element size
@@ -412,30 +415,46 @@ function Mesh(cells, meshSize=0, localSize=0, saveMesh::Bool=false)
     # "Relocate3D", "HighOrderElastic", "UntangleMeshGeometry"
     gmsh.model.mesh.optimize()
     
-    # Get all tetrahedral elements (4 - tetrahedrons)
-    t_tags, t = gmsh.model.mesh.getElementsByType(4)
-    mesh.t = reshape(t,4,Int(size(t,1)/4))
-    mesh.nt = size(mesh.t,2)
-
     # Get node coordinates
     _,p,_ = gmsh.model.mesh.getNodes()
     mesh.p = reshape(p, 3, Int(size(p,1)/3))
-    mesh.nv = size(mesh.p,2)
+    mesh.nv = size(mesh.p, 2)
+
+    # Get all tetrahedral element tags
+    # 4 - linear tetra. ; 11 - 2nd order tetra. (10 nodes)
+    if order < 2
+        t_tags, t = gmsh.model.mesh.getElementsByType(4)
+        mesh.t = reshape(t, 4, Int(length(t)/4))
+    
+    elseif order > 1 # Assume quadratic order
+        t_tags, t = gmsh.model.mesh.getElementsByType(11)
+        mesh.t = reshape(t, 10, Int(length(t)/10))
+    
+    end
+    mesh.nt = size(mesh.t, 2)
 
     # Get all surface triangles
-    surfaceT_tags, surfaceT = gmsh.model.mesh.getElementsByType(2)
-    surfaceT = reshape(surfaceT, 3, Int(size(surfaceT,1)/3))
-
-    # Expand surface triangles to include boundary id
-    surfaceT = [surfaceT;UInt.(zeros(1,size(surfaceT,2)))]
-    for i in 1:size(surfaceT,2)
-        # Get ID of the element of the current surface triangle
-        _,_,_, id = gmsh.model.mesh.getElement(surfaceT_tags[i])
-        surfaceT[end,i] = id; # Set the surface triangle boundary id
+    if order < 2
+        surfaceT_tags, surfaceT = gmsh.model.mesh.getElementsByType(2)
+        mesh.surfaceT = reshape(surfaceT, 3, Int(length(surfaceT)/3))
+    
+    elseif order > 1 # 2nd order triangles (6 nodes)
+        surfaceT_tags, surfaceT = gmsh.model.mesh.getElementsByType(9) 
+        mesh.surfaceT = reshape(surfaceT, 6, Int(length(surfaceT)/6))
+    
     end
 
-    mesh.surfaceT = surfaceT
-    mesh.ne = size(mesh.surfaceT,2)
+    # Expand surface triangles to include boundary id
+    mesh.surfaceT = vcat( mesh.surfaceT, 
+                          zeros(1, Int(size(mesh.surfaceT, 2)) ) 
+                        )
+
+    for i in 1:size(mesh.surfaceT, 2)
+        # Get ID of the element of the current surface triangle
+        _,_,_, id = gmsh.model.mesh.getElement(surfaceT_tags[i])
+        mesh.surfaceT[end, i] = id
+    end
+    mesh.ne = size(mesh.surfaceT, 2) # Number of surface elements
 
     # Mesh elements inside the container
     if !isempty(cells)
@@ -446,7 +465,7 @@ function Mesh(cells, meshSize=0, localSize=0, saveMesh::Bool=false)
             # element type , nodes of the element , dimension , id
             _, _, _, id = gmsh.model.mesh.getElement(t_tags[k])
 
-            if id in volumeID
+            if id in volumeID # Current cell is part of 'cells'
                 mesh.nInside += 1
                 mesh.InsideElements[mesh.nInside] = k
             end
@@ -455,29 +474,31 @@ function Mesh(cells, meshSize=0, localSize=0, saveMesh::Bool=false)
         # Remove non-zeros
         mesh.InsideElements = mesh.InsideElements[1:mesh.nInside]
 
-    else
+    else # No cells inside a container
         mesh.InsideElements = []
         mesh.nInside = 0
     end
 
     # Inside nodes
-    aux::Matrix{Int32} = mesh.t[:,mesh.InsideElements]
+    aux = mesh.t[:, mesh.InsideElements]
     mesh.InsideNodes = unique(vec(aux))
     mesh.nInsideNodes = length(mesh.InsideNodes)
 
     # Element volumes
     mesh.VE = zeros(mesh.nt)
     for k in 1:mesh.nt
-        mesh.VE[k] = elementVolume(mesh.p,mesh.t[:,k])
+        mesh.VE[k] = elementVolume(mesh.p ,mesh.t[1:4, k])
     end
 
     # List of all surface triangle normals are areas
-    mesh.normal = zeros(3,mesh.ne)
+    mesh.normal = zeros(3, mesh.ne)
     mesh.AE = zeros(mesh.ne)
     for i in 1:mesh.ne
-        nds = @view mesh.surfaceT[1:3,i]
-        mesh.normal[:,i] = normalSurface(mesh.p,nds);
-        mesh.AE[i] = areaTriangle(mesh.p[1,nds],mesh.p[2,nds],mesh.p[3,nds])
+        nds = @view mesh.surfaceT[1:3, i]
+        mesh.normal[:, i] = normalSurface(mesh.p, nds);
+        mesh.AE[i] = areaTriangle(mesh.p[1, nds], 
+                                  mesh.p[2, nds],
+                                  mesh.p[3, nds])
     end
 
     # Save mesh 
@@ -494,6 +515,7 @@ function Mesh(cells, meshSize=0, localSize=0, saveMesh::Bool=false)
 
     return mesh
 end
+
 
 # 2D
 function Mesh2D(cells, meshSize=0.0, localSize=0.0, order::Int=1, saveMesh=false)
