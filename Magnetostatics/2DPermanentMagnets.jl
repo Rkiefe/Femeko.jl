@@ -2,8 +2,7 @@
 	2D magnetostatic simulation of two permanent magnets intearcting
 =#
 
-include("../src/gmsh_wrapper.jl")
-include("../src/FEM.jl")
+include("../src/Femeko.jl")
 
 using GLMakie
 

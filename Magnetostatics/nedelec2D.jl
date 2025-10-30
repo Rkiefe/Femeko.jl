@@ -7,8 +7,7 @@
     of 3D Nedelec elements for magnetostatics
 =#
 
-include("../src/gmsh_wrapper.jl")
-include("../src/FEM.jl")
+include("../src/Femeko.jl")
 include("../src/magneticProperties.jl")
 
 using GLMakie
@@ -42,7 +41,7 @@ function NodesFromLocalEdge( mesh::MESH,
     edge_nds = [nds[i], nds[j]]
 
     return edge_nds
-end
+end # For a 2D mesh
 
 
 function main(meshSize=0.0, localSize=0.0, showGmsh=false)

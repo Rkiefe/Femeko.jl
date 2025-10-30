@@ -11,11 +11,10 @@
         - Can include Surface and Volume electric currents
 =#
 
-include("../src/gmsh_wrapper.jl")
-include("../src/FEM.jl")
+include("../src/Femeko.jl")
 include("../src/magneticProperties.jl")
-using IterativeSolvers
 
+using IterativeSolvers
 using GLMakie
 
 function main(meshSize=0.0, localSize=0.0, showGmsh=false)

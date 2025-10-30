@@ -14,8 +14,7 @@
 
 =#
 
-include("src/gmsh_wrapper.jl")
-include("src/FEM.jl")
+include("src/Femeko.jl")
 
 function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 	gmsh.initialize()

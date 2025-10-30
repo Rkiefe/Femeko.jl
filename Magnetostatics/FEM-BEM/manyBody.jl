@@ -11,7 +11,7 @@
 =#
 
 
-include("../../src/gmsh_wrapper.jl")
+include("../../src/Femeko.jl")
 include("../../src/BEM.jl")
 include("../../src/magneticProperties.jl")
 
@@ -67,14 +67,14 @@ function main(meshSize=0.0, showGmsh=false)
 	cells = []
 
 	L::Vector{Float64} = [1.0, 1.0, 0.2]
-	addCuboid([0.0, 0.0, 0.0], L, cells, true)
+	addCuboid([0.0, 0.0, 0.0], L, cells)
 	cellLabels = ["Gd"]
 
 	L2::Vector{Float64} = [1.0, 0.1, L[3]]
-	addCuboid([0.0, spacing + (L[2] + L2[2])/2, 0.0], L2, cells, true)
+	addCuboid([0.0, spacing + (L[2] + L2[2])/2, 0.0], L2, cells)
 	push!(cellLabels, "Fe")
 
-	addCuboid([0.0, -spacing - (L[2] + L2[2])/2, 0.0], L2, cells, true)
+	addCuboid([0.0, -spacing - (L[2] + L2[2])/2, 0.0], L2, cells)
 	push!(cellLabels, "Fe")
 
 	unifyModel(cells) # In case of intersections, you must unify the model

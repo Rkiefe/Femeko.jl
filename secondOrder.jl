@@ -5,7 +5,7 @@
     a 'Femeko-like' data strcuture
 =#
 
-include("src/gmsh_wrapper.jl")
+include("src/Femeko.jl")
 using GLMakie
 
 function SecondOrder(meshSize = 0.0, showGmsh=true)

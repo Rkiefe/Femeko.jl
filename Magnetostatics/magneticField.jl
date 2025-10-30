@@ -13,10 +13,8 @@
     There is a more advanced Femeko implementation with Nedelec shape elements, which should be more stable
 =#
 
-include("../src/gmsh_wrapper.jl")
-include("../src/FEM.jl")
+include("../src/Femeko.jl")
 
-# For plots | Uncomment the plot section of "main()"
 using GLMakie
 
 function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)

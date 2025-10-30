@@ -4,8 +4,7 @@
 =#
 
 
-include("../src/gmsh_wrapper.jl")
-include("../src/FEM.jl")
+include("../src/Femeko.jl")
 include("../src/magneticProperties.jl")
 
 using GLMakie

@@ -7,7 +7,7 @@
 	The non-linearity is handled by the Fixed-Point iteration method
 =#
 
-include("../../src/gmsh_wrapper.jl")
+include("../../src/Femeko.jl")
 include("../../src/BEM.jl")
 include("../../src/magneticProperties.jl")
 
