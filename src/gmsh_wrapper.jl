@@ -142,7 +142,7 @@ function addDisk(position, radius, cells=[])
 end
 
 # Add a cuboid based on its center
-function addCuboid(position,dimensions,cells=[],updateCells::Bool=false)
+function addCuboid(position,dimensions,cells=[])
     #=
         Makes a cuboid based on its centroid position
         Updates the cells list in case this cuboid is not meant to be
@@ -161,7 +161,7 @@ function addCuboid(position,dimensions,cells=[],updateCells::Bool=false)
 end # Make a cuboid based on its center
 
 # Add a sphere
-function addSphere(position,radius,cells=[],updateCells::Bool=false)
+function addSphere(position,radius,cells=[])
     #=
         Inputs:
             Position vector
@@ -173,9 +173,7 @@ function addSphere(position,radius,cells=[],updateCells::Bool=false)
     sphere = gmsh.model.occ.addSphere(position[1],position[2],position[3],radius)
 
     # If sphere is not the container
-    if updateCells    
-        cells = append!(cells,[(3,sphere)])
-    end
+    append!(cells, [(3, sphere)])
 
     # Sync kernel before exiting
     gmsh.model.occ.synchronize()
