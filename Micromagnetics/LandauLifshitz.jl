@@ -3,9 +3,6 @@
     time step, based on https://doi.org/10.1109/TMAG.2008.2001666 (Oriano 2008)
 =#
 
-# Include FEM functions
-include("../src/FEM.jl")
-
 # Demagnetizing field
 function demagField(mesh::MESH,fixed::Vector{Int32},free::Vector{Int32},A,m::Matrix{Float64})
     #= 

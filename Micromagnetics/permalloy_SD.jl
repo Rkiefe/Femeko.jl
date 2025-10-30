@@ -7,14 +7,13 @@
     resulting in the same <M> at the end, as expected.
 =#
 
+include("../src/Femeko.jl")
+include("SteepestDescent.jl")
 
 # For plots
 using GLMakie
 
-include("../src/gmsh_wrapper.jl")
-include("SteepestDescent.jl")
-
-function main()
+function main(showGmsh=true)
     meshSize::Float64 = 500
     localSize::Float64 = 5
 
@@ -42,49 +41,35 @@ function main()
     maxAtt::Int32 = 1_000              # Maximum number of iterations in the solver
     
     # -- Create a geometry --
-        gmsh.initialize()
+    gmsh.initialize()
+    cells = [] # Array of volume cell IDs
 
-        # >> Model
-        # Create an empty container
-        container = addSphere([0,0,0],5*maximum(L))
+    # Model
+    addCuboid([0,0,0], L, cells)
+    box = addSphere([0,0,0], 5.0*maximum(L)) # Create bounding shell
 
-        cells = [] # List of cells inside the container
+    # Unify the volumes for a single geometry and get the bounding shell
+    shell_id = unifyModel(cells, box)
 
-        # Get how many surfaces compose the bounding shell
-        temp = gmsh.model.getEntities(2)                # Get all surfaces of current model
-        bounding_shell_n_surfaces = 1:length(temp)      # Get the number of surfaces in the bounding shell
+    # Generate Mesh
+    mesh = Mesh(cells, meshSize, localSize, false)
+    mesh.shell_id = shell_id
 
-        # Add another object inside the container
-        addCuboid([0,0,0],L,cells,true)
-
-        # Fragment to make a unified geometry
-        _, fragments = gmsh.model.occ.fragment([(3, container)], cells)
-        gmsh.model.occ.synchronize()
-
-        # Update container volume ID
-        container = fragments[1][1][2]
-
-        # Generate Mesh
-        mesh = Mesh(cells,meshSize,localSize,false)
-        
-        # Get bounding shell surface id
-        mesh.shell_id = gmsh.model.getAdjacencies(3, container)[2]
-
-        # Must remove the surface Id of the interior surfaces
-        mesh.shell_id = mesh.shell_id[bounding_shell_n_surfaces] # All other, are interior surfaces
-
-        # Finalize Gmsh and show mesh properties
-        # gmsh.fltk.run()
-        gmsh.finalize()
+    println("Number of elements ", mesh.nt)
+    println("Number of nodes ", mesh.nv)
+    println("Number of surface elements ", mesh.ne)
+    println("Number of Inside elements ", mesh.nInside)
+    println("Number of Inside nodes ", mesh.nInsideNodes)
+    println("Bounding shell: ", mesh.shell_id)
     
-    # -----------------------
-
-    println("Number of elements ",size(mesh.t,2))
-    println("Number of Inside elements ",length(mesh.InsideElements))
-    println("Number of nodes ",size(mesh.p,2))
-    println("Number of Inside nodes ",length(mesh.InsideNodes))
-    println("Number of surface elements ",size(mesh.surfaceT,2))
-    # println("Bounding shell: ",mesh.shell_id)
+    # Finalize Gmsh and print mesh properties
+    if showGmsh
+        gmsh.option.setNumber("Mesh.Clip", 1)
+        gmsh.option.setNumber("Mesh.VolumeFaces", 1)
+        gmsh.option.setNumber("General.ClipWholeElements", 1)
+        gmsh.fltk.run()
+    end
+    gmsh.finalize()
     # return
 
     # viewMesh(mesh)

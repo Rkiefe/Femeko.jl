@@ -8,13 +8,13 @@
     and the bounding shell size and the time step
 =#
 
+include("../src/Femeko.jl")
+include("LandauLifshitz.jl")
+
 # For plots
 using GLMakie
 
-include("../src/gmsh_wrapper.jl")
-include("LandauLifshitz.jl")
-
-function main()
+function main(showGmsh=true)
     meshSize::Float64 = 2500
     localSize::Float64 = 1
 
@@ -43,51 +43,34 @@ function main()
     
     # Create a geometry
     gmsh.initialize()
+    cells = [] # Array of volume cell IDs
 
-    # >> Model
-    # Create an empty container
-    box = addSphere([0,0,0],5*50)
+    # Model
+    addSphere([0,0,0], 50.0, cells)
+    box = addSphere([0,0,0], 5.0*50.0) # Create bounding shell
 
-    # Get how many surfaces compose the bounding shell
-    temp = gmsh.model.getEntities(2)            # Get all surfaces of current model
-    bounding_shell_n_surfaces = 1:length(temp)    # Get the number of surfaces in the bounding shell
-
-    # List of cells inside the container
-    cells = []
-
-    # addSphere([0,0,0],0.5,cells)
-    addSphere([0,0,0],50,cells,true)
-
-    # Fragment to make a unified geometry
-    _, fragments = gmsh.model.occ.fragment([(3, box)], cells)
-    gmsh.model.occ.synchronize()
-
-    # Update container volume ID
-    box = fragments[1][1][2]
+    # Unify the volumes for a single geometry and get the bounding shell
+    shell_id = unifyModel(cells, box)
 
     # Generate Mesh
-    mesh = Mesh(cells,meshSize,localSize,false)
+    mesh = Mesh(cells, meshSize, localSize, false)
+    mesh.shell_id = shell_id
+
+    println("Number of elements ", mesh.nt)
+    println("Number of nodes ", mesh.nv)
+    println("Number of surface elements ", mesh.ne)
+    println("Number of Inside elements ", mesh.nInside)
+    println("Number of Inside nodes ", mesh.nInsideNodes)
+    println("Bounding shell: ", mesh.shell_id)
     
-    # Get bounding shell surface id
-    mesh.shell_id = gmsh.model.getAdjacencies(3, box)[2]
-
-    # Must remove the surface Id of the interior surfaces
-    mesh.shell_id = mesh.shell_id[bounding_shell_n_surfaces] # All other, are interior surfaces
-
-    # Finalize Gmsh and show mesh properties
-    # gmsh.fltk.run()
+    # Finalize Gmsh and print mesh properties
+    if showGmsh
+        gmsh.option.setNumber("Mesh.Clip", 1)
+        gmsh.option.setNumber("Mesh.VolumeFaces", 1)
+        gmsh.option.setNumber("General.ClipWholeElements", 1)
+        gmsh.fltk.run()
+    end
     gmsh.finalize()
-
-    # -----------------------
-
-    println("Number of elements ",size(mesh.t,2))
-    println("Number of Inside elements ",length(mesh.InsideElements))
-    println("Number of nodes ",size(mesh.p,2))
-    println("Number of Inside nodes ",length(mesh.InsideNodes))
-    println("Number of surface elements ",size(mesh.surfaceT,2))
-    # println("Bounding shell: ",mesh.shell_id)
-    # return
-
     # viewMesh(mesh)
     
     # Volume of elements of each mesh node | Needed for the demagnetizing field
