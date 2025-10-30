@@ -91,10 +91,10 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
     # Add magnetic geometry
     # id = addCuboid([0.0, 0.0, 0.0], [1.0, 1.0, 1.0], cells)
-    id = addSphere([0.0, 0.0, 0.0], 0.5, cells, true)
+    id = addSphere([0.0, 0.0, 0.0], 0.5, cells)
 
     # Add a container
-    box = addSphere([0.0, 0.0, 0.0], 5.0)
+    box = addSphere([0.0, 0.0, 0.0], 2.5)
 
     # Combine the geometries
     shell_id = unifyModel(cells, box)

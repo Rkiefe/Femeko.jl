@@ -68,11 +68,11 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=true, saveMesh=false)
     cellLabels = []
 
     # Add a Fe sphere
-    addSphere([0,0,0], 0.125, cells, true)
+    addSphere([0,0,0], 0.125, cells)
     push!(cellLabels, "Fe")
 
     # Add Gd cube
-    addCuboid([0,0,0], [1.0, 1.0, 1.0], cells, true)
+    addCuboid([0,0,0], [1.0, 1.0, 1.0], cells)
     push!(cellLabels, "Gd")
 
     # Unify model since there are cell intersections
