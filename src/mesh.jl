@@ -1,0 +1,637 @@
+#=
+        Femeko mesh data structure
+    
+    This file holds the logic to automatically create a mesh with Gmsh with local 
+    refinement on target cells and with 1st or 2nd order elements for 2D and 3D
+=#
+
+# Holds the mesh information needed for FEM simulations
+mutable struct MESH
+
+    # Order | 1 - Linear, 2 - Quadratic
+    order::Int
+
+    # Node coordinates
+    p::Matrix{Float64}
+
+    # Connectivity list
+    t::Matrix{Int32}
+    
+    # Surface triangles
+    surfaceT::Matrix{Int32}
+    
+    # Elements inside material
+    InsideElements::Vector{Int32}
+    
+    # Nodes inside material
+    InsideNodes::Vector{Int32}
+    
+    # Volume of each mesh element
+    VE::Vector{Float64}
+    
+    # Area of each surface mesh element
+    AE::Vector{Float64} 
+
+    # Normal of each surface triangle
+    normal::Matrix{Float64}
+    
+    nv::Int32           # Number of nodes
+    nt::Int32           # Number of elements
+    ne::Int32           # Number of surface elements
+    nInside::Int32      # Number of elements for the inside cells
+    nInsideNodes::Int32 # Numberf of nodes for the inside cells
+
+    shell_id # Id of the surface boundaries of the bounding shell
+
+    # Constructor
+    MESH() = new()
+end
+
+# 3D
+function Mesh(cells, meshSize=0.0, localSize=0.0, saveMesh::Bool=false, order=1)
+    #=
+        Generates a 3d second-order tetrahedral mesh considering that the model is made of 
+        1 container and every other volume beyond the container is listed in the 'cells'
+
+        Inputs
+            cells       -> geometries that are inside the container
+            meshSize    -> overall target mesh size
+            localSize   -> Local mesh refinement
+    =#
+
+    # Check if the model is 3D
+    if !isempty(cells) && cells[1][1] < 3 # Dimension of the cell
+        mesh = Mesh2D(cells, meshSize, localSize, order, saveMesh)
+        return mesh
+    end # If no cell is provided, assume its 3D
+
+    if order > 1
+        gmsh.option.setNumber("Mesh.ElementOrder", 2)       # Set to quadratic
+        gmsh.option.setNumber("Mesh.SecondOrderLinear", 1)  # Dont conform at the boundary
+    end
+
+    # Make a mesh object
+    mesh = MESH()
+
+    # Get the volume IDs of the cells inside the container
+    volumeID = []
+    if !isempty(cells)
+        for i in cells
+            append!(volumeID, i[2])
+        end
+    end
+    
+    # Set local mesh size
+    if localSize>0 && !isempty(cells)
+        refineCell(cells, localSize, meshSize) # Set local refinement on the sphere Cell
+    end
+
+    # Set maximum element size
+    if meshSize > 0
+        gmsh.option.setNumber("Mesh.MeshSizeMax", meshSize)
+    end
+
+    # Generate mesh
+    gmsh.model.mesh.generate(3)
+    
+    # -- Optimize the mesh --
+    # "" (default is empty), "NetGen", "HighOrder", 
+    # "Relocate3D", "HighOrderElastic", "UntangleMeshGeometry"
+    gmsh.model.mesh.optimize()
+    
+    # Get node coordinates
+    _,p,_ = gmsh.model.mesh.getNodes()
+    mesh.p = reshape(p, 3, Int(size(p,1)/3))
+    mesh.nv = size(mesh.p, 2)
+
+    # Get all tetrahedral element tags
+    # 4 - linear tetra. ; 11 - 2nd order tetra. (10 nodes)
+    if order < 2
+        t_tags, t = gmsh.model.mesh.getElementsByType(4)
+        mesh.t = reshape(t, 4, Int(length(t)/4))
+    
+    elseif order > 1 # Assume quadratic order
+        t_tags, t = gmsh.model.mesh.getElementsByType(11)
+        mesh.t = reshape(t, 10, Int(length(t)/10))
+    
+    end
+    mesh.nt = size(mesh.t, 2)
+
+    # Get all surface triangles
+    if order < 2
+        surfaceT_tags, surfaceT = gmsh.model.mesh.getElementsByType(2)
+        mesh.surfaceT = reshape(surfaceT, 3, Int(length(surfaceT)/3))
+    
+    elseif order > 1 # 2nd order triangles (6 nodes)
+        surfaceT_tags, surfaceT = gmsh.model.mesh.getElementsByType(9) 
+        mesh.surfaceT = reshape(surfaceT, 6, Int(length(surfaceT)/6))
+    
+    end
+
+    # Expand surface triangles to include boundary id
+    mesh.surfaceT = vcat( mesh.surfaceT, 
+                          zeros(1, Int(size(mesh.surfaceT, 2)) ) 
+                        )
+
+    for i in 1:size(mesh.surfaceT, 2)
+        # Get ID of the element of the current surface triangle
+        _,_,_, id = gmsh.model.mesh.getElement(surfaceT_tags[i])
+        mesh.surfaceT[end, i] = id
+    end
+    mesh.ne = size(mesh.surfaceT, 2) # Number of surface elements
+
+    # Mesh elements inside the container
+    if !isempty(cells)
+
+        mesh.InsideElements = zeros(mesh.nt)
+        mesh.nInside = 0
+        for k::Int32 in 1:mesh.nt
+            # element type , nodes of the element , dimension , id
+            _, _, _, id = gmsh.model.mesh.getElement(t_tags[k])
+
+            if id in volumeID # Current cell is part of 'cells'
+                mesh.nInside += 1
+                mesh.InsideElements[mesh.nInside] = k
+            end
+        end
+
+        # Remove non-zeros
+        mesh.InsideElements = mesh.InsideElements[1:mesh.nInside]
+
+    else # No cells inside a container
+        mesh.InsideElements = []
+        mesh.nInside = 0
+    end
+
+    # Inside nodes
+    aux = mesh.t[:, mesh.InsideElements]
+    mesh.InsideNodes = unique(vec(aux))
+    mesh.nInsideNodes = length(mesh.InsideNodes)
+
+    # Element volumes
+    mesh.VE = zeros(mesh.nt)
+    for k in 1:mesh.nt
+        mesh.VE[k] = elementVolume(mesh.p ,mesh.t[1:4, k])
+    end
+
+    # List of all surface triangle normals are areas
+    mesh.normal = zeros(3, mesh.ne)
+    mesh.AE = zeros(mesh.ne)
+    for i in 1:mesh.ne
+        nds = @view mesh.surfaceT[1:3, i]
+        mesh.normal[:, i] = normalSurface(mesh.p, nds);
+        mesh.AE[i] = areaTriangle(mesh.p[1, nds], 
+                                  mesh.p[2, nds],
+                                  mesh.p[3, nds])
+    end
+
+    # Save mesh 
+    if saveMesh
+        save2file("t.txt",mesh.t) # Save connectivity list to a .txt file
+        save2file("p.txt",mesh.p)
+        save2file("InsideNodes.txt",mesh.InsideNodes)
+        save2file("surfaceT.txt",mesh.surfaceT)
+        save2file("InsideElements.txt",mesh.InsideElements)
+        save2file("VE.txt",mesh.VE)
+        save2file("AE.txt",mesh.AE)
+        save2file("normal.txt",mesh.normal)
+    end
+
+    return mesh
+end
+
+
+# 2D
+function Mesh2D(cells, meshSize=0.0, localSize=0.0, order::Int=1, saveMesh=false)
+    #=
+        Generates a 2d triangle mesh considering that the model is made of 
+        1 container and every other volume beyond the container is listed in the 'cells'
+
+        Inputs
+            cells       -> geometries that are inside the container
+            meshSize    -> overall target mesh size
+            localSize   -> Local mesh refinement
+    =#
+
+    mesh = MESH()
+
+    # Store the order
+    mesh.order = order
+
+    # Get the volume IDs of the cells inside the container
+    volumeID = []
+    if !isempty(cells)
+        for i in cells
+            append!(volumeID,i[2])
+        end
+    end
+
+    # Set local mesh size
+    if localSize>0.0 && !isempty(cells)
+        refineCell(cells, localSize, meshSize) # Set local refinement on the sphere Cell
+    end
+
+    # Set maximum element size
+    if meshSize > 0
+        gmsh.option.setNumber("Mesh.MeshSizeMax", meshSize)
+    end
+
+    # Set mesh order
+    gmsh.option.setNumber("Mesh.ElementOrder", order) # Set to quadratic
+
+    # Generate 2D mesh
+    gmsh.model.mesh.generate(2)
+
+    # Get element connectivity
+
+    if order == 1
+        t_tags, t = gmsh.model.mesh.getElementsByType(2) # 3 node first order triangle
+        mesh.t = reshape(t,3,Int(size(t,1)/3))
+    
+    elseif order == 2
+        t_tags, t = gmsh.model.mesh.getElementsByType(9) # 6 node second order triangle
+        mesh.t = reshape(t, 6, Int(size(t, 1)/6))
+    
+    end
+
+    mesh.nt = size(mesh.t,2)
+
+    # Get node coordinates
+    _,p,_ = gmsh.model.mesh.getNodes()
+    mesh.p = reshape(p, 3, Int(size(p,1)/3))
+    mesh.nv = size(mesh.p,2)
+
+    # Get all boundary edges
+    if order == 1
+        edge_tags, edges = gmsh.model.mesh.getElementsByType(1) # 2 node line
+        edges = reshape(edges, 2, Int(size(edges,1)/2))
+
+    elseif order == 2
+        edge_tags, edges = gmsh.model.mesh.getElementsByType(8) # 3 node second order line (2 nodes - vertices, 1 node - midpoint)
+        edges = reshape(edges, 3, Int(size(edges,1)/3))
+    end
+
+    # Expand boundary edges to include boundary id
+    edges = [edges; UInt.(zeros(1,size(edges,2)))]
+    for i in 1:size(edges,2)
+        # Get ID of the element of the current surface triangle
+        _,_,_, id = gmsh.model.mesh.getElement(edge_tags[i])
+        edges[end, i] = id; # Set the boundary edge id
+    end
+
+    mesh.surfaceT = edges
+    mesh.ne = size(edges, 2)
+
+    # Mesh elements inside the container
+    if !isempty(cells)
+
+        mesh.InsideElements = zeros(mesh.nt)
+        mesh.nInside = 0
+        for k in 1:mesh.nt
+            # element type , nodes of the element , dimension , id
+            _, _, _, id = gmsh.model.mesh.getElement(t_tags[k])
+
+            if id in volumeID
+                mesh.nInside += 1
+                mesh.InsideElements[mesh.nInside] = k
+            end
+        end
+
+        # Remove non-zeros
+        mesh.InsideElements = mesh.InsideElements[1:mesh.nInside]
+
+    else
+        mesh.InsideElements = []
+        mesh.nInside = 0
+    end
+
+    # Inside nodes
+    aux::Matrix{Int32} = mesh.t[:,mesh.InsideElements]
+    mesh.InsideNodes = unique(vec(aux))
+    mesh.nInsideNodes = length(mesh.InsideNodes)
+
+    # Area of each element
+    mesh.VE = zeros(mesh.nt)
+    for k in 1:mesh.nt
+        nds = @view mesh.t[1:3,k]
+        mesh.VE[k] = areaTriangle(  mesh.p[1,nds],
+                                    mesh.p[2,nds],
+                                    mesh.p[3,nds])
+    end
+
+    # Normal to each edge
+    mesh.normal = zeros(2, mesh.ne)
+    for e in 1:mesh.ne
+        nds = @view mesh.surfaceT[1:2, e]
+        mesh.normal[:, e] = normalEdge(mesh.p, nds)
+    end
+
+    # Save mesh 
+    if saveMesh
+        save2file("t.txt",mesh.t) # Save connectivity list to a .txt file
+        save2file("p.txt",mesh.p)
+        save2file("InsideNodes.txt",mesh.InsideNodes)
+        save2file("surfaceT.txt",mesh.surfaceT)
+        save2file("InsideElements.txt",mesh.InsideElements)
+        save2file("VE.txt",mesh.VE)
+        # save2file("AE.txt",mesh.AE)
+        save2file("normal.txt",mesh.normal)
+    end
+
+    return mesh
+end # 2D mesh generation
+
+# Sort the quadratic mesh vertices and edge midpoints
+function sortMeshNodes2D(mesh::MESH)
+    # Vertices must start from 1 to 'nVertices'. Edge midpoints  must 
+    # start from 'nVertices'+1 to mesh.nv
+
+    vertices::Vector{Int32} = unique(vec(mesh.t[1:3,:]))
+    nVertices::Int32 = length(vertices)
+
+    edgeMidPoints::Vector{Int32} = unique(vec(mesh.t[4:6,:]))
+    nEdges::Int32 = length(edgeMidPoints)
+    
+    # Map the mesh nodes to the ordered array of nodes + edge midpoints
+    vertexID::Vector{Int32} = zeros(mesh.nv)
+    for i in 1:nVertices
+        vertexID[vertices[i]] = i
+
+    end
+
+    # Map the edge midpoints to the ordered array of nodes + edge midpoints
+    for i in 1:nEdges
+        vertexID[edgeMidPoints[i]] = nVertices + i
+    end
+
+    return vertexID, nVertices
+end # Sort 2D quadratic mesh
+
+# Get the normal vector to the boundary edge
+function normalEdge(p, nds)
+    p1 = p[:, nds[1]]
+    p2 = p[:, nds[2]]
+    v = p2-p1
+    n = [-v[2], v[1]] # Normal to edge
+
+    return n./norm(n)
+end
+
+# Normal to surface triangle
+function normalSurface(p, nds)
+    # Reshape coords into 3 points (x,y,z)
+    p1 = p[:,nds[1]]
+    p2 = p[:,nds[2]]
+    p3 = p[:,nds[3]]
+    # Edge vectors
+    v1 = p2 - p1
+    v2 = p3 - p1
+    # Cross product (normal vector)
+    n = [v1[2]*v2[3] - v1[3]*v2[2],
+         v1[3]*v2[1] - v1[1]*v2[3],
+         v1[1]*v2[2] - v1[2]*v2[1]]
+
+    return n ./ sqrt(n[1]^2 + n[2]^2 + n[3]^2)
+end # Normal to surface triangle
+
+# Sets a volume element to each surface element
+function surface2volume(mesh::MESH)
+    surface2element::Vector{Int32} = zeros(mesh.ne)
+
+    for s in 1:mesh.ne
+        surface_nds = @view mesh.surfaceT[1:3, s]
+
+        for k in 1:mesh.nt
+            nds = @view mesh.t[1:4, k]
+            overlap = intersect(nds, surface_nds)
+
+            if length(overlap) > 2 # Found the surface element
+                surface2element[s] = k
+                break
+            end
+        end
+    end
+
+    return surface2element
+end
+
+# Area of the 3D triangle
+function areaTriangle(xt::AbstractVector{Float64},
+                      yt::AbstractVector{Float64},
+                      zt::AbstractVector{Float64})
+
+    Atr::Float64 = 0.5*sqrt(det([xt';yt';[1 1 1]])^2 + det([yt';zt';[1 1 1]])^2 + det([zt';xt';[1 1 1]])^2)
+
+    return Atr
+end # Area of the 3D triangle
+
+# Mesh element volume
+function elementVolume(p,nds)
+    # Extract the four nodes (columns of p)
+    A = p[:, nds[1]]
+    B = p[:, nds[2]]
+    C = p[:, nds[3]]
+    D = p[:, nds[4]]
+
+    # Compute vectors AB, AC, AD
+    AB = B - A
+    AC = C - A
+    AD = D - A
+
+    # Compute the scalar triple product (AB ⋅ (AC × AD))
+    cross_AC_AD = [AC[2]*AD[3] - AC[3]*AD[2],
+                   AC[3]*AD[1] - AC[1]*AD[3],
+                   AC[1]*AD[2] - AC[2]*AD[1]]
+    triple_product = AB[1] * cross_AC_AD[1] + AB[2] * cross_AC_AD[2] + AB[3] * cross_AC_AD[3]
+
+    # Volume = (1/6) * |triple_product|
+    volume = abs(triple_product) / 6.0
+    return volume
+end # Mesh element volume
+
+# Local mesh refinement on target cell
+function refineCell(cell,localSize,meshSize)
+    # Sets every volume in 'cell' to be locally refined with target 'localSize' 
+
+    # Get the boundary of the cell 
+    cell_boundary = gmsh.model.getBoundary(cell, false, false, false)
+
+    # Create a distance field for local refinement
+    distance_field = gmsh.model.mesh.field.add("Distance")
+
+    if cell_boundary[1][1] < 2 # 1 -> curves
+        gmsh.model.mesh.field.setNumbers(distance_field, "CurvesList", [s[2] for s in cell_boundary])
+    else # 2 -> faces
+        gmsh.model.mesh.field.setNumbers(distance_field, "FacesList", [s[2] for s in cell_boundary])
+    end
+
+    setDistanceField(distance_field, meshSize, localSize)
+
+end # Local mesh refinement on target cell
+
+function setDistanceField(distance_field, meshSize, localSize)
+
+    # Create a threshold field that defines the refinement region
+    threshold_field = gmsh.model.mesh.field.add("Threshold")
+
+    gmsh.model.mesh.field.setNumber(threshold_field, "InField", distance_field)
+    gmsh.model.mesh.field.setNumber(threshold_field, "SizeMin", localSize)
+    gmsh.model.mesh.field.setNumber(threshold_field, "SizeMax", meshSize)
+    gmsh.model.mesh.field.setNumber(threshold_field, "DistMin", 0.0)
+    gmsh.model.mesh.field.setNumber(threshold_field, "DistMax", max(0.1*meshSize,10*localSize))
+
+    gmsh.model.mesh.field.setNumber(threshold_field, "Sigmoid", true)
+    gmsh.model.mesh.field.setAsBackgroundMesh(threshold_field)
+
+end
+
+function findNodes(mesh::MESH, region::String, id)
+    # region    - face | volume
+    # id        - Int or vector of Int 
+
+    nodesFound::Vector{Int32} = zeros(mesh.nv)
+    n::Int32 = 0 # Number of nodes found
+    
+    if region == "face" || region == "Face" # added "Face" to handle variations
+
+        # Go to each surface triangle
+        for s in 1:mesh.ne
+            # Get the surface id of current triangle
+            current_Id::Int32 = mesh.surfaceT[end,s]
+            if current_Id in id
+                # Nodes of current triangle
+                nds = @view mesh.surfaceT[1:3,s]
+
+                # Update number of nodes found
+                for nd in nds
+                    if nodesFound[nd] < 1   # Only count those who were not found yet
+                        n += 1                  # count it
+                    end
+                end
+
+                # Update the nodes found with desired face ID
+                nodesFound[nds] .= 1
+            end
+        end
+
+        # Prepare the output
+        nodes::Vector{Int32} = zeros(n)
+        j::Int32 = 0
+        for nd in 1:mesh.nv
+            if nodesFound[nd] > 0
+                j += 1
+                nodes[j] = nd
+            end
+        end
+
+    else # volume
+        # not implemented yet
+    end
+
+    return nodes
+end
+
+# Get the global nodes of a local edge index 'ie'
+# of a global element index 'k'
+function NodesFromLocalEdge( mesh::MESH, 
+                             k, # Global element index
+                             ie # Local edge index (1 to 6)
+                            )
+
+    # Triangle nodes
+    nds = @view mesh.t[1:4, k]
+    
+
+    if ie == 1 || ie == 2
+        i = ie
+        j = ie+1
+    
+    elseif ie == 3 || ie == 4
+        i = ie
+        j = 1
+    
+    elseif ie == 5
+        i = 3
+        j = 4
+    
+    elseif ie == 6
+        i = 2
+        j = 4
+    end
+    
+    # The edge nodes must be sorted
+    if nds[i] > nds[j]
+        aux = i
+        i = j
+        j = aux
+    end
+
+    return i, j
+end
+
+# Interpolation over a scattered mesh of nodes
+function interp2Dmesh(mesh::MESH, xq::Float64, yq::Float64, T::Vector{Float64})
+
+    # Find closest element to target coordinate
+    tag = 0
+    r = Inf
+    for i in 1:mesh.nt
+        nds = @view mesh.t[:,i]
+        center = mean(mesh.p[:,nds],2)
+
+        new_r = sqrt((center[1] - xq)^2 + (center[2] - yq)^2)
+        if new_r < r
+            r = new_r
+            tag = i
+        end
+    end
+
+    nds = @view mesh.t[:, tag]
+    P1 = mesh.p[:, nds[1]]
+    P2 = mesh.p[:, nds[2]]
+    P3 = mesh.p[:, nds[3]]
+
+    # Set the Z value to the temperature
+    if length(T) == mesh.nv
+        P1[3] = T[nds[1]]
+        P2[3] = T[nds[2]]
+        P3[3] = T[nds[3]]
+    
+    else
+        P1[3] = T[tag]
+        P2[3] = T[tag]
+        P3[3] = T[tag]
+    end
+
+    # Create a plane for interpolation
+    AB = P2-P1
+    AC = P3-P1
+    n = cross(AB, AC)
+    a, b, c = n
+    d = -dot(n, P1)
+
+    # Get the interpolation of the solution on the mesh element
+    zq = -(a*xq + b*yq + d)/c
+
+    return zq
+end # Interpolate value over the mesh nodes
+
+
+# View the mesh using Makie
+function viewMesh(mesh::MESH)
+    fig = Figure()
+    ax = Axis3(fig[1, 1], aspect=:data, title="")
+    
+    # Convert surface triangles to Makie format
+    faces = [GLMakie.GLTriangleFace(mesh.surfaceT[1,i], 
+                                    mesh.surfaceT[2,i], 
+                                    mesh.surfaceT[3,i]) for i in 1:size(mesh.surfaceT,2)]
+    
+    # Create mesh plot using surface triangles
+    mesh!(ax, mesh.p', faces,
+            color=:lightblue,
+            transparency=true,
+            alpha=0.3)
+
+    wait(display(fig))
+end # View the mesh using Makie
