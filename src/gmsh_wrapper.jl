@@ -318,6 +318,44 @@ function findNodes(mesh::MESH, region::String, id)
     return nodes
 end
 
+# Get the global nodes of a local edge index 'ie'
+# of a global element index 'k'
+function NodesFromLocalEdge( mesh::MESH, 
+                             k, # Global element index
+                             ie # Local edge index (1 to 6)
+                            )
+
+    # Triangle nodes
+    nds = @view mesh.t[1:4, k]
+    
+
+    if ie == 1 || ie == 2
+        i = ie
+        j = ie+1
+    
+    elseif ie == 3 || ie == 4
+        i = ie
+        j = 1
+    
+    elseif ie == 5
+        i = 3
+        j = 4
+    
+    elseif ie == 6
+        i = 2
+        j = 4
+    end
+    
+    # The edge nodes must be sorted
+    if nds[i] > nds[j]
+        aux = i
+        i = j
+        j = aux
+    end
+
+    return i, j
+end
+
 # Unify the volumes and get the surface IDs of the bounding shell
 function unifyModel(cells, box=-1)
     # Works for both 2D and 3D geometries
