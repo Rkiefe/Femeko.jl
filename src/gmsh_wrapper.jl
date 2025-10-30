@@ -142,7 +142,7 @@ function addDisk(position, radius, cells=[])
 end
 
 # Add a cuboid based on its center
-function addCuboid(position,dimensions,cells=[])
+function addCuboid(position, dimensions, cells=[])
     #=
         Makes a cuboid based on its centroid position
         Updates the cells list in case this cuboid is not meant to be
@@ -161,7 +161,7 @@ function addCuboid(position,dimensions,cells=[])
 end # Make a cuboid based on its center
 
 # Add a sphere
-function addSphere(position,radius,cells=[])
+function addSphere(position, radius, cells=[])
     #=
         Inputs:
             Position vector
@@ -180,6 +180,26 @@ function addSphere(position,radius,cells=[])
     
     return sphere
 end # Make a sphere
+
+function addCylinder(position, axis, radius, cells=[])
+    # 'position' defines the center of the bottom base of the cylinder
+    # 'axis' defines the direction of the cylinder (and length)
+
+    id = gmsh.model.occ.addCylinder( position[1], 
+                                     position[2], 
+                                     position[3], 
+                                     axis[1], 
+                                     axis[2], 
+                                     axis[3],
+                                     radius)
+
+    append!(cells, [(3, id)])
+
+    # Sync kernel before exiting
+    gmsh.model.occ.synchronize()
+
+    return id
+end # Make a cylinder
 
 # Create container based on current model surface (3D only)
 function makeContainer(scale::Float64=5.0)
