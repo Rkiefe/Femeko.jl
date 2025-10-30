@@ -18,7 +18,7 @@ function userMade(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     cells = []
 
     # Add a cuboid
-    addCuboid([0,0,0], L, cells, true) # position, dimensions, cell list, update cell list
+    addCuboid([0,0,0], L, cells) # position, dimensions, cell list, update cell list
 
     # Create a bounding shell
     box = addSphere([0,0,0], 5*maximum(L)) # Don't update the cell list and get the volume id
