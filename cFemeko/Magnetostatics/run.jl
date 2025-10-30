@@ -5,69 +5,53 @@
     All the FEM calculations are done in C++
 =#
 
-include("../src/gmsh_wrapper.jl")
+include("../../src/Femeko.jl")
 
 # For plots | Uncomment the plot section of "main()"
 using GLMakie
 
-function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
-    #=
-        This creates the mesh. C++ then handles the simulation
-    =#
-    
+function main(meshSize=0, localSize=0, showGmsh=true, saveMesh=false)
+
+    gmsh.initialize()
+
     mu0 = pi*4e-7                       # vacuum magnetic permeability
     Hext::Vector{Float64} = [1,0,0]     # T
 
-    # Create a geometry
-    gmsh.initialize()
+    # Cuboid dimensions
+    L::Vector{Float64} = [1.65, 1.65, 0.04]
 
-    # >> Model
-    L::Vector{Float64} = [1.65, 1.65, 0.04] # Dimensions of the object
-
-    # Create a bounding shell
-    box = addSphere([0,0,0],5*maximum(L))
-
-    # Get how many surfaces compose the bounding shell
-    temp = gmsh.model.getEntities(2)            # Get all surfaces of current model
-    bounding_shell_n_surfaces = 1:length(temp)    # Get the number of surfaces in the bounding shell
-
-    # List of cells inside the container
+    # List of volume cells
     cells = []
 
-    # Add the magnetic body
-    addCuboid([0,0,0],L,cells,true)
+    # Add a cuboid
+    addCuboid([0,0,0], L, cells) # position, dimensions, cell list, update cell list
 
-    # Fragment to make a unified geometry
-    _, fragments = gmsh.model.occ.fragment([(3, box)], cells)
-    gmsh.model.occ.synchronize()
+    # Create a bounding shell
+    box = addSphere([0,0,0], 5*maximum(L)) # Don't update the cell list and get the volume id
 
-    # Update container volume ID
-    box = fragments[1][1][2]
+    # Unify the volumes for a single geometry and get the bounding shell
+    shell_id = unifyModel(cells, box)
 
     # Generate Mesh
-    mesh = Mesh(cells,meshSize,localSize,saveMesh)
-    
-    # Get bounding shell surface id
-    mesh.shell_id = gmsh.model.getAdjacencies(3, box)[2]
+    mesh = Mesh(cells, meshSize, localSize, saveMesh)
 
-    # Must remove the surface Id of the interior surfaces
-    mesh.shell_id = mesh.shell_id[bounding_shell_n_surfaces] # All other, are interior surfaces
+    println("\nOuter shell ID: ", shell_id)
+    println("Number of elements ", mesh.nt)
+    println("Number of Inside elements ", mesh.nInside)
+    println("Number of nodes ", mesh.nv)
+    println("Number of Inside nodes ", mesh.nInsideNodes)
+    println("Number of surface elements ", mesh.ne)
+    println("")
 
-    if showGmsh
+    if showGmsh # Show GUI
         gmsh.fltk.run()
     end
     gmsh.finalize()
-
-    println("Number of elements ",size(mesh.t,2))
-    println("Number of Inside elements ",length(mesh.InsideElements))
-    println("Number of nodes ",size(mesh.p,2))
-    println("Number of Inside nodes ",length(mesh.InsideNodes))
-    println("Number of surface elements ",size(mesh.surfaceT,2))
-
+    
     # Adjust to 0 indexing
     t::Matrix{Int32} = mesh.t .- 1
     surfaceT::Matrix{Int32} = mesh.surfaceT .- 1
-    shell_id::Int32 = mesh.shell_id[1] - 1
+    shell::Int32 = shell_id[1] - 1
 
     # Permeability
     mu::Vector{Float64} = ones(mesh.nt)
@@ -76,6 +60,8 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     # Prepare the output
     u::Vector{Float64} = zeros(mesh.nv)
 
+    # Run C++ version of FEM magnetostatic solver
+    # Updates the input scalar potential 'u'
     @ccall "julia_wrapper.so".cMagnetoStatics(
         u::Ptr{Float64},
         mesh.p::Ptr{Float64},
@@ -88,15 +74,13 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
         mesh.VE::Ptr{Float64},
         mu::Ptr{Float64},
         Hext::Ptr{Float64},
-        shell_id::Int32
+        shell::Int32
     )::Cvoid
 
 end # end of main
 
 meshSize = 4
-localSize = 0.01
+localSize = 0.1
 showGmsh = false
-saveMesh = false
 
-main(meshSize,localSize,showGmsh,saveMesh)
-
+main(meshSize, localSize, showGmsh)

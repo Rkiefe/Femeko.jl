@@ -10,8 +10,7 @@
     generation and handling
 =#
 
-include("../../src/gmsh_wrapper.jl")
-using LinearAlgebra
+include("../../src/Femeko.jl")
 
 function main()
     meshSize::Float64 = 50.0
@@ -43,11 +42,11 @@ function main()
     gmsh.initialize()
 
     # Magnetic body
-    addSphere([0,0,0],50)
+    addSphere([0,0,0], 50)
     # addCuboid([0,0,0],L)
 
     # Generate Mesh
-    mesh = Mesh([],meshSize,0,false)
+    mesh = Mesh([], meshSize, 0, false)
 
     # Finalize Gmsh and show mesh properties
     # gmsh.fltk.run()
