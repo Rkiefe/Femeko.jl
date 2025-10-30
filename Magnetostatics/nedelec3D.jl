@@ -14,48 +14,9 @@
 include("../src/gmsh_wrapper.jl")
 include("../src/FEM.jl")
 include("../src/magneticProperties.jl")
-
 using IterativeSolvers
 
 using GLMakie
-
-# Get the global nodes of a local edge label 'ie'
-# of a global element label 'k'
-function NodesFromLocalEdge( mesh::MESH, 
-                             k, # Element index
-                             ie # Local edge index (1 to 3)
-                            )
-
-    # Triangle nodes
-    nds = @view mesh.t[1:4, k]
-    
-
-    if ie == 1 || ie == 2
-        i = ie
-        j = ie+1
-    
-    elseif ie == 3 || ie == 4
-        i = ie
-        j = 1
-    
-    elseif ie == 5
-        i = 3
-        j = 4
-    
-    elseif ie == 6
-        i = 2
-        j = 4
-    end
-    
-    # The edge nodes must be sorted
-    if nds[i] > nds[j]
-        aux = i
-        i = j
-        j = aux
-    end
-
-    return i, j
-end
 
 function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
@@ -113,12 +74,6 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
         edge = edges[e] # Global edge ID (its unique)
         global2local_edge[edge] = e
     end
-
-    # Get the outer boundary edges
-    id = findall(x -> x in shell_id, mesh.surfaceT[end, :])
-    surfaceEdges = unique(mesh.surfaceT[4:6, id])
-    localSurfaceEdges = global2local_edge[surfaceEdges]
-
 
     println("\nNumber of elements: ", mesh.nt)
     println("Number of Inside elements ", length(mesh.InsideElements))
@@ -362,4 +317,4 @@ end
 
 
 
-main(5.0, 0.5, false)
+main(5.0, 0.1, false)
