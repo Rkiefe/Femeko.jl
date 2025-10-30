@@ -152,9 +152,7 @@ function addCuboid(position,dimensions,cells=[],updateCells::Bool=false)
     r = position - dimensions/2
     box = gmsh.model.occ.addBox(r[1], r[2], r[3], dimensions[1], dimensions[2], dimensions[3])
     
-    if updateCells
-        cells = append!(cells,[(3,box)])
-    end
+    append!(cells, [(3, box)])
 
     # Sync kernel before exiting
     gmsh.model.occ.synchronize()
