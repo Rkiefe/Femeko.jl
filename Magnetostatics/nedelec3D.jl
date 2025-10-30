@@ -15,6 +15,8 @@ include("../src/gmsh_wrapper.jl")
 include("../src/FEM.jl")
 include("../src/magneticProperties.jl")
 
+using IterativeSolvers
+
 using GLMakie
 
 # Get the global nodes of a local edge label 'ie'
@@ -250,7 +252,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
         end # Loop over the volume element labels
 
         # Solve the magnetostatic vector potential
-        u = A\RHS
+        u = cg(A, RHS)
 
         # Get the magnetic flux B
         Bfield .= 0.0
