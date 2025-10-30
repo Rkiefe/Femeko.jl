@@ -71,7 +71,7 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
 
     # Add material
     addCuboid([0,0,0], [1.0, 1.0, 1.0], cells)
-    # addSphere([0,0,0], 0.5, cells, true)
+    # addSphere([0,0,0], 0.5, cells)
 
     # Create bounding shell
     box = addSphere([0,0,0], 5.0)
