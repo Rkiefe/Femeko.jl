@@ -148,15 +148,20 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
         att += 1
         Bold .= B
 
-        A::Matrix{Float64} = zeros(ne, ne)
+        # Global stiffness matrix
+        A = spzeros(ne, ne)
+
+        # Local stiffness matrix
+        Ak::Matrix{Float64} = zeros(36, mesh.nt) # 6 edges per volume element
         for k in 1:mesh.nt
             nds = @view mesh.t[1:4, k] # Nodes of the linear volume element
 
+            n::Int32 = 0
             for ie in 1:6 # For each edge of the tetrahedron
-                
+
                 # Global edge label
-                edge = mesh.t[4+ie, k]
-                i = global2local_edge[edge] # Local edge label
+                # edge = mesh.t[4+ie, k]
+                # i = global2local_edge[edge] # Local edge label
                 
                 # Global node labels of the edge
                 edge_nds = NodesFromLocalEdge(mesh, k, ie)
@@ -171,10 +176,11 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
                 curlN_i = 2.0*edgeLength*cross([bi, ci, di],[bj, cj, dj])
 
                 for je in 1:6
+                    n += 1
 
                     # Global edge label
-                    edge = mesh.t[4+je, k]
-                    j = global2local_edge[edge] # Local edge label
+                    # edge = mesh.t[4+je, k]
+                    # j = global2local_edge[edge] # Local edge label
 
                     # Global node labels of the edge
                     edge_nds = NodesFromLocalEdge(mesh, k, je)
@@ -189,12 +195,25 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
                     curlN_j = 2.0*edgeLength*cross([bi, ci, di], [bj, cj, dj])
 
                     # Update the stiffness matrix
-                    A[i, j] += mesh.VE[k]*dot(curlN_i, curlN_j)*nu[k]
+                    Ak[n, k] = mesh.VE[k]*dot(curlN_i, curlN_j)*nu[k]
                 
                 end # Loop over the edges of the element
             end     # Loop over the edges of the element
             
         end # Loop over the volume element labels
+
+        # Update global stiffness matrix
+        n = 0
+        for i in 1:6
+            edge1 = global2local_edge[mesh.t[4+i, :]]
+            
+            for j in 1:6
+                n += 1
+
+                edge2 = global2local_edge[mesh.t[4+j, :]]
+                A += sparse(edge1, edge2, Ak[n,:], ne, ne)
+            end
+        end
 
         # Load vector
         RHS::Vector{Float64} = zeros(ne)
@@ -271,8 +290,8 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     Hfield = zeros(3, mesh.nt)
     H = zeros(mesh.nt)
     for k in 1:mesh.nt
-        H[k] = nu[k] * B[k]
-        Hfield[:, k] = nu[k] .* Bfield[:, k]
+        H[k] = nu[k]/mu0 * B[k]
+        Hfield[:, k] = nu[k]/mu0 .* Bfield[:, k]
     end
 
     println("\nGenerating plots...")
