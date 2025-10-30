@@ -51,7 +51,7 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     # box = importCAD("../STEP_Models/cube.STEP", cells)
 
     # Or create your own geometry
-    addCuboid([0,0,0], L, cells, true)
+    addCuboid([0,0,0], L, cells)
     box = addSphere([0,0,0], 5*maximum(L))
 
     # Unify the volumes for a single geometry and get the bounding shell

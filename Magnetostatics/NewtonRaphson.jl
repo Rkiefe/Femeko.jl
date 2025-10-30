@@ -28,12 +28,12 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     scale::Float64 = 1e-6 # cm^3 -> m^3
 
     # Temperature
-    T::Float64 = 280.0
+    T::Float64 = 293.0
 
     # Applied field A/m
-    Hext::Vector{Float64} = 0.5.*[  1.0, 
-                                    0.0, 
-                                    0.0]/mu0
+    Hext::Vector{Float64} = [1.0, 
+                             0.0, 
+                             0.0]*0.5/mu0
 
     # Convergence criteria
     picardDeviation::Float64 = 1e-4
@@ -70,7 +70,7 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     # box = importCAD("../STEP_Models/cube.STEP", cells)
 
     # Add material
-    addCuboid([0,0,0], [1.0, 1.0, 1.0], cells, true)
+    addCuboid([0,0,0], [1.0, 1.0, 1.0], cells)
     # addSphere([0,0,0], 0.5, cells, true)
 
     # Create bounding shell

@@ -90,7 +90,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     cells = []
 
     # Add magnetic geometry
-    # id = addCuboid([0.0, 0.0, 0.0], [1.0, 1.0, 1.0], cells, true)
+    # id = addCuboid([0.0, 0.0, 0.0], [1.0, 1.0, 1.0], cells)
     id = addSphere([0.0, 0.0, 0.0], 0.5, cells, true)
 
     # Add a container

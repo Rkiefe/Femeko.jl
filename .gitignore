@@ -1,3 +1,4 @@
+test.jl
 
 # Dont update the magnetic materials folder
 Magnetostatics/Materials/
