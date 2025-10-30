@@ -2,8 +2,7 @@
     2D heat equation solver
 =#
 
-include("../src/gmsh_wrapper.jl")
-include("../src/FEM.jl")
+include("../src/Femeko.jl")
 
 using GLMakie
 
@@ -70,7 +69,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     A = stiffnessMatrix2D(mesh, thermalCond)
 
     # Mass matrix
-    M = massMatrix2D(mesh::MESH)
+    M = massMatrix2D(mesh)
 
     fig = Figure()
     ax = Axis(fig[1, 1], aspect = DataAspect(), title="Heat simulation")

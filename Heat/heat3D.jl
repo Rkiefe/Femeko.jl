@@ -1,7 +1,6 @@
 # 3D heat equation solver
 
-include("../src/gmsh_wrapper.jl")
-include("../src/FEM.jl")
+include("../src/Femeko.jl")
 
 using GLMakie
 
@@ -18,7 +17,7 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     cells = []
 
     # Add a cuboid
-    addCuboid([0,0,0], [1,1,1], cells, true)
+    addCuboid([0,0,0], [1,1,1], cells)
 
     # Create a bounding shell
     box = addSphere([0,0,0], 5)

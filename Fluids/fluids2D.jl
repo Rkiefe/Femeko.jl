@@ -5,8 +5,7 @@
     flowing around an obstacle, following the stokes equation
 =#
 
-include("../src/gmsh_wrapper.jl")
-include("../src/FEM.jl")
+include("../src/Femeko.jl")
 
 using GLMakie
 

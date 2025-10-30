@@ -5,8 +5,7 @@
     A box full of liquid, where the lid drags the fluid, making a swirl
 =#
 
-include("../src/gmsh_wrapper.jl")
-include("../src/FEM.jl")
+include("../src/Femeko.jl")
 
 using GLMakie
 
