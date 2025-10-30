@@ -150,7 +150,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
         A = spzeros(ne, ne)
 
         # Local stiffness matrix
-        Ak::Matrix{Float64} = zeros(36, mesh.nt) # 6 edges per volume element
+        Ak::Matrix{Float64} = zeros(36, mesh.nt) # 6x6 edges per volume element
         for k in 1:mesh.nt
             nds = @view mesh.t[1:4, k] # Nodes of the linear volume element
 
@@ -163,37 +163,41 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
                 hat[4, i] = abcd(mesh.p, nds, nds[i])
             end
 
-            n::Int32 = 0
-            for ie in 1:6 # For each edge of the tetrahedron
-                
+            curlN::Matrix{Float64} = zeros(3, 6)
+            for ie in 1:6
                 # Global node labels of the edge
                 ndi, ndj = NodesFromLocalEdge(mesh, k, ie)
 
                 # Length of edge
                 edgeLength = norm(mesh.p[1:3, nds[ndj]] - mesh.p[1:3, nds[ndi]])
-
+                
                 # Curl of Nedelec shape element
-                curlN_i = 2.0*edgeLength*cross(hat[2:4, ndi], hat[2:4, ndj])
+                curlN[:, ie] = 2.0*edgeLength*cross(hat[2:4, ndi], hat[2:4, ndj])
+            end
 
+            n::Int32 = 0
+            # Update the stiffness matrix
+            for ie in 1:6 # For each edge of the tetrahedron
                 for je in 1:6
                     n += 1
-
-                    # Global node labels of the edge
-                    ndi, ndj = NodesFromLocalEdge(mesh, k, je)
-
-                    # Length of edge
-                    edgeLength = norm(mesh.p[1:3, nds[ndj]] - mesh.p[1:3, nds[ndi]])
-
-                    # Curl of Nedelec shape element
-                    curlN_j = 2.0*edgeLength*cross(hat[2:4, ndi], hat[2:4, ndj])
-
-                    # Update the stiffness matrix
-                    Ak[n, k] = mesh.VE[k]*dot(curlN_i, curlN_j)*nu[k]
-                
-                end # Loop over the edges of the element
+                    Ak[n, k] = mesh.VE[k]*dot(curlN[:, ie], curlN[:, je])*nu[k]
+                end
             end     # Loop over the edges of the element
             
         end # Loop over the volume element labels
+
+        # Update sparse global stiffness matrix
+        n = 0
+        for i in 1:6
+            edge1 = global2local_edge[mesh.t[4+i, :]]
+            
+            for j in 1:6
+                n += 1
+
+                edge2 = global2local_edge[mesh.t[4+j, :]]
+                A += sparse(edge1, edge2, Ak[n,:], ne, ne)
+            end
+        end
 
         # Update global stiffness matrix
         n = 0
