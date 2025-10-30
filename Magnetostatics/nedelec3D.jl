@@ -52,9 +52,7 @@ function NodesFromLocalEdge( mesh::MESH,
         j = aux
     end
 
-    edge_nds = [nds[i], nds[j]]
-
-    return edge_nds
+    return i, j
 end
 
 function main(meshSize=0.0, localSize=0.0, showGmsh=false)
@@ -156,43 +154,38 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
         for k in 1:mesh.nt
             nds = @view mesh.t[1:4, k] # Nodes of the linear volume element
 
+            # Hat shape element for each of the 4 nodes
+            hat::Matrix{Float64} = zeros(4, 4) # a,b,c,d for each node
+            for i in 1:4
+                hat[1, i], 
+                hat[2, i], 
+                hat[3, i], 
+                hat[4, i] = abcd(mesh.p, nds, nds[i])
+            end
+
             n::Int32 = 0
             for ie in 1:6 # For each edge of the tetrahedron
-
-                # Global edge label
-                # edge = mesh.t[4+ie, k]
-                # i = global2local_edge[edge] # Local edge label
                 
                 # Global node labels of the edge
-                edge_nds = NodesFromLocalEdge(mesh, k, ie)
+                ndi, ndj = NodesFromLocalEdge(mesh, k, ie)
 
                 # Length of edge
-                edgeLength = norm(mesh.p[1:3, edge_nds[2]] - mesh.p[1:3, edge_nds[1]])
+                edgeLength = norm(mesh.p[1:3, nds[ndj]] - mesh.p[1:3, nds[ndi]])
 
-                # 1st order Lagrange basis function (hat function)
-                _, bi, ci, di = abcd(mesh.p, nds, edge_nds[1])
-                _, bj, cj, dj = abcd(mesh.p, nds, edge_nds[2])
-
-                curlN_i = 2.0*edgeLength*cross([bi, ci, di],[bj, cj, dj])
+                # Curl of Nedelec shape element
+                curlN_i = 2.0*edgeLength*cross(hat[2:4, ndi], hat[2:4, ndj])
 
                 for je in 1:6
                     n += 1
 
-                    # Global edge label
-                    # edge = mesh.t[4+je, k]
-                    # j = global2local_edge[edge] # Local edge label
-
                     # Global node labels of the edge
-                    edge_nds = NodesFromLocalEdge(mesh, k, je)
+                    ndi, ndj = NodesFromLocalEdge(mesh, k, je)
 
                     # Length of edge
-                    edgeLength = norm(mesh.p[1:3, edge_nds[2]] - mesh.p[1:3, edge_nds[1]])
+                    edgeLength = norm(mesh.p[1:3, nds[ndj]] - mesh.p[1:3, nds[ndi]])
 
-                    # 1st order Lagrange basis function (hat function)
-                    _, bi, ci, di = abcd(mesh.p, nds, edge_nds[1])
-                    _, bj, cj, dj = abcd(mesh.p, nds, edge_nds[2])
-
-                    curlN_j = 2.0*edgeLength*cross([bi, ci, di], [bj, cj, dj])
+                    # Curl of Nedelec shape element
+                    curlN_j = 2.0*edgeLength*cross(hat[2:4, ndi], hat[2:4, ndj])
 
                     # Update the stiffness matrix
                     Ak[n, k] = mesh.VE[k]*dot(curlN_i, curlN_j)*nu[k]
@@ -220,6 +213,15 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
         for k in 1:mesh.nt
             nds = @view mesh.t[1:4, k] # Nodes of the linear volume element
             
+            # Hat shape element for each of the 4 nodes
+            hat::Matrix{Float64} = zeros(4, 4) # a,b,c,d for each node
+            for i in 1:4
+                hat[1, i], 
+                hat[2, i], 
+                hat[3, i], 
+                hat[4, i] = abcd(mesh.p, nds, nds[i])
+            end
+
             for ie in 1:6 # For each edge of the tetrahedron
                 
                 # Global edge label
@@ -227,14 +229,14 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
                 i = global2local_edge[edge] # Local edge label
                 
                 # Global node labels of the edge
-                edge_nds = NodesFromLocalEdge(mesh, k, ie)
+                ndi, ndj = NodesFromLocalEdge(mesh, k, ie)
 
                 # Length of edge
-                edgeLength = norm(mesh.p[1:3, edge_nds[2]] - mesh.p[1:3, edge_nds[1]])
+                edgeLength = norm(mesh.p[1:3, nds[ndj]] - mesh.p[1:3, nds[ndi]])
 
                 # 1st order Lagrange basis function (hat function)
-                _, bi, ci, di = abcd(mesh.p, nds, edge_nds[1])
-                _, bj, cj, dj = abcd(mesh.p, nds, edge_nds[2])
+                _, bi, ci, di = hat[:, ndi]
+                _, bj, cj, dj = hat[:, ndj]
 
                 curlN = 2.0*edgeLength*cross([bi, ci, di], [bj, cj, dj])
 
@@ -251,6 +253,15 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
         for k in 1:mesh.nt
             nds = @view mesh.t[1:4, k] # Nodes of the linear volume element
             
+            # Hat shape element for each of the 4 nodes
+            hat::Matrix{Float64} = zeros(4, 4) # a,b,c,d for each node
+            for i in 1:4
+                hat[1, i], 
+                hat[2, i], 
+                hat[3, i], 
+                hat[4, i] = abcd(mesh.p, nds, nds[i])
+            end
+
             for ie in 1:6 # For each edge of the tetrahedron
                 
                 # Global edge label
@@ -258,14 +269,14 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
                 i = global2local_edge[edge] # Local edge label
                 
                 # Global node labels of the edge
-                edge_nds = NodesFromLocalEdge(mesh, k, ie)
+                ndi, ndj = NodesFromLocalEdge(mesh, k, ie)
 
                 # Length of edge
-                edgeLength = norm(mesh.p[1:3, edge_nds[2]] - mesh.p[1:3, edge_nds[1]])
+                edgeLength = norm(mesh.p[1:3, nds[ndj]] - mesh.p[1:3, nds[ndi]])
 
                 # 1st order Lagrange basis function (hat function)
-                _, bi, ci, di = abcd(mesh.p, nds, edge_nds[1])
-                _, bj, cj, dj = abcd(mesh.p, nds, edge_nds[2])
+                _, bi, ci, di = hat[:, ndi]
+                _, bj, cj, dj = hat[:, ndj]
 
                 curlN = 2.0*edgeLength*cross([bi, ci, di], [bj, cj, dj])
 
