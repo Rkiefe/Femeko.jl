@@ -35,18 +35,20 @@ function userMade(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     # Generate Mesh
     mesh = Mesh(cells, meshSize, localSize, saveMesh)
 
+    println("\nOuter shell ID: ", shell_id)
+    println("Internal surfaces: ", internal_surfaces)
+    println("Number of elements ", mesh.nt)
+    println("Number of Inside elements ", mesh.nInside)
+    println("Number of nodes ", mesh.nv)
+    println("Number of Inside nodes ", mesh.nInsideNodes)
+    println("Number of surface elements ", mesh.ne)
+    println("")
+
     if showGmsh # Show GUI
         gmsh.fltk.run()
     end
     gmsh.finalize()
 
-    println("Outer shell ID: ", shell_id)
-    println("Internal surfaces: ", internal_surfaces)
-    println("Number of elements ",size(mesh.t,2))
-    println("Number of Inside elements ",length(mesh.InsideElements))
-    println("Number of nodes ",size(mesh.p,2))
-    println("Number of Inside nodes ",length(mesh.InsideNodes))
-    println("Number of surface elements ",size(mesh.surfaceT,2))
 end
 
 function meshCAD(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
@@ -78,18 +80,19 @@ function meshCAD(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     # Generate Mesh
     mesh = Mesh(cells,meshSize,localSize,saveMesh)
 
+    println("\nOuter shell ID: ", shell_id)
+    println("Internal surfaces: ", internal_surfaces)
+    println("Number of elements ", mesh.nt)
+    println("Number of Inside elements ", mesh.nInside)
+    println("Number of nodes ", mesh.nv)
+    println("Number of Inside nodes ", mesh.nInsideNodes)
+    println("Number of surface elements ", mesh.ne)
+    println("")
+    
     if showGmsh
         gmsh.fltk.run()
     end
     gmsh.finalize()
-
-    println("Outer shell ID: ", shell_id)
-    # println("Internal surfaces: ", internal_surfaces)
-    println("Number of elements ",size(mesh.t,2))
-    println("Number of Inside elements ",length(mesh.InsideElements))
-    println("Number of nodes ",size(mesh.p,2))
-    println("Number of Inside nodes ",length(mesh.InsideNodes))
-    println("Number of surface elements ",size(mesh.surfaceT,2))
 
 end # end of main
 
