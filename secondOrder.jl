@@ -1,8 +1,5 @@
 #=
         Showcase of Femeko data-structure of second order tetrahedral mesh elements (10 nodes, 4 vertices and 6 edge midpoints)
-    
-    The mesh is generated manually, instead of with 'Mesh()', but here I demonstrate how to get
-    a 'Femeko-like' data strcuture
 =#
 
 include("src/Femeko.jl")
