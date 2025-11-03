@@ -155,19 +155,6 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
             end
         end
 
-        # Update global stiffness matrix
-        n = 0
-        for i in 1:6
-            edge1 = global2local_edge[mesh.t[4+i, :]]
-            
-            for j in 1:6
-                n += 1
-
-                edge2 = global2local_edge[mesh.t[4+j, :]]
-                A += sparse(edge1, edge2, Ak[n,:], ne, ne)
-            end
-        end
-
         # Load vector
         RHS::Vector{Float64} = zeros(ne)
         for k in 1:mesh.nt
