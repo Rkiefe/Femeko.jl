@@ -17,50 +17,6 @@ include("../src/magneticProperties.jl")
 using IterativeSolvers
 using GLMakie
 
-# Local stiffness matrix with Nedelec shape elements
-function nedelecStiffness(mesh::MESH)
-
-    # Local stiffness matrix
-    Ak::Matrix{Float64} = zeros(36, mesh.nt) # 6x6 edges per volume element
-    for k in 1:mesh.nt
-        nds = @view mesh.t[1:4, k] # Nodes of the linear volume element
-
-        # Hat shape element for each of the 4 nodes
-        hat::Matrix{Float64} = zeros(4, 4) # a,b,c,d for each node
-        for i in 1:4
-            hat[1, i], 
-            hat[2, i], 
-            hat[3, i], 
-            hat[4, i] = abcd(mesh.p, nds, nds[i])
-        end
-
-        curlN::Matrix{Float64} = zeros(3, 6)
-        for ie in 1:6
-            # Global node labels of the edge
-            ndi, ndj = NodesFromLocalEdge(mesh, k, ie)
-
-            # Length of edge
-            edgeLength = norm(mesh.p[1:3, nds[ndj]] - mesh.p[1:3, nds[ndi]])
-            
-            # Curl of Nedelec shape element
-            curlN[:, ie] = 2.0*edgeLength*cross(hat[2:4, ndi], hat[2:4, ndj])
-        end
-
-        n = 0
-        # Update the stiffness matrix
-        for ie in 1:6 # For each edge of the tetrahedron
-            for je in 1:6
-                n += 1
-                Ak[n, k] = mesh.VE[k]*dot(curlN[:, ie], curlN[:, je])
-            end
-        end     # Loop over the edges of the element
-        
-    end # Loop over the volume element labels
-
-    return Ak
-end # Local stiffness matrix with Nedelec shape elements
-
-
 function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
     # vacuum magnetic permeability
@@ -75,7 +31,8 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
                              0.0]
 
     # Convergence criteria
-    picardDeviation::Float64 = 1e-4
+    picardDeviation::Float64 = 1e-2
+    maxDeviation::Float64 = 1e-7
     maxAtt::Int32 = 100
 
     # Data of magnetic materials
@@ -88,6 +45,14 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
                  T)
 
     spl = Spline1D(data.B, mu0.*(data.HofM./data.B))
+
+    # Derivative of the magnetic reluctance
+    spl_dnu = Spline1D( data.B,   # x
+                        gradient(
+                                 data.B, 
+                                 mu0.*(data.HofM./data.B)
+                                ) # y
+                       )
 
     # Create model
     gmsh.initialize()
@@ -176,6 +141,8 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     nu::Vector{Float64} = ones(mesh.nt)
 
     # Prepare output
+    u::Vector{Float64} = zeros(ne) # Magnetic scalar potential
+
     Bfield::Matrix{Float64} = zeros(3, mesh.nt)
     B::Vector{Float64} = zeros(mesh.nt)
     Bold::Vector{Float64} = zeros(mesh.nt)
@@ -255,6 +222,98 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
     end
 
+    println("Newton-Raphson iteration method")
+
+    # Newton-Raphson
+    dnu::Vector{Float64} = zeros(mesh.nt)
+    dnu[mesh.InsideElements] = spl_dnu(B[mesh.InsideElements])
+    while div > maxDeviation && att < maxAtt # maxAtt
+
+        att += 1
+        Bold .= B
+
+        # Global sparse stiffness matrix
+        A = spzeros(ne, ne)
+        n = 0
+        for i in 1:6
+            edge1 = global2local_edge[mesh.t[4+i, :]]
+            
+            for j in 1:6
+                n += 1
+
+                edge2 = global2local_edge[mesh.t[4+j, :]]
+                A += sparse(edge1, edge2, Ak[n, :].*nu, ne, ne)
+            end
+        end
+
+        # Tangential stiffness matrix
+        At = nedelecTangentialStiffness(mesh, global2local_edge, 
+                                        dnu, ne, Bfield, B)
+
+        # Correction to the magnetic scalar potential
+        du = gmres(A+At, RHS-A*u) # The Jacobian (A+At) is symmetric, but gmres was the only stable solver
+
+        # Update the vector potential
+        u .+= du
+
+        # Get the magnetic flux B
+        Bfield .= 0.0
+        for k in 1:mesh.nt
+            nds = @view mesh.t[1:4, k] # Nodes of the linear volume element
+            
+            # Hat shape element for each of the 4 nodes
+            hat::Matrix{Float64} = zeros(4, 4) # a,b,c,d for each node
+            for i in 1:4
+                hat[1, i], 
+                hat[2, i], 
+                hat[3, i], 
+                hat[4, i] = abcd(mesh.p, nds, nds[i])
+            end
+
+            for ie in 1:6 # For each edge of the tetrahedron
+                
+                # Global edge label
+                edge = mesh.t[4+ie, k]
+                i = global2local_edge[edge] # Local edge label
+                
+                # Global node labels of the edge
+                ndi, ndj = NodesFromLocalEdge(mesh, k, ie)
+
+                # Length of edge
+                edgeLength = norm(mesh.p[1:3, nds[ndj]] - mesh.p[1:3, nds[ndi]])
+
+                # 1st order Lagrange basis function (hat function)
+                _, bi, ci, di = hat[:, ndi]
+                _, bj, cj, dj = hat[:, ndj]
+
+                curlN = 2.0*edgeLength*cross([bi, ci, di], [bj, cj, dj])
+
+                Bfield[:, k] += u[i].*curlN
+            end
+        end
+
+        # Norm of flux field B
+        B .= 0.0
+        for k in 1:mesh.nt
+            B[k] = norm(Bfield[:, k])
+        end
+
+        # Update magnetic reluctance
+        nu[mesh.InsideElements] .= spl(B[mesh.InsideElements])
+        
+        # d/dB nu
+        dnu[mesh.InsideElements] = spl_dnu(B[mesh.InsideElements])
+
+        if any(x->!isfinite(x), nu) || any(x->!isfinite(x), dnu)
+            error("Nans in the interpolation")
+        end
+
+        # Check deviation from previous result
+        div = maximum(abs.(B .- Bold))
+        println(att, " , |B(n)-B(n-1)| = ", div)
+
+    end # Newton iteration
+
     Hfield = zeros(3, mesh.nt)
     H = zeros(mesh.nt)
     for k in 1:mesh.nt
@@ -310,6 +369,125 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
 end
 
+# Local stiffness matrix with Nedelec shape elements
+function nedelecStiffness(mesh::MESH)
+
+    # Local stiffness matrix
+    Ak::Matrix{Float64} = zeros(36, mesh.nt) # 6x6 edges per volume element
+    for k in 1:mesh.nt
+        nds = @view mesh.t[1:4, k] # Nodes of the linear volume element
+
+        # Hat shape element for each of the 4 nodes
+        hat::Matrix{Float64} = zeros(4, 4) # a,b,c,d for each node
+        for i in 1:4
+            hat[1, i], 
+            hat[2, i], 
+            hat[3, i], 
+            hat[4, i] = abcd(mesh.p, nds, nds[i])
+        end
+
+        curlN::Matrix{Float64} = zeros(3, 6)
+        for ie in 1:6
+            # Global node labels of the edge
+            ndi, ndj = NodesFromLocalEdge(mesh, k, ie)
+
+            # Length of edge
+            edgeLength = norm(mesh.p[1:3, nds[ndj]] - mesh.p[1:3, nds[ndi]])
+            
+            # Curl of Nedelec shape element
+            curlN[:, ie] = 2.0*edgeLength*cross(hat[2:4, ndi], hat[2:4, ndj])
+        end
+
+        n = 0
+        # Update the stiffness matrix
+        for ie in 1:6 # For each edge of the tetrahedron
+            for je in 1:6
+                n += 1
+                Ak[n, k] = mesh.VE[k]*dot(curlN[:, ie], curlN[:, je])
+            end
+        end     # Loop over the edges of the element
+        
+    end # Loop over the volume element labels
+
+    return Ak
+end # Local stiffness matrix with Nedelec shape elements
+
+# Tangential stiffness matrix
+function nedelecTangentialStiffness(mesh::MESH, 
+                                    global2local_edge::Vector{Int32},
+                                    dnu::Vector{Float64},   # d/dB nu
+                                    ne,                     # Number of edges
+                                    Bfield::Matrix{Float64}, # Magnetic flux density
+                                    B::Vector{Float64}       # Norm of B
+                                    )
+    
+    # Global sparse tangential stiffness matrix
+    At = spzeros(ne, ne)
+
+    # Local tangential stiffness matrix
+    Alocal::Matrix{Float64} = zeros(6, 6)    # For a single element
+    Ak::Matrix{Float64} = zeros(36, mesh.nt) # For all elements
+    for k in 1:mesh.nt
+        nds = @view mesh.t[1:4, k] # Nodes of the linear volume element
+
+        # Hat shape element for each of the 4 nodes
+        hat::Matrix{Float64} = zeros(4, 4) # a,b,c,d for each node
+        for i in 1:4
+            hat[1, i], 
+            hat[2, i], 
+            hat[3, i], 
+            hat[4, i] = abcd(mesh.p, nds, nds[i])
+        end
+
+        curlN::Matrix{Float64} = zeros(3, 6)
+        for ie in 1:6
+            # Global node labels of the edge
+            ndi, ndj = NodesFromLocalEdge(mesh, k, ie)
+
+            # Length of edge
+            edgeLength = norm(mesh.p[1:3, nds[ndj]] - mesh.p[1:3, nds[ndi]])
+            
+            # Curl of Nedelec shape element
+            curlN[:, ie] = 2.0*edgeLength*cross(hat[2:4, ndi], hat[2:4, ndj])
+        end
+
+        # Force symmetry in the tangential stiffness matrix
+        for i in 1:6
+            for j in i:6
+                Alocal[i, j] = mesh.VE[k] * dot(curlN[:, i], Bfield[:, k])  *
+                                            dot(curlN[:, j], Bfield[:, k])  *
+                                            dnu[k]/B[k]
+
+                Alocal[j, i] = Alocal[i, j]
+            end
+        end
+
+        # Update local tangential stiffness matrix
+        n = 0
+        for i in 1:6
+            for j in 1:6
+                n += 1
+                Ak[n, k] = Alocal[i, j]
+            end
+        end
+
+    end # Loop over the volume element labels
+
+    # Update global sparse stiffness matrix
+    n = 0
+    for i in 1:6
+        edge1 = global2local_edge[mesh.t[4+i, :]]
+        
+        for j in 1:6
+            edge2 = global2local_edge[mesh.t[4+j, :]]
+
+            n += 1
+            At += sparse(edge1, edge2, Ak[n, :], ne, ne)
+        end
+    end
+
+    return At
+end # Tangential stiffness matrix
 
 
 
