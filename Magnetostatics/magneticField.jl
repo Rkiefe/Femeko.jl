@@ -46,7 +46,7 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     cells = []
 
     # Import cad file
-    # box = importCAD("../STEP_Models/cube.STEP", cells)
+    # box = importCAD("../STEP_Models/cube.STEP", cells, true)
 
     # Or create your own geometry
     addCuboid([0,0,0], L, cells)

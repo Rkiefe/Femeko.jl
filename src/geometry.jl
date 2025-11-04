@@ -134,7 +134,7 @@ function makeContainer(scale::Float64=5.0)
 end # Create container based on current model surface
 
 # Import cad geometry file
-function importCAD(file::String, cells, setContainer::Bool=true, scale::Float64=5.0)
+function importCAD(file::String, cells, setContainer::Bool=false, scale::Float64=5.0)
     #= 
         Import cad geometry file and create a container
         if there is none

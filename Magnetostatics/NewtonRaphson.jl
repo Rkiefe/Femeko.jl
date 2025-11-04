@@ -66,7 +66,7 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     cells = []
 
     # Import cad file
-    # box = importCAD("../STEP_Models/cube.STEP", cells)
+    # box = importCAD("../STEP_Models/cube.STEP", cells, true)
 
     # Add material
     addCuboid([0,0,0], [1.0, 1.0, 1.0], cells)
