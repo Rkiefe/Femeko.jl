@@ -1,6 +1,6 @@
 #=
         Calculate the magnetostatic interaction between non-linear magnetic materials and a source field
-    
+
     Using: 
         - Nedelec shape functions (instead of linear Lagrange)
         - The magnetostatic vector potential (instead of the scalar potential)
@@ -9,6 +9,9 @@
     Why:
         - Should be much more stable for non-linear media
         - Can include Surface and Volume electric currents
+
+    This example also includes the implementation of the Newton-Raphson method 
+    with Nedelec shape elements
 =#
 
 include("../src/Femeko.jl")
