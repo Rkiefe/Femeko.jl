@@ -97,7 +97,12 @@ function Mesh(cells, meshSize=0.0, localSize=0.0, saveMesh::Bool=false, order=1)
     # -- Optimize the mesh --
     # "" (default is empty), "NetGen", "HighOrder", 
     # "Relocate3D", "HighOrderElastic", "UntangleMeshGeometry"
-    gmsh.model.mesh.optimize()
+    if order < 1
+        gmsh.model.mesh.optimize()
+    else
+        gmsh.model.mesh.optimize("HighOrder")   # Other wise the mesh MIGHT not be proper.
+                                                # Resulting in some node labels = 0 (which should never happen since indexing starts at 1)
+    end
     
     # Get node coordinates
     _,p,_ = gmsh.model.mesh.getNodes()
