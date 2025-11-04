@@ -132,6 +132,43 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     end
     gmsh.fltk.finalize()
 
+    # Load vector
+    RHS::Vector{Float64} = zeros(ne)
+    for k in 1:mesh.nt
+        nds = @view mesh.t[1:4, k] # Nodes of the linear volume element
+        
+        # Hat shape element for each of the 4 nodes
+        hat::Matrix{Float64} = zeros(4, 4) # a,b,c,d for each node
+        for i in 1:4
+            hat[1, i], 
+            hat[2, i], 
+            hat[3, i], 
+            hat[4, i] = abcd(mesh.p, nds, nds[i])
+        end
+
+        for ie in 1:6 # For each edge of the tetrahedron
+            
+            # Global edge label
+            edge = mesh.t[4+ie, k]
+            i = global2local_edge[edge] # Local edge label
+            
+            # Global node labels of the edge
+            ndi, ndj = NodesFromLocalEdge(mesh, k, ie)
+
+            # Length of edge
+            edgeLength = norm(mesh.p[1:3, nds[ndj]] - mesh.p[1:3, nds[ndi]])
+
+            # 1st order Lagrange basis function (hat function)
+            _, bi, ci, di = hat[:, ndi]
+            _, bj, cj, dj = hat[:, ndj]
+
+            curlN = 2.0*edgeLength*cross([bi, ci, di], [bj, cj, dj])
+
+            RHS[i] += mesh.VE[k]*dot(Bext, curlN)
+        end
+    
+    end # Loop over the volume element labels
+
     # Relative magnetic reluctance
     nu::Vector{Float64} = ones(mesh.nt)
 
@@ -198,43 +235,6 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
                 A += sparse(edge1, edge2, Ak[n,:], ne, ne)
             end
         end
-
-        # Load vector
-        RHS::Vector{Float64} = zeros(ne)
-        for k in 1:mesh.nt
-            nds = @view mesh.t[1:4, k] # Nodes of the linear volume element
-            
-            # Hat shape element for each of the 4 nodes
-            hat::Matrix{Float64} = zeros(4, 4) # a,b,c,d for each node
-            for i in 1:4
-                hat[1, i], 
-                hat[2, i], 
-                hat[3, i], 
-                hat[4, i] = abcd(mesh.p, nds, nds[i])
-            end
-
-            for ie in 1:6 # For each edge of the tetrahedron
-                
-                # Global edge label
-                edge = mesh.t[4+ie, k]
-                i = global2local_edge[edge] # Local edge label
-                
-                # Global node labels of the edge
-                ndi, ndj = NodesFromLocalEdge(mesh, k, ie)
-
-                # Length of edge
-                edgeLength = norm(mesh.p[1:3, nds[ndj]] - mesh.p[1:3, nds[ndi]])
-
-                # 1st order Lagrange basis function (hat function)
-                _, bi, ci, di = hat[:, ndi]
-                _, bj, cj, dj = hat[:, ndj]
-
-                curlN = 2.0*edgeLength*cross([bi, ci, di], [bj, cj, dj])
-
-                RHS[i] += mesh.VE[k]*dot(Bext, curlN)
-            end
-        
-        end # Loop over the volume element labels
 
         # Solve the magnetostatic vector potential
         u = cg(A, RHS)
