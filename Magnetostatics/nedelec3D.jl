@@ -34,8 +34,8 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
                              0.0]
 
     # Convergence criteria
-    picardDeviation::Float64 = 1e-2
-    maxDeviation::Float64 = 1e-7
+    picardDeviation::Float64 = 1e-4
+    maxDeviation::Float64 = Inf # 1e-7 , use Inf to skip Newton-Raphson
     maxAtt::Int32 = 100
 
     # Data of magnetic materials
@@ -373,7 +373,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
                         Mfield_emug[2, elements]./maximum(M_emug[elements]), 
                         Mfield_emug[3, elements]./maximum(M_emug[elements])
                         , color = M_emug[elements]
-                        # , lengthscale = 0.2
+                        , lengthscale = 0.2
                         , colormap = :CMRmap,  # :CMRmap :viridis :redsblues :turbo :rainbow
                     )
 
@@ -384,9 +384,5 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     wait(display(fig))
 
 end
-
-
-
-
 
 main(1.0, 0.1, true)
