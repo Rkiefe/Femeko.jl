@@ -104,11 +104,9 @@ The output mesh object is optimized for Finite-Element simulations, see ´meshEx
 Main install:
 - Open the Repl
 - Press ']' key to switch to the package manager "pkg >"
-- `add Gmsh LinearAlgebra SparseArrays`
+- `add Gmsh LinearAlgebra SparseArrays IterativeSolvers Dierckx DelimitedFiles`
 
-In some magnetostatics implementations, the datasets are interpolated using `Dierckx`. Add it the same way as with the other packages.
-
-If you want the built in plots:
+Most examples plot the results using Makie.jl. It is recommended that you do
 - `add GLMakie` or/and `add CairoMakie`
 
 Compiling C++ alternative implementations:
