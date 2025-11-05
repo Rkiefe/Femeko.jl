@@ -62,12 +62,15 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     gmsh.initialize()
     cells = []
 
+    # Import step model
+    # box = importCAD("../STEP_Models/Fennec_Fox.step", cells, true) # true -> make a bounding shell
+
     # Add magnetic geometry
-    # id = addCuboid([0.0, 0.0, 0.0], [1.0, 1.0, 1.0], cells)
-    id = addSphere([0.0, 0.0, 0.0], 0.5, cells)
+    id = addCuboid([0.0, 0.0, 0.0], [1.0, 1.0, 1.0], cells)
+    # id = addSphere([0.0, 0.0, 0.0], 0.5, cells)
 
     # Add a container
-    box = addSphere([0.0, 0.0, 0.0], 2.5)
+    box = addSphere([0.0, 0.0, 0.0], 5.0)
 
     # Combine the geometries
     shell_id = unifyModel(cells, box)
@@ -97,7 +100,10 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
     # Run Gmsh GUI
     if showGmsh
-       gmsh.fltk.run()
+        gmsh.option.setNumber("Mesh.VolumeFaces", 1)
+        gmsh.option.setNumber("Mesh.Clip", 1)
+        gmsh.option.setNumber("General.ClipWholeElements", 1)
+        gmsh.fltk.run()
     end
     gmsh.fltk.finalize()
 
@@ -367,8 +373,8 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
                         Mfield_emug[2, elements]./maximum(M_emug[elements]), 
                         Mfield_emug[3, elements]./maximum(M_emug[elements])
                         , color = M_emug[elements]
-                        , lengthscale = 0.2
-                        , colormap = :turbo
+                        # , lengthscale = 0.2
+                        , colormap = :CMRmap,  # :CMRmap :viridis :redsblues :turbo :rainbow
                     )
 
     Colorbar(fig[1, 2], graph, label = "M (emu/g)"
@@ -383,4 +389,4 @@ end
 
 
 
-main(5.0, 0.1, false)
+main(1.0, 0.1, true)
