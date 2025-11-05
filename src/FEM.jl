@@ -80,7 +80,7 @@ function stiffnessMatrix(mesh::MESH, f::Vector{Float64}=ones(mesh.nt))
 end # Sparse, global stiffness matrix
 
 # Local stiffnessmatrix in 100% Julia
-function localStiffnessMatrix(mesh::MESH,f::Vector{Float64})
+function localStiffnessMatrix(mesh::MESH,f::Vector{Float64}=ones(mesh.nt))
     Ak::Matrix{Float64} = zeros(4*4,mesh.nt)
     b::Vector{Float64} = zeros(4)
     c::Vector{Float64} = zeros(4)
