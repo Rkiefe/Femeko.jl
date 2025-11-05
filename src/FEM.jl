@@ -592,3 +592,8 @@ function trapz(xin, yin)
 
     return result
 end
+
+# Check if a matrix is approximately symmetric
+function isapproxsymmetric(A, tol=1e-10)
+    return all(isapprox.(A - A', 0.0; rtol=tol))
+end
