@@ -36,7 +36,7 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
 
     # Convergence criteria
     picardDeviation::Float64 = 1e-4
-    maxDeviation::Float64 = Inf # Inf -> Don't run the N-R method
+    maxDeviation::Float64 = 1e-8 # Inf -> Don't run the N-R method
     maxAtt::Int32 = 100
     relax::Float64 = 1.0 # Relaxation factor for N-R ]0, 1.0]
 
@@ -53,11 +53,14 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
                   T)
 
     # Spline for interpolation of the permeability
-    spl = Spline1D(data.HofM,
-                   data.mu
-                   # ; bc="nearest" # nearest extrapolate
+    spl = Spline1D(data.HofM, data.mu
+                   ; bc="error" # nearest , extrapolate , error
                    )
 
+    spl_dmu = Spline1D( data.HofM,
+                        data.dmu
+                      ; bc="error" # nearest , extrapolate , error
+                      ) 
 
     # 3D Model
     gmsh.initialize()
@@ -107,6 +110,9 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     # Boundary conditions
     RHS::Vector{Float64} = BoundaryIntegral(mesh, mu0.*Hext, shell_id)
 
+    # Local stiffness matrix
+    Ak::Matrix{Float64} = localStiffnessMatrix(mesh)
+
     # Lagrange multiplier technique
     Lag::Vector{Float64} = lagrange(mesh)
 
@@ -127,11 +133,23 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
         att += 1
         Hold .= H
 
-        # Stiffness matrix
-        A = stiffnessMatrix(mesh, mu)
+        # Update the global stiffness matrix
+        A = spzeros(mesh.nv, mesh.nv)
+        n::Int32 = 0
+        for i in 1:4
+            for j in 1:4
+                n += 1
+                A += sparse(mesh.t[i, :], mesh.t[j, :], Ak[n, :].*mu, mesh.nv, mesh.nv)
+            end
+        end
 
         # Magnetic scalar potential
         u = [A Lag;Lag' 0]\[-RHS;0]
+        
+        # Check solution
+        if any(x -> !isfinite(x), u)
+            error("Nans/Infs in the scalar potential")
+        end
 
         # Magnetic field
         Hfield .= 0.0
@@ -157,12 +175,6 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
         # Update magnetic permeability            
         mu[mesh.InsideElements] .= spl(H[mesh.InsideElements])
 
-        idx = findall(findErr -> !isfinite(findErr), mu)
-        if !isempty(idx)
-            println(idx)
-            error("Nans/Infs in mu")
-        end
-
         # Check deviation from previous result
         div = mu0*maximum(abs.(H[mesh.InsideElements].-Hold[mesh.InsideElements]))
         println(att, " | mu0 |H(n)-H(n-1)| = ", div)
@@ -183,35 +195,26 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
         Hold .= H
 
         # Update magnetic permeability
-        spl = Spline1D( data.HofM,
-                        data.mu
-                        # ;bc="nearest"   # extrapolate
-                        )
-
         mu[mesh.InsideElements] .= spl(H[mesh.InsideElements])
         
         # d/dH mu
-        spl = Spline1D( data.HofM,
-                        data.dmu
-                       ) # ;bc="extrapolate") # nearest , extrapolate
-
-        dmu[mesh.InsideElements] .= spl(H[mesh.InsideElements])
+        dmu[mesh.InsideElements] .= spl_dmu(H[mesh.InsideElements])
 
         # Check for nans
-        idx = findall(findErr -> !isfinite(findErr), mu)
-        if !isempty(idx)
-            println(idx)
+        
+        if any(x -> !isfinite(x), mu) || any(x -> !isfinite(x), dmu)
             error("Nans/Infs in mu")
         end
 
-        idx = findall(findErr -> !isfinite(findErr), dmu)
-        if !isempty(idx)
-            println(idx)
-            error("Nans/Infs in dmu")
+        # Update the global stiffness matrix
+        A = spzeros(mesh.nv, mesh.nv)
+        n::Int32 = 0
+        for i in 1:4
+            for j in 1:4
+                n += 1
+                A += sparse(mesh.t[i, :], mesh.t[j, :], Ak[n, :].*mu, mesh.nv, mesh.nv)
+            end
         end
-
-        # Stiffness matrix
-        A = stiffnessMatrix(mesh, mu)
 
         # Tangential stiffness matrix
         At = tangentialStiffnessMatrix(mesh, Hfield, dmu)
