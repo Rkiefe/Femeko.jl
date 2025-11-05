@@ -39,12 +39,13 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     maxAtt::Int32 = 100
 
     # Data of magnetic materials
+    density::Float64 = 7.9 # g/cm3
     data = DATA()
     loadMaterial( data,
                  "Materials", # Folder with materials
                  "Gd_MFT",    # Data folder of target material
                  "Gd",        # Material name
-                 7.9,
+                 density,
                  T)
 
     spl = Spline1D(data.B, mu0.*(data.HofM./data.B))
@@ -324,10 +325,26 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
         Hfield[:, k] = nu[k]/mu0 .* Bfield[:, k]
     end
 
+    # Magnetization (A/m)
+    chi::Vector{Float64} = 1.0./nu .- 1.0 # Magnetic susceptibility
+
+    M::Vector{Float64} = chi.*H # Magnetization intensity
+
+    # Magnetization vector field
+    Mfield::Matrix{Float64} = zeros(3, mesh.nt)
+    Mfield[1, :] = chi.*Hfield[1, :]
+    Mfield[2, :] = chi.*Hfield[2, :]
+    Mfield[3, :] = chi.*Hfield[3, :]
+
+    # M (emu/g)
+    M_emug = M./(density*1e3)
+    Mfield_emug = Mfield./(density*1e3)
+
+    # Plot results
     println("\nGenerating plots...")
     elements =  
-                1:mesh.nt
-                # mesh.InsideElements
+                # 1:mesh.nt               # All elements of the mesh
+                mesh.InsideElements     # Only the magnetic region
 
     x = zeros(length(elements))
     y = zeros(length(elements))
@@ -345,26 +362,16 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     ax = Axis3(fig[1,1], aspect = :data)
     
     graph = arrows3d!(  ax,
-                        x, 
-                        y, 
-                        z,
-                        Bfield[1, elements], 
-                        Bfield[2, elements], 
-                        Bfield[3, elements]
-                        , color = B[elements]
+                        x, y, z,
+                        Mfield_emug[1, elements]./maximum(M_emug[elements]), 
+                        Mfield_emug[2, elements]./maximum(M_emug[elements]), 
+                        Mfield_emug[3, elements]./maximum(M_emug[elements])
+                        , color = M_emug[elements]
                         , lengthscale = 0.2
                         , colormap = :turbo
                     )
 
-    # graph = scatter!(ax,
-    #                  x,
-    #                  y,
-    #                  z
-    #                  , color = B
-    #                  , colormap = :turbo)
-
-    Colorbar( fig[1, 2], graph
-             , label = "B (T)"
+    Colorbar(fig[1, 2], graph, label = "M (emu/g)"
              # , vertical = false
              )
 
