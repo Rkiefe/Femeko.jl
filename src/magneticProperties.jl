@@ -1,6 +1,10 @@
 #=
-    Handles magnetic materials and their datasets
-    Requires FEM.jl for the gradient and trapz functions
+        Handles magnetic materials and their datasets
+    
+    Requirements: FEM.jl for the gradient and trapz functions
+    Important note: Any NaN in the dataset will ruin the Spline function from
+    Dierckx, as any value from the spline will automatically be NaN!! 
+
 =#
 # To read data from files
 using DelimitedFiles
@@ -40,7 +44,7 @@ function loadMaterial( materialProperties,      # Dict or DATA
                        key::String,             # Material name
                        density::Float64,        # Density (g/cm3)
                        T::Float64)              # Temperature (K)
-    
+
     # vacuum magnetic permeability
     mu0 = pi*4e-7
 
@@ -53,6 +57,21 @@ function loadMaterial( materialProperties,      # Dict or DATA
         materialProperties.HofM = vec(readdlm(folder*"/"*data*"/HofM.dat"))      # Oe
         materialProperties.TofM = vec(readdlm(folder*"/"*data*"/TofM.dat"))      # K
         materialProperties.rho = density # g/cm3
+
+        # Check for nans in the dataset
+        if any(isnan.(materialProperties.M))
+            error("Error in loadMaterial(). The magnetization data holds NaNs,
+                    making Dierckx output everything as NaNs!
+                   It is suggested that the user loads M directly and handle the data by hand.")
+        elseif any(isnan.(materialProperties.TofM))
+            error("Error in loadMaterial(). The temperature data holds NaNs,
+                    making Dierckx output everything as NaNs!
+                   It is suggested that the user loads T directly and handle the data by hand.")
+        elseif any(isnan.(materialProperties.TofM))
+            error("Error in loadMaterial(). The field H data holds NaNs,
+                    making Dierckx output everything as NaNs!
+                   It is suggested that the user loads H directly and handle the data by hand.")
+        end
 
         # Convert data units
         materialProperties.M .*= materialProperties.rho*1e3 # A/m
