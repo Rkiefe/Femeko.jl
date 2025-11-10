@@ -140,12 +140,12 @@ end
 
 # Get magnetic entropy change from magnetization data
 function deltaS(data::DATA, 
-                Mdata::Matrix{Float64}, # emu/g
+                M::Matrix{Float64}, # emu/g
                 T::Float64,  # K
                 H0::Float64, # A/m
                 Hf::Float64) # A/m
     #=
-        . Mdata is the original dataset, M(H,T) [emu/g]
+        . M is a matrix M(H,T) [emu/g]
         . data is the processed dataset with all the info such as 
         the temperature span, the magnetic field range, permeability, etc
         
@@ -183,7 +183,7 @@ function deltaS(data::DATA,
     end
 
     # Gradient over the temperature for each magnetic field
-    _, dM_dT = gradient(Mdata, data.HofM, data.TofM) # emu/g/K
+    _, dM_dT = gradient(M, data.HofM, data.TofM) # emu/g/K
 
     # Interpolate for the target temperature, over the magnetic field range
     dM_dT_spline = Spline2D(data.HofM, data.TofM, dM_dT)
