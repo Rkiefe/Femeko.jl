@@ -91,11 +91,11 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     end
 
     println("\nNumber of elements: ", mesh.nt)
-    println("Number of Inside elements ", length(mesh.InsideElements))
+    println("Number of Inside elements ", mesh.nInside)
     println("Number of edges: ", ne)
     println("Number of vertices: ", mesh.nv)
-    println("Number of Inside nodes ", length(mesh.InsideNodes))
-    println("Number of surface elements ", size(mesh.surfaceT, 2))
+    println("Number of Inside nodes ", mesh.nInsideNodes)
+    println("Number of surface elements ", mesh.ne)
     println("")
 
     # Run Gmsh GUI
