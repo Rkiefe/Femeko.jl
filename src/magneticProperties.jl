@@ -26,7 +26,7 @@ mutable struct DATA
     B::Vector{Float64}  # T
 
     # Density
-    rho::Float64 # g/cm3
+    density::Float64 # g/cm3
 
     # Permeability mu = B/H
     mu::Vector{Float64}
@@ -50,34 +50,11 @@ function loadMaterial( materialProperties,      # Dict or DATA
 
     # If the user just wants the DATA struct, and not update a hashtable:
     if typeof(materialProperties) == DATA
-        # Update material properties directly
 
-        # Load material properties
-        materialProperties.M = readdlm(folder*"/"*data*"/M.dat")                 # emu/g
-        materialProperties.HofM = vec(readdlm(folder*"/"*data*"/HofM.dat"))      # Oe
-        materialProperties.TofM = vec(readdlm(folder*"/"*data*"/TofM.dat"))      # K
-        materialProperties.rho = density # g/cm3
+        # Read the data files and update the struct
+        M_emug = addData(materialProperties, folder, data, density)
 
-        # Check for nans in the dataset
-        if any(isnan.(materialProperties.M))
-            error("Error in loadMaterial(). The magnetization data holds NaNs,
-                    making Dierckx output everything as NaNs!
-                   It is suggested that the user loads M directly and handle the data by hand.")
-        elseif any(isnan.(materialProperties.TofM))
-            error("Error in loadMaterial(). The temperature data holds NaNs,
-                    making Dierckx output everything as NaNs!
-                   It is suggested that the user loads T directly and handle the data by hand.")
-        elseif any(isnan.(materialProperties.TofM))
-            error("Error in loadMaterial(). The field H data holds NaNs,
-                    making Dierckx output everything as NaNs!
-                   It is suggested that the user loads H directly and handle the data by hand.")
-        end
-
-        # Convert data units
-        materialProperties.M .*= materialProperties.rho*1e3 # A/m
-        materialProperties.HofM .*= 1e-4/mu0                      # A/m
-
-        # Interpolate data over the target temperature
+        # Interpolate the input data over the target temperature
         spl = Spline2D( materialProperties.HofM,
                         materialProperties.TofM,
                         materialProperties.M)
@@ -86,7 +63,7 @@ function loadMaterial( materialProperties,      # Dict or DATA
         for i in 1:length(M)
             M[i] = spl(materialProperties.HofM[i], T)
         end
-        materialProperties.M = M
+        materialProperties.M = M # Vector of M(H) for target temperature T
         
         # Magnetic flux density
         materialProperties.B = mu0.*(materialProperties.HofM .+
@@ -95,40 +72,83 @@ function loadMaterial( materialProperties,      # Dict or DATA
         # Get the permeability and its derivative
         materialPermeability(materialProperties)
 
-        return
-    end
+    else # Update the hashtable
 
-    # Else, update the hashtable
+        # Load material properties
+        M_emug = addData(materialProperties[key], folder, data, density)
+
+        # Interpolate data over the target temperature
+        spl = Spline2D( materialProperties[key].HofM,
+                        materialProperties[key].TofM,
+                        materialProperties[key].M)
+
+        M = zeros(length(materialProperties[key].HofM))::Vector{Float64}
+        for i in 1:length(M)
+            M[i] = spl(materialProperties[key].HofM[i], T)
+        end
+        materialProperties[key].M = M # Vector of M(H) for target temperature T
+        
+        # Magnetic flux density
+        materialProperties[key].B = mu0.*(materialProperties[key].HofM .+
+                                           materialProperties[key].M)
+
+        # Get the permeability and its derivative
+        materialPermeability(materialProperties[key])
+    
+    end # End of loading the dataset
+
+    return M_emug
+end # loadMaterial()
+
+# Add magnetism data | M, H, T
+function addData(data::DATA, folder::String, dataFolder::String, density::Float64)
+    #=
+        Reads the M matrix, H vector and T vector of the data set
+        converts to SI units (emu/g -> A/m; Oe -> A/m)
+        and outputs the original M (emu/g)
+    =# 
+
+    mu0::Float64 = pi*4e-7
 
     # Load material properties
-    materialProperties[key].M = readdlm(folder*"/"*data*"/M.dat")                 # emu/g
-    materialProperties[key].HofM = vec(readdlm(folder*"/"*data*"/HofM.dat"))      # Oe
-    materialProperties[key].TofM = vec(readdlm(folder*"/"*data*"/TofM.dat"))      # K
-    materialProperties[key].rho = density # g/cm3
+    data.HofM = vec(readdlm(folder*"/"*dataFolder*"/HofM.dat")) # Oe
+    data.TofM = vec(readdlm(folder*"/"*dataFolder*"/TofM.dat")) # K
+    M_emug = readdlm(folder*"/"*dataFolder*"/M.dat") # emu/g
+
+    # The magnetization matrix likely has ',' delimiter. Then:
+    if size(M_emug, 1) != length(data.HofM) || size(M_emug, 2) != length(data.TofM)
+        M_emug = readdlm(folder*"/"*dataFolder*"/M.dat"
+                        , ',', Float64, '\n'
+                    ) # emu/g
+    end
+
+    # Add the density to the dataset
+    data.density = density # g/cm3
 
     # Convert data units
-    materialProperties[key].M .*= materialProperties[key].rho*1e3  # A/m
-    materialProperties[key].HofM .*= 1e-4/mu0                      # A/m
+    data.M = M_emug.*density*1e3    # emu/g to A/m
+    data.HofM .*= 1e-4/mu0          # Oe    to A/m
 
-    # Interpolate data over the target temperature
-    spl = Spline2D( materialProperties[key].HofM,
-                    materialProperties[key].TofM,
-                    materialProperties[key].M)
-
-    M = zeros(length(materialProperties[key].HofM))::Vector{Float64}
-    for i in 1:length(M)
-        M[i] = spl(materialProperties[key].HofM[i], T)
-    end
-    materialProperties[key].M = M
+    # Check for nans in the dataset
+    if any(isnan.(data.M))
+        error("Error in loadMaterial(). The magnetization data holds NaNs,
+                making Dierckx output everything as NaNs!
+               It is suggested that the user loads M directly and handle the data by hand.")
     
-    # Magnetic flux density
-    materialProperties[key].B = mu0.*(materialProperties[key].HofM .+
-                                       materialProperties[key].M)
+    elseif any(isnan.(data.TofM))
+        error("Error in loadMaterial(). The temperature data holds NaNs,
+                making Dierckx output everything as NaNs!
+               It is suggested that the user loads T directly and handle the data by hand.")
+    
+    elseif any(isnan.(data.TofM))
+        error("Error in loadMaterial(). The field H data holds NaNs,
+                making Dierckx output everything as NaNs!
+               It is suggested that the user loads H directly and handle the data by hand.")
+    end
 
-    # Get the permeability and its derivative
-    materialPermeability(materialProperties[key])
-
-end
+    return M_emug
+    
+end # Add magnetism data | M, H, T
 
 # Magnetic permeability from dataset
 function materialPermeability(data::DATA)
