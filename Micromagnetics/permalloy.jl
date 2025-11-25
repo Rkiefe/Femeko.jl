@@ -1,5 +1,9 @@
 #=
+	Solves the Landau-Lifshitz equation for a permalloy, replicating the results from
+	OOMMF reported in this article from Oriano et al. 2008
+	https://doi.org/10.1109/TMAG.2008.2001666
 
+	The solver is based on Oriano et al. 2008, but with a lot of modifications
 =#
 
 include("LL.jl") 	# Include Landau-Lifshitz solver
@@ -18,15 +22,13 @@ function main(meshSize::Float64=0.0, localSize::Float64=0.0, showGmsh::Bool=true
 	ll.Ms = mu0 * 860e3	# Mag. saturation (T)
 	ll.scale = 1e-9		# scale of the geometry | nm: 1e-9 m
 
+	ll.Aexc = 13e-12	# Exchange   (J/m)
+
 	ll.Aan = 0.0 		# Anisotropy constant J/m3
 	ll.uan = [1,0,0] 	# Easy axis
 	
-	ll.Aexc = 13e-12	# Exchange   (J/m)
-
 	ll.timeStep = 0.01 	# Time step (normalized by the gyromagnetic ratio)
 	ll.totalTime = 70.35 	# Stop when time > total time (normalized by the gyromagnetic ratio)
-	# ll.maxTorque = 1e-5   # If 'totalTime' is not provided, it minimizes the Energy/M state
-	# ll.nSteps = 2
 
 	ll.alfa = 0.1 	# damping
 	
