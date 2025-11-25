@@ -1,68 +1,54 @@
 #=
-    Magnetic hysteresis loop with Landaul-Lifshitz equation and steepest descent energy
-    minimization
+    Solves the Landau-Lifshitz equation for a permalloy, replicating the results from
+    OOMMF reported in this article from Oriano et al. 2008
+    https://doi.org/10.1109/TMAG.2008.2001666
+
+    The solver is based on Oriano et al. 2008, but with a lot of modifications
 =#
 
-include("../src/Femeko.jl")
-include("SteepestDescent.jl")
+include("LL.jl")    # Include Landau-Lifshitz solver
+using GLMakie       # Include Makie for plots
 
-# For plots
-using GLMakie
+function main(meshSize::Float64=0.0, localSize::Float64=0.0, showGmsh::Bool=true)
 
-function main(showGmsh=true)
-    meshSize::Float64 = 2500  # 2500
-    localSize::Float64 = 1  # 5
-
-    # Constants
-    mu0::Float64 = pi*4e-7          # vacuum magnetic permeability
+    mu0::Float64 = pi*4e-7          # Vacuum magnetic permeability
     giro::Float64 = 2.210173e5 /mu0 # Gyromagnetic ratio (rad T-1 s-1)
-    dt::Float64 = 0.6e-13           # Time step (s)
-    totalTime::Float64 = Inf        # Total time of spin dynamics simulation (ns)
     
-    damp::Float64 = 1.0             # Damping parameter (dimensionless [0,1])
-    precession::Float64 = 0.0       # Include precession or not
+    # A struct holding all the info needed for the LL solver
+    ll = LL()
 
-    # Dimension of the magnetic material 
-    L::Vector{Float64} = [512,128,30]
-    scl::Float64 = 1e-9                 # scale of the geometry | (m -> nm)
+    # Update LL parameters
+    ll.Hext = [0.0, 0.0, 0.0] # Applied field (T)
+    ll.Ms = mu0 * 800e3 # Mag. saturation (T)
+    ll.scale = 1e-9     # scale of the geometry | nm: 1e-9 m
+
+    ll.Aexc = 13e-12    # Exchange   (J/m)
+
+    ll.Aan = 0.0        # Anisotropy constant J/m3
+    ll.uan = [1,0,0]    # Easy axis
     
-    # Conditions
-    Ms::Float64   = 800e3              # Magnetic saturation (A/m)
-    Aexc::Float64 = 13e-12             # Exchange   (J/m)
-    Aan::Float64  = 0.0                # Anisotropy (J/m3)
-    uan::Vector{Float64}  = [1,0,0]    # easy axis direction
-    Hap::Vector{Float64}  = [0,0,0]    # A/m
+    ll.timeStep = 0.1  # Time step (normalized by the gyromagnetic ratio)
+    # ll.totalTime = 70.35    # Stop when time > total time (normalized by the gyromagnetic ratio)
+    ll.maxTorque = 1e-5   # If 'totalTime' is not provided, it minimizes the Energy/M state
 
-    # Hysteresis, applied field loop
-    Hext::Vector{Float64} = vcat(0:1e-3:0.1,0.1:-1e-3:-0.1,-0.1:1e-3:0.1)./mu0 # A/m
-
-    # Convergence criteria | Only used when totalTime != Inf
-    maxTorque::Float64 = 1e-14          # Maximum difference between current and previous <M>
-    maxAtt::Int32 = 5_000               # Maximum number of iterations in the solver
+    # ll.alfa = 0.1   # damping
     
-    # -- Create a geometry --
+    # Create a 3D Model
     gmsh.initialize()
-    cells = [] # Array of volume cell IDs
+    cells = []
+    addCuboid([0,0,0], [512, 128, 30], cells)
+    box = addSphere([0,0,0], 2500.0) # Add a bounding shell
 
-    # Model
-    addCuboid([0,0,0], L, cells)
-    box = addSphere([0,0,0], 5.0*maximum(L)) # Create bounding shell
+    unifyModel(cells, box)
 
-    # Unify the volumes for a single geometry and get the bounding shell
-    shell_id = unifyModel(cells, box)
+    # Create a mesh
+    ll.mesh = Mesh(cells, meshSize, localSize)
 
-    # Generate Mesh
-    mesh = Mesh(cells, meshSize, localSize, false)
-    mesh.shell_id = shell_id
+    # Print number of elements and nodes
+    println("\nNumber of elements: ", ll.mesh.nt)
+    println("Number of internal elements: ", ll.mesh.nInside)
+    println("Number of internal nodes: ", ll.mesh.nInsideNodes, "\n")
 
-    println("Number of elements ", mesh.nt)
-    println("Number of nodes ", mesh.nv)
-    println("Number of surface elements ", mesh.ne)
-    println("Number of Inside elements ", mesh.nInside)
-    println("Number of Inside nodes ", mesh.nInsideNodes)
-    println("Bounding shell: ", mesh.shell_id)
-    
-    # Finalize Gmsh and print mesh properties
     if showGmsh
         gmsh.option.setNumber("Mesh.Clip", 1)
         gmsh.option.setNumber("Mesh.VolumeFaces", 1)
@@ -71,125 +57,82 @@ function main(showGmsh=true)
     end
     gmsh.finalize()
 
-    # viewMesh(mesh)
-    
-    # Volume of elements of each mesh node | Needed for the demagnetizing field
-    Vn::Vector{Float64} = zeros(mesh.nv)
-
-    # Integral of basis function over the domain | Needed for the exchange field
-    nodeVolume::Vector{Float64} = zeros(mesh.nv)
-    
-    for ik in 1:mesh.nInside
-        k = mesh.InsideElements[ik]
-        Vn[mesh.t[:,k]]         .+= mesh.VE[k]
-        nodeVolume[mesh.t[:,k]] .+= mesh.VE[k]/4
-    end
-    Vn = Vn[mesh.InsideNodes]
-    nodeVolume = nodeVolume[mesh.InsideNodes]
-
-    # Magnetization field
-    m::Matrix{Float64} = zeros(3,mesh.nv)
-    # m(1,mesh.InsideNodes) .= 1
-    theta::Vector{Float64} = 2*pi.*rand(mesh.nInsideNodes)
-    phi::Vector{Float64} = pi.*rand(mesh.nInsideNodes)
-
-    for i in 1:mesh.nInsideNodes
-        nd = mesh.InsideNodes[i]
-        m[:,nd] =   [
-                        sin(theta[i])*cos(phi[i])
-                        sin(theta[i])*sin(phi[i])
-                        cos(theta[i])
-                    ]
-
-        m[:,nd] = m[:,nd]./norm(m[:,nd])
-    end
-
-    # Dirichlet boundary condition
-    fixed::Vector{Int32} = findNodes(mesh,"face",mesh.shell_id)
-    free::Vector{Int32} = setdiff(1:mesh.nv,fixed)
-
-    # Stiffness matrix | Demagnetizing field
-    AD = stiffnessMatrix(mesh)
-
-    # Stiffness matrix | Exchange field
-    A = spzeros(mesh.nv,mesh.nv)
-
-    Ak::Matrix{Float64} = zeros(4*4,mesh.nt)
-    b::Vector{Float64} = zeros(4)
-    c::Vector{Float64} = zeros(4)
-    d::Vector{Float64} = zeros(4)
-    aux::Matrix{Float64} = zeros(4,4)
-    
-    for ik in 1:mesh.nInside
-        k = mesh.InsideElements[ik]
+    # FEM
+    print("Calculating the Lagrange shape elements... ")
+    b::Matrix{Float64} = zeros(4, ll.mesh.nt)
+    c::Matrix{Float64} = zeros(4, ll.mesh.nt)
+    d::Matrix{Float64} = zeros(4, ll.mesh.nt)
+    for k in 1:ll.mesh.nt
+        nds = @view ll.mesh.t[:, k]
         for i in 1:4
-            _,b[i],c[i],d[i] = abcd(mesh.p,mesh.t[:,k],mesh.t[i,k])
+            _, b[i, k], c[i, k], d[i, k] = abcd(ll.mesh.p, nds, nds[i])
         end
-        aux = mesh.VE[k]*(b*b' + c*c' + d*d')
-        Ak[:,k] = aux[:] # vec(aux)
     end
+    println("Done.")
 
-    # Update sparse global matrix
+    # Stiffness matrix | Exchange field 
+    AEXC = spzeros(ll.mesh.nv, ll.mesh.nv)
+
+    Ak::Matrix{Float64} = zeros(4*4, ll.mesh.nt)
+    for k in ll.mesh.InsideElements
+        nds = @view ll.mesh.t[:,k]
+        Ak[:, k] = vec( ll.mesh.VE[k]*( b[:, k]*b[:, k]' 
+                                        + c[:, k]*c[:, k]'
+                                        + d[:, k]*d[:, k]' ) )
+    end
+    
     n = 0
     for i in 1:4
         for j in 1:4
             n += 1
-            A += sparse(Int.(mesh.t[i,:]),Int.(mesh.t[j,:]),Ak[n,:],mesh.nv,mesh.nv)
+            AEXC += sparse(ll.mesh.t[i,:], ll.mesh.t[j,:], Ak[n,:], ll.mesh.nv, ll.mesh.nv)
         end
-    end
-    
-    # Remove all exterior nodes
-    A = A[mesh.InsideNodes,mesh.InsideNodes]
+    end # Stiffness matrix for Exchange Field
 
-    # Landau Lifshitz
-    Heff::Matrix{Float64} = Matrix{Float64}(undef,0,0)
-
-    Hap[1] = Hext[1]
-
-    m, Heff,
-    M_avg::Matrix{Float64},
-    E_time::Vector{Float64}, 
-    torque_time::Vector{Float64} = LandauLifshitz(  
-                                                    mesh, m, Ms,
-                                                    Hap, Aexc, Aan,
-                                                    uan, scl, damp, giro,
-                                                    A, AD, Vn, nodeVolume,
-                                                    free, fixed,
-                                                    dt, precession, maxTorque,
-                                                    maxAtt, totalTime
-                                                 )
-
-
-    
-
-    # -- Hysteresis curve --
-    M_H::Matrix{Float64} = zeros(3,length(Hext))
-    for ih in 1:length(Hext)
-        Hap[1] = Hext[ih]
-        m, Heff, M_avg = SteepestDescent(
-                                            mesh, m, Ms, Heff,
-                                            Hap, Aexc, Aan,
-                                            uan, scl,
-                                            A, AD, Vn, nodeVolume,
-                                            free, fixed,
-                                            maxTorque, maxAtt
-                                          )
-        M_H[:,ih] = M_avg[:,end]
+    # Node volumes
+    Volumes::Vector{Float64} = zeros(ll.mesh.nv)
+    for k in ll.mesh.InsideElements
+        nds = @view ll.mesh.t[:, k]
+        Volumes[nds] .+= ll.mesh.VE[k]
     end
 
+    # Global stiffness matrix
+    A = stiffnessMatrix(ll.mesh)
+
+    # Random initial magnetization state
+    M::Matrix{Float64} = zeros(3, ll.mesh.nv)
+    theta::Vector{Float64} = 2*pi.*rand(ll.mesh.nv)
+    phi::Vector{Float64} = pi.*rand(ll.mesh.nv)
+    for i in ll.mesh.InsideNodes
+        M[1, i] = ll.Ms*sin(phi[i])*cos(theta[i])
+        M[2, i] = ll.Ms*sin(phi[i])*sin(theta[i])
+        M[3, i] = ll.Ms*cos(phi[i])
+    end
+
+    # Run
+    Hspan = [range(0.0, 0.1, 101); range(0.1, -0.1, 201); range(-0.1, 0.1, 201)]
+    M_H::Vector{Float64} = zeros(length(Hspan))
+    for (i, h) in enumerate(Hspan)
+        
+        # Set the applied field
+        ll.Hext[1] = h
+
+        # Run
+        M, _, Mx, _, _, _ = ll.run(ll, M, A, AEXC, b, c, d, Volumes, false)
+        M_H[i] = Mx[end] # Save the last value
+    
+    end # Hysteresis loop
+    
+    # Plot the M(t)
     fig = Figure()
-    ax = Axis(  fig[1,1],
-                xlabel = "mu_0 H", 
-                ylabel = "<M>",
-             )
-    scatter!(ax, mu0.*Hext, M_H[1,:], label = "M_x")
-    # scatter!(ax, mu0.*Hext, M_H[2,:], label = "M_y")
-    # scatter!(ax, mu0.*Hext, M_H[3,:], label = "M_z")
-    axislegend()
+    ax = Axis(fig[1,1], title="<M> (emu/g)", xlabel="Time (s)", ylabel="M (kA/m)")
+    scatter!(ax, Hspan, M_H)
 
-    save("M_H_"*string(mesh.nInsideNodes)*".png",fig)
-    display(fig)
-    # wait(display(fig))
+    # save("M_H.png", fig)
+    wait(display(fig))
 end
 
-main()
+meshSize = 2000.0
+localSize = 20.0
+showGmsh = true
+# main(meshSize, localSize, showGmsh)
