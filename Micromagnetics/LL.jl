@@ -224,7 +224,8 @@ end # Anisotropy field (T)
 
 # Exchange field (tesla)
 function exchangeField(self::LL, M::Matrix{Float64}, AEXC, Volumes::Vector{Float64})
-	
+	# AEXC -> Stiffness matrix of the exchange field
+	# Aexc -> Exchange constant
 	mu0::Float64 = pi*4e-7 # Vaccum magnetic permeability
 	Hexc::Matrix{Float64} = -2*self.Aexc.* (AEXC*M')'
 
