@@ -8,62 +8,48 @@
     and the bounding shell size and the time step
 =#
 
-include("../src/Femeko.jl")
-include("LandauLifshitz.jl")
+include("LL.jl")    # Include Landau-Lifshitz solver
+using GLMakie       # Include Makie for plots
 
-# For plots
-using GLMakie
+function main(meshSize::Float64=0.0, localSize::Float64=0.0, showGmsh::Bool=true)
 
-function main(showGmsh=true)
-    meshSize::Float64 = 2500
-    localSize::Float64 = 1
-
-    # Constants
-    mu0::Float64 = pi*4e-7          # vacuum magnetic permeability
+    mu0::Float64 = pi*4e-7          # Vacuum magnetic permeability
     giro::Float64 = 2.210173e5 /mu0 # Gyromagnetic ratio (rad T-1 s-1)
-    dt::Float64 = 1e-12             # Time step (s)
-    totalTime::Float64 = 0.1        # Total time of spin dynamics simulation (ns)
-    damp::Float64 = 0.0             # Damping parameter (dimensionless [0,1])
-    precession::Float64 = 1.0       # Include precession or not (0 or 1)
-
-    # Dimension of the magnetic material 
-    L::Vector{Float64} = [512,128,30]   # (rectangle)
-    scl::Float64 = 1e-9                 # scale of the geometry | (m -> nm)
     
-    # Conditions
-    Ms::Float64   = 1400e3              # Magnetic saturation (A/m)
-    Aexc::Float64 = 0                   # Exchange   (J/m)
-    Aan::Float64  = 500e3               # Anisotropy (J/m3)
-    uan::Vector{Float64}  = [1,0,0]     # easy axis direction
-    Hap::Vector{Float64}  = [0,400e3,0] # A/m
+    # A struct holding all the info needed for the LL solver
+    ll = LL()
 
-    # Convergence criteria | Only used when totalTime != Inf
-    maxTorque::Float64 = 1e-6           # Maximum difference between current and previous <M>
-    maxAtt::Int32 = 15_000              # Maximum number of iterations in the solver
+    # Update LL parameters
+    ll.Hext = [0.0, mu0* 400e3, 0.0] # Applied field (T)
+    ll.Ms = mu0 * 1400e3 # Mag. saturation (T)
+    ll.scale = 1e-9     # scale of the geometry | nm: 1e-9 m
+
+    ll.Aexc = 13e-12    # Exchange   (J/m)
+
+    ll.Aan = 500e3        # Anisotropy constant J/m3
+    ll.uan = [1,0,0]    # Easy axis
     
-    # Create a geometry
+    ll.timeStep = 0.176  # Time step (normalized by the gyromagnetic ratio)
+    ll.totalTime = 17.59 # Stop when time > total time (normalized by the gyromagnetic ratio)
+
+    ll.alfa = 0.0   # damping
+
+    # Create a 3D Model
     gmsh.initialize()
-    cells = [] # Array of volume cell IDs
-
-    # Model
+    cells = []
     addSphere([0,0,0], 50.0, cells)
-    box = addSphere([0,0,0], 5.0*50.0) # Create bounding shell
+    box = addSphere([0,0,0], 500.0) # Add a bounding shell
 
-    # Unify the volumes for a single geometry and get the bounding shell
-    shell_id = unifyModel(cells, box)
+    unifyModel(cells, box)
 
-    # Generate Mesh
-    mesh = Mesh(cells, meshSize, localSize, false)
-    mesh.shell_id = shell_id
+    # Create a mesh
+    ll.mesh = Mesh(cells, meshSize, localSize)
 
-    println("Number of elements ", mesh.nt)
-    println("Number of nodes ", mesh.nv)
-    println("Number of surface elements ", mesh.ne)
-    println("Number of Inside elements ", mesh.nInside)
-    println("Number of Inside nodes ", mesh.nInsideNodes)
-    println("Bounding shell: ", mesh.shell_id)
-    
-    # Finalize Gmsh and print mesh properties
+    # Print number of elements and nodes
+    println("\nNumber of elements: ", ll.mesh.nt)
+    println("Number of internal elements: ", ll.mesh.nInside)
+    println("Number of internal nodes: ", ll.mesh.nInsideNodes, "\n")
+
     if showGmsh
         gmsh.option.setNumber("Mesh.Clip", 1)
         gmsh.option.setNumber("Mesh.VolumeFaces", 1)
@@ -71,92 +57,71 @@ function main(showGmsh=true)
         gmsh.fltk.run()
     end
     gmsh.finalize()
-    # viewMesh(mesh)
-    
-    # Volume of elements of each mesh node | Needed for the demagnetizing field
-    Vn::Vector{Float64} = zeros(mesh.nv)
 
-    # Integral of basis function over the domain | Needed for the exchange field
-    nodeVolume::Vector{Float64} = zeros(mesh.nv)
-    
-    for ik in 1:mesh.nInside
-        k = mesh.InsideElements[ik]
-        Vn[mesh.t[:,k]]         .+= mesh.VE[k]
-        nodeVolume[mesh.t[:,k]] .+= mesh.VE[k]/4
-    end
-    Vn = Vn[mesh.InsideNodes]
-    nodeVolume = nodeVolume[mesh.InsideNodes]
-
-    # Magnetization field
-    m::Matrix{Float64} = zeros(3,mesh.nv)
-    m[1,mesh.InsideNodes] .= 1
-
-    # Dirichlet boundary condition
-    fixed::Vector{Int32} = findNodes(mesh,"face",mesh.shell_id)
-    free::Vector{Int32} = setdiff(1:mesh.nv,fixed)
-
-    # Stiffness matrix | Demagnetizing field
-    AD = stiffnessMatrix(mesh)
-
-    # Stiffness matrix | Exchange field
-    A = spzeros(mesh.nv,mesh.nv)
-    Ak::Matrix{Float64} = zeros(4*4,mesh.nt)
-    b::Vector{Float64} = zeros(4)
-    c::Vector{Float64} = zeros(4)
-    d::Vector{Float64} = zeros(4)
-    aux::Matrix{Float64} = zeros(4,4)
-    
-    for ik in 1:mesh.nInside
-        k = mesh.InsideElements[ik]
+    # FEM
+    print("Calculating the Lagrange shape elements... ")
+    b::Matrix{Float64} = zeros(4, ll.mesh.nt)
+    c::Matrix{Float64} = zeros(4, ll.mesh.nt)
+    d::Matrix{Float64} = zeros(4, ll.mesh.nt)
+    for k in 1:ll.mesh.nt
+        nds = @view ll.mesh.t[:, k]
         for i in 1:4
-            _,b[i],c[i],d[i] = abcd(mesh.p,mesh.t[:,k],mesh.t[i,k])
+            _, b[i, k], c[i, k], d[i, k] = abcd(ll.mesh.p, nds, nds[i])
         end
-        aux = mesh.VE[k]*(b*b' + c*c' + d*d')
-        Ak[:,k] = aux[:] # vec(aux)
     end
+    println("Done.")
 
-    # Update sparse global matrix
+    # Stiffness matrix | Exchange field 
+    AEXC = spzeros(ll.mesh.nv, ll.mesh.nv)
+
+    Ak::Matrix{Float64} = zeros(4*4, ll.mesh.nt)
+    for k in ll.mesh.InsideElements
+        nds = @view ll.mesh.t[:,k]
+        Ak[:, k] = vec( ll.mesh.VE[k]*( b[:, k]*b[:, k]' 
+                                        + c[:, k]*c[:, k]'
+                                        + d[:, k]*d[:, k]' ) )
+    end
+    
     n = 0
     for i in 1:4
         for j in 1:4
             n += 1
-            A += sparse(Int.(mesh.t[i,:]),Int.(mesh.t[j,:]),Ak[n,:],mesh.nv,mesh.nv)
+            AEXC += sparse(ll.mesh.t[i,:], ll.mesh.t[j,:], Ak[n,:], ll.mesh.nv, ll.mesh.nv)
         end
+    end # Stiffness matrix for Exchange Field
+
+    # Node volumes
+    Volumes::Vector{Float64} = zeros(ll.mesh.nv)
+    for k in ll.mesh.InsideElements
+        nds = @view ll.mesh.t[:, k]
+        Volumes[nds] .+= ll.mesh.VE[k]
     end
-    
-    # Remove all exterior nodes
-    A = A[mesh.InsideNodes,mesh.InsideNodes]
 
-    # Landau Lifshitz
-    m, Heff::Matrix{Float64},
-    M_avg::Matrix{Float64},
-    E_time::Vector{Float64}, 
-    torque_time::Vector{Float64} = @time LandauLifshitz(  
-                                                    mesh, m, Ms,
-                                                    Hap, Aexc, Aan,
-                                                    uan, scl, damp, giro,
-                                                    A, AD, Vn, nodeVolume,
-                                                    free, fixed,
-                                                    dt, precession, maxTorque,
-                                                    maxAtt, totalTime
-                                                 )
+    # Global stiffness matrix
+    A = stiffnessMatrix(ll.mesh)
 
-    time::Vector{Float64} = 1e9*dt .* (1:size(M_avg,2))
+    # Initial magnetization state
+    M::Matrix{Float64} = zeros(3, ll.mesh.nv)
 
+    # Uniform initial magnetization
+    M[1, ll.mesh.InsideNodes] .= ll.Ms
+
+    # Run
+    M, Mnorm, Mx, My, Mz, _ = ll.run(ll, M, A, AEXC, b, c, d, Volumes, false)
+
+    # Plot the M(t)
     fig = Figure()
-    ax = Axis(  fig[1,1],
-                xlabel = "Time (ns)", 
-                ylabel = "<M> (kA/m)",
-                title = "Micromagnetic simulation",
-                yticks = range(-1500,1500,5))
-
-    scatter!(ax,time,Ms/1000 .*M_avg[1,:], label = "M_x")
-    # scatter!(ax,time,Ms/1000 .*M_avg[2,:], label = "M_y")
-    # scatter!(ax,time,Ms/1000 .*M_avg[3,:], label = "M_z")
-    axislegend()
-
-    # save("M_time_Sphere.png",fig)
+    ax = Axis(fig[1,1], title="<M> (emu/g)", xlabel="Time (s)", ylabel="M (kA/m)")
+    scatter!(ax, ll.timeStep*(0:ll.nSteps-1), Mx./(mu0*1e3), label="Mx")
+    # scatter!(ax, ll.timeStep*(0:ll.nSteps-1), My./(mu0*1e3), label="My")
+    # scatter!(ax, ll.timeStep*(0:ll.nSteps-1), Mz./(mu0*1e3), label="Mz")
+    axislegend(position=:rb)
+    
+    save("M_time_Sphere.png", fig)
     wait(display(fig))
 end
 
-main()
+meshSize = 70.0
+localSize = 10.0
+showGmsh = false
+main(meshSize, localSize, showGmsh)
