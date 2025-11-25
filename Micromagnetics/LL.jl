@@ -233,7 +233,7 @@ function exchangeField(self::LL, M::Matrix{Float64}, AEXC, Volumes::Vector{Float
 	end
 
 	return Hexc
-end # Anisotropy field (T)
+end # Exchange field (T)
 
 # Find new magnetization after time iteration
 function step(  M::Vector{Float64},   	# M(n)
