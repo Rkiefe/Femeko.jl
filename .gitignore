@@ -13,3 +13,5 @@ STEP_Models/
 # results
 Micromagnetics/M_H_curves
 Micromagnetics/FEM-BEM/M_H_curves
+
+Micromagnetics/LLBe

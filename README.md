@@ -6,7 +6,7 @@ Femeko is my answer to "I want to make my own FEM, have full control over my imp
 Powered by Gmsh, with Femeko you can import your CAD file (e.g.: .step) and generate a volume mesh with straightforward local refinement. For example:
 
 ```julia
-    # Import cad file
+    # Import cad file 
     importCAD("STEP_Models/Fennec_Fox.step")
 
     # Generate tetrahedral mesh
