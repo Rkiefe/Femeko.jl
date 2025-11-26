@@ -22,7 +22,7 @@ function main(meshSize::Float64=0.0, localSize::Float64=0.0, showGmsh::Bool=true
 	ll.Ms = mu0 * 860e3	# Mag. saturation (T)
 	ll.scale = 1e-9		# scale of the geometry | nm: 1e-9 m
 
-	ll.Aexc = 13e-12	# Exchange   (J/m)
+	ll.Aexc = 12e-13	# Exchange   (J/m)
 
 	ll.Aan = 0.0 		# Anisotropy constant J/m3
 	ll.uan = [1,0,0] 	# Easy axis
