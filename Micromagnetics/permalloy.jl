@@ -109,10 +109,10 @@ function main(meshSize::Float64=0.0, localSize::Float64=0.0, showGmsh::Bool=true
 
 	# Plot the M(t)
 	fig = Figure()
-	ax = Axis(fig[1,1], title="<M> (emu/g)", xlabel="Time (s)", ylabel="M (kA/m)")
-	scatter!(ax, ll.timeStep*(0:ll.nSteps-1), Mx./(mu0*1e3), label="Mx")
-	scatter!(ax, ll.timeStep*(0:ll.nSteps-1), My./(mu0*1e3), label="My")
-	scatter!(ax, ll.timeStep*(0:ll.nSteps-1), Mz./(mu0*1e3), label="Mz")
+	ax = Axis(fig[1,1], title="<M> (emu/g)", xlabel="Time (ns)", ylabel="M (kA/m)")
+	scatter!(ax, (ll.timeStep*1e9/giro)*(0:ll.nSteps-1), Mx./(mu0*1e3), label="Mx")
+	scatter!(ax, (ll.timeStep*1e9/giro)*(0:ll.nSteps-1), My./(mu0*1e3), label="My")
+	scatter!(ax, (ll.timeStep*1e9/giro)*(0:ll.nSteps-1), Mz./(mu0*1e3), label="Mz")
     axislegend(position=:rb)
 
     save("M_time_permalloy.png", fig)
