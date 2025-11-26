@@ -30,7 +30,7 @@ function main(meshSize::Float64=0.0, localSize::Float64=0.0, showGmsh::Bool=true
 	ll.timeStep = 0.01 	# Time step (normalized by the gyromagnetic ratio)
 	ll.totalTime = 70.35 	# Stop when time > total time (normalized by the gyromagnetic ratio)
 
-	ll.alfa = 0.1 	# damping
+	ll.alfa = 0.1/ll.Ms 	# damping
 	
 	# Create a 3D Model
 	gmsh.initialize()
