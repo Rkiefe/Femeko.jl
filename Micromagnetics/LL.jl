@@ -98,7 +98,8 @@ function run(  self::LL
 		for nd in self.mesh.InsideNodes
 
 			# Get the total magnetic field on current node
-			H[:, nd] = self.Hext + Hdfield[:, nd] + Han[:, nd] + Hexc[:, nd]
+			# H[:, nd] = self.Hext + Hdfield[:, nd] + Han[:, nd] + Hexc[:, nd]
+			H[:, nd] = Hexc[:, nd]
 
 			# Update magnetization
 			M2= step(  M[:, nd]    	# M(n)
@@ -227,11 +228,10 @@ function exchangeField(self::LL, M::Matrix{Float64}, AEXC, Volumes::Vector{Float
 	# AEXC -> Stiffness matrix of the exchange field
 	# Aexc -> Exchange constant
 	mu0::Float64 = pi*4e-7 # Vaccum magnetic permeability
-	Hexc::Matrix{Float64} = -2*mu0*self.Aexc.* (AEXC*M')'
-
+	Hexc::Matrix{Float64} = zeros(3, self.mesh.nv)
 	for i in 1:3
-		Hexc[i, :] ./= (0.25*self.Ms^2 *self.scale^2) .* Volumes
-	end
+	    Hexc[i, :] = -2*mu0*self.Aexc* AEXC*M[i, :]./(0.25*self.Ms^2 *self.scale^2 *Volumes)
+	end 
 
 	return Hexc
 end # Exchange field (T)
