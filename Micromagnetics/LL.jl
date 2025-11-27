@@ -98,8 +98,7 @@ function run(  self::LL
 		for nd in self.mesh.InsideNodes
 
 			# Get the total magnetic field on current node
-			# H[:, nd] = self.Hext + Hdfield[:, nd] + Han[:, nd] + Hexc[:, nd]
-			H[:, nd] = Hexc[:, nd]
+			H[:, nd] = self.Hext + Hdfield[:, nd] + Han[:, nd] + Hexc[:, nd]
 
 			# Update magnetization
 			M2= step(  M[:, nd]    	# M(n)
