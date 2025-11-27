@@ -296,3 +296,28 @@ function step(  M::Vector{Float64},   	# M(n)
 
     return M2
 end # Find new magnetization after time iteration
+
+# Steepest descent step length calculation
+function SteepestDescent(self::LL)
+	snN::Float64 = 0.0
+	snD::Float64  = 0.0
+	snD2::Float64 = 0.0
+	for nd in self.mesh.InsideNodes
+	    sn::Vector{Float64} = M[:, nd] - MOld[:, nd]
+	    
+	    gn2::Vector{Float64} = cross(M[:, nd], cross(M[:, nd], H[:, nd]) )
+	    gn1::Vector{Float64} = cross(MOld[:, nd], cross(MOld[:, nd], Hold[:, nd]) )
+
+	    snN  += dot(sn,sn)
+	    snD  += dot(sn,gn2-gn1)
+	    snD2 += dot(gn2-gn1,gn2-gn1)
+	end
+
+	tau1::Float64 = snN/snD 	# Step length 1
+	tau2::Float64 = snD/snD2 	# Step length 2
+
+	# Choose back and forward from the two
+	dt::Float64 = mod(att,2) > 0 ? tau1 : tau2
+
+	return dt
+end # Set the time step size based on the steepest descent method
