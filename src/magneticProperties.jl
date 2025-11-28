@@ -303,7 +303,7 @@ function plotData(data::DATA)
     mu0::Float64 = pi*4e-7
 
     fig, ax, sct = scatter( mu0.*data.HofM,
-                          data.M./(data.rho*1e3))
+                          data.M./(data.density*1e3))
     ax.xlabel = "mu_0 H (T)"
     ax.ylabel = "M (emu/g)"
     # ax.title  = ""
