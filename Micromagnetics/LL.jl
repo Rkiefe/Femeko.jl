@@ -142,7 +142,7 @@ function run(  self::LL
 
 		# Print the largest torque value of each iteration step
 		if showTorque
-			println("|dM/dt| = ", torque)
+			println(frame, "/", self.nSteps, " |dM/dt| = ", torque)
 		end
 
 	end # Runs the LL simulation
