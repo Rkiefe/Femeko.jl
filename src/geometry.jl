@@ -2,6 +2,8 @@
     Wrapper to Gmsh model occ kernel, simplifies model creation
 =#
 
+using Gmsh
+
 # Add 2d rectangle from its center
 function addRectangle(position, dimensions, cells=[])
 
