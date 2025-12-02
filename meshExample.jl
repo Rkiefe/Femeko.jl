@@ -101,6 +101,6 @@ localSize = 0.1
 showGmsh = true
 saveMesh = false
 
-# userMade(meshSize, localSize, showGmsh, saveMesh)
+userMade(meshSize, localSize, showGmsh, saveMesh)
 meshCAD(0, 0, true, false)
 
