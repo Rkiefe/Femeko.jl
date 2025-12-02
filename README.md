@@ -27,15 +27,13 @@ Femeko has implementations for both 3D and 2D in each physics package (except mi
 ## Femeko.jl aims to have the following, in the future
 - Full Heat equation (with convection to a passing fluid)
 - Elastostatics (stress)
-- Viscous fluid dynamics (incompressible)
+- 3D viscous fluid dynamics (currently only available in 2D)
 
 ## Table of Contents
 - [Fully featured examples](#examples)
 - [Basic model creation and mesh gen](#functionality)
 - [Installation](#installation)
 - [C++ available implementations](#current-c-alternatives-covered)
-
-<!-- - [License](#license) -->
 
 ## Examples
 
@@ -67,7 +65,6 @@ The Micromagnetics package has two distinct functionalities, based on the Landau
 <img width="551" height="443" alt="M_time_permalloy" src="https://github.com/user-attachments/assets/5434942c-a6dd-4444-aadf-c945c17e593b" />
 
 
-
 ## Functionality
 Make a high quality 3D mesh of your model and get all the properties you need, easily accessible in a simple MESH() object, powered by Gmsh. Make a local mesh refinement, based on the volume ID, or just set a target mesh size.
 
@@ -75,30 +72,30 @@ Automatically create a bounding shell for your 3D model, simplifying magnetic fi
 
 You can import your geometry (and automatically create a bounding shell for open boundary problems) with
 ```
-importCAD(file)
+importCAD(fileName)
 ```
 
 Or make your own geometry with cuboids
 ```
-box = addCuboid(position_center,[W,D,H])
+box = addCuboid([X, Y, Z], [W, D, H], cells)
 ```
 And/or spheres as
 ```
-addSphere(position_center,sphere_radius,cells)
+addSphere([X, Y, Z], radius, cells)
 ```
-Where `cells` is an array of volume ID's inside the bounding shell (considering you have solids inside a defined space by a bounding shell, such as with open boundary problems). Each cell ID you add is tracked for you.
-You can generate a mesh for your volume simply by
+where `cells` is an array of all current volume ID's. Each cell ID you add is tracked for you.
+You can generate a mesh for your model simply by
 ```
-mesh = Mesh(cells,meshSize,localSize,saveMesh)
+mesh = Mesh(cells, meshSize, localSize, saveMesh)
 ```
+
+`meshSize` sets the overall target element size, and `localSize` sets a target local element size, automatically defined for every volume ID in `cells`.
 
 ![twoBalls](https://github.com/user-attachments/assets/3b9549ba-3968-40f1-94a4-5c21ce37ca9e)
 
-Both internal and bounding shell surfaces are preserved. You can access the surface ID of each surface triangle of your mesh directly.
+Both internal and bounding shell surfaces are preserved. You can neatly access the nodes of any surface element of your mesh directly: `mesh.surfaceT[:, i]` outputs a vector of length 3 with the node labels that make the `i` surface element. You also have direct access to mesh element volumes, surface triangle normals and the area of each surface triangle.
 
-Automatically get the mesh element volumes, surface triangle normals and the area of each surface triangle.
-
-The output mesh object is optimized for Finite-Element simulations, see ´meshExample.jl´ for two simple examples of a) importing a cad file and b) making your own model with simple shapes.
+The output mesh object is optimized for Finite-Element simulations, see `meshExample.jl` for two simple examples of a) importing a cad file and b) making your own model with simple shapes.
 
 ### Installation
 Main install:
@@ -118,6 +115,19 @@ Compiling C++ alternative implementations:
 
 - Magnetostatics has a complete C++ alternative available.
 - Micromagnetics has a full implementation, but is missing some thorough testing.
+
+### Source code organization
+Femeko is organized as:
+| Directory         | Contents                                                         |
+| -                 | -                                                                |
+| `src/`            | source code to handle the geometry, mesh, and FEM functionality  |
+| `Fluids/`         | Fluid simulation implementation                                  |
+| `Heat/`           | Heat simulation implementation                                   |
+| `Magnetostatics/` | Magnetostatics simulation implementation                         |
+| `Micromagnetics/` | Micromagnetics simulation implementation                         |
+| `STEP_Models/`    | Example .STEP files to import 3D models                          |
+| `cFemeko/`        | C++ variants of Femeko for increased performance                 |
+| `extern/`         | external libraries needed for C++ implementations                |
 
 ### License
 
