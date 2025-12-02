@@ -68,7 +68,7 @@ function meshCAD(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     cells = []
 
     # Import cad file
-    box = importCAD("STEP_Models/Fennec_Fox.step", cells)
+    box = importCAD("STEP_Models/Fennec_Fox.step", cells, true)
 
     # Unify the volumes for a single geometry and get the bounding shell
     shell_id = unifyModel(cells, box)
@@ -101,6 +101,6 @@ localSize = 0.1
 showGmsh = true
 saveMesh = false
 
-userMade(meshSize, localSize, showGmsh, saveMesh)
+# userMade(meshSize, localSize, showGmsh, saveMesh)
 meshCAD(0, 0, true, false)
 
