@@ -574,22 +574,32 @@ function NodesFromLocalEdge( mesh::MESH,
     return i, j
 end
 
+# Find closest element to target coordinate
+function findElement2D(mesh::MESH, xq::Float64, yq::Float64)
+    tag = 0
+    r = Inf # Smallest distance to target
+    for k in 1:mesh.nt
+        nds = @view mesh.t[:, k]
+        center = mean(mesh.p[:, nds], 2)
+
+        # Distance from this node to target
+        new_r = sqrt((center[1] - xq)^2 + (center[2] - yq)^2)
+        
+        # Check if this node is closer than current closest element tag
+        if new_r < r
+            r = new_r
+            tag = k
+        end
+    end
+
+    return tag
+end
+
 # Interpolation over a scattered mesh of nodes
 function interp2Dmesh(mesh::MESH, xq::Float64, yq::Float64, T::Vector{Float64})
 
-    # Find closest element to target coordinate
-    tag = 0
-    r = Inf
-    for i in 1:mesh.nt
-        nds = @view mesh.t[:,i]
-        center = mean(mesh.p[:,nds],2)
-
-        new_r = sqrt((center[1] - xq)^2 + (center[2] - yq)^2)
-        if new_r < r
-            r = new_r
-            tag = i
-        end
-    end
+    # Find the mesh element closest/containing the target node
+    tag = findElement2D(mesh, xq, yq)
 
     nds = @view mesh.t[:, tag]
     P1 = mesh.p[:, nds[1]]
