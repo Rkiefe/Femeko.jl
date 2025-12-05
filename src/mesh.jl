@@ -574,26 +574,41 @@ function NodesFromLocalEdge( mesh::MESH,
     return i, j
 end
 
-# Find closest element to target coordinate
+# Find the element (triangle) that contains the node (xq, yq, 0.0)
 function findElement2D(mesh::MESH, xq::Float64, yq::Float64)
-    tag = 0
-    r = Inf # Smallest distance to target
+    # Check what triangle has the point P inside it. Algorithm from
+    # https://blackpawn.com/texts/pointinpoly/#:~:text=//%20Compute%20vectors%20v0%20=%20C%20%2D,0)%20&&%20(u%20+%20v%20%3C%201)
+    
+    tag::Int32 = 0 # Tag of the element that contains P
+
     for k in 1:mesh.nt
         nds = @view mesh.t[:, k]
-        center = mean(mesh.p[:, nds], 2)
 
-        # Distance from this node to target
-        new_r = sqrt((center[1] - xq)^2 + (center[2] - yq)^2)
-        
-        # Check if this node is closer than current closest element tag
-        if new_r < r
-            r = new_r
+        AC = mesh.p[:, nds[3]] - mesh.p[:, nds[1]]
+        AB = mesh.p[:, nds[2]] - mesh.p[:, nds[1]]
+        AP = [xq, yq, 0.0] - mesh.p[:, nds[1]]
+
+        ACAC = dot(AC, AC) # 00
+        ACAB = dot(AC, AB) # 01
+        ACAP = dot(AC, AP) # 02
+        ABAB = dot(AB, AB) # 11
+        ABAP = dot(AB, AP) # 12
+
+        # Barycentric coordinates
+        invDenom = 1.0 / (ACAC*ABAB - ACAB*ACAB)
+        u = (ABAB*ACAP - ACAB*ABAP) * invDenom
+        v = (ACAC*ABAP - ACAB*ACAP) * invDenom
+
+        # Check if P is inside
+        if u >= 0 && v >= 0 && (u + v < 1) # Its inside
             tag = k
-        end
-    end
+            break
+        end # Check if P is inside
+
+    end # Search each mesh element (triangle)
 
     return tag
-end
+end # Find the element that contains the coordinate P inside it
 
 # Interpolation over a scattered mesh of nodes
 function interp2Dmesh(mesh::MESH, xq::Float64, yq::Float64, T::Vector{Float64})
