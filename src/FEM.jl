@@ -1,5 +1,3 @@
-using LinearAlgebra, SparseArrays
-
 # FEM linear basis function
 function abcd(p::Matrix{Float64},nodes::AbstractVector,nd::Int32)
     n1,n2,n3 = nodes[nodes .!= nd]
