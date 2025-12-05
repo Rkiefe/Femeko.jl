@@ -542,10 +542,10 @@ function NodesFromLocalEdge( mesh::MESH,
                              k, # Global element index
                              ie # Local edge index (1 to 6)
                             )
+# Follows the schematics from the GMSH reference manual
 
     # Triangle nodes
     nds = @view mesh.t[1:4, k]
-    
 
     if ie == 1 || ie == 2
         i = ie
