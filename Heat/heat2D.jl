@@ -89,7 +89,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     # Time step
     Tq::Vector{Float64} = zeros(nSteps)
     time::Float64 = 0.0
-    for i in 1:nSteps
+    @time for i in 1:nSteps
         
         time += timeStep
 
@@ -107,7 +107,6 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
         sleep(0.1)
     end
 
-
     println("Simulation finished")
     wait(display(fig)) # Wait before closing the figure
     
@@ -116,11 +115,9 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     ax.ylabel = "Temperature"
     ax.xlabel = "Time"
 
-    wait(display(fig)) # Wait before closing the figure
-
     println("Final T at (xq,yq) = ", Tq[nSteps])
-
+    wait(display(fig)) # Wait before closing the figure
 end
 
-showGmsh = true
-main(0.05, 0.01, showGmsh) # 1.0, 0.05
+showGmsh = false
+main(0.5, 0.01, showGmsh) # 0.5, 0.01
