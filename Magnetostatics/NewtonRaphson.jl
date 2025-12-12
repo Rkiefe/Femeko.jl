@@ -113,6 +113,21 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     # Local stiffness matrix
     Ak::Matrix{Float64} = localStiffnessMatrix(mesh)
 
+    # Convert to a compressed sparse column format
+    rowIDs::Vector{Int} = zeros(16*mesh.nt)
+    colIDs::Vector{Int} = zeros(16*mesh.nt)
+    Acsc = zeros(length(rowIDs)) # Compressed sparse column format of the stiffness matrix
+    n = 0
+    for i in 1:4
+        for j in 1:4
+            n += 1
+            for k in 1:mesh.nt
+                rowIDs[(n-1)*mesh.nt + k] = mesh.t[i, k]
+                colIDs[(n-1)*mesh.nt + k] = mesh.t[j, k]
+            end
+        end
+    end # Compressed sparse stiffness matrix indices
+
     # Lagrange multiplier technique
     Lag::Vector{Float64} = lagrange(mesh)
 
@@ -133,15 +148,19 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
         att += 1
         Hold .= H
 
-        # Update the global stiffness matrix
-        A = spzeros(mesh.nv, mesh.nv)
-        n::Int32 = 0
+        # Updated the compressed stiffness matrix
+        n = 0
         for i in 1:4
             for j in 1:4
                 n += 1
-                A += sparse(mesh.t[i, :], mesh.t[j, :], Ak[n, :].*mu, mesh.nv, mesh.nv)
+                for k in 1:mesh.nt
+                    Acsc[(n-1)*mesh.nt + k] = Ak[n, k] * mu[k]
+                end
             end
-        end
+        end # Acsc
+
+        # Update the global stiffness matrix
+        A = sparse(rowIDs, colIDs, Acsc, mesh.nv, mesh.nv)
 
         # Magnetic scalar potential
         u = [A Lag;Lag' 0]\[-RHS;0]
@@ -206,15 +225,19 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
             error("Nans/Infs in mu")
         end
 
-        # Update the global stiffness matrix
-        A = spzeros(mesh.nv, mesh.nv)
-        n::Int32 = 0
+        # Updated the compressed stiffness matrix
+        n = 0
         for i in 1:4
             for j in 1:4
                 n += 1
-                A += sparse(mesh.t[i, :], mesh.t[j, :], Ak[n, :].*mu, mesh.nv, mesh.nv)
+                for k in 1:mesh.nt
+                    Acsc[(n-1)*mesh.nt + k] = Ak[n, k] * mu[k]
+                end
             end
-        end
+        end # Acsc
+
+        # Update the global stiffness matrix
+        A = sparse(rowIDs, colIDs, Acsc, mesh.nv, mesh.nv)
 
         # Tangential stiffness matrix
         At = tangentialStiffnessMatrix(mesh, Hfield, dmu)
@@ -321,7 +344,7 @@ end # end of main
 
 meshSize  = 1.0
 localSize = 0.1
-showGmsh = true
+showGmsh = false
 
 main(meshSize, localSize, showGmsh)
 
