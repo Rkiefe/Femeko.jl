@@ -149,13 +149,9 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
         Hold .= H
 
         # Updated the compressed stiffness matrix
-        n = 0
-        for i in 1:4
-            for j in 1:4
-                n += 1
-                for k in 1:mesh.nt
-                    Acsc[(n-1)*mesh.nt + k] = Ak[n, k] * mu[k]
-                end
+        for n in 1:16
+            for k in 1:mesh.nt
+                Acsc[(n-1)*mesh.nt + k] = Ak[n, k] * mu[k]
             end
         end # Acsc
 
