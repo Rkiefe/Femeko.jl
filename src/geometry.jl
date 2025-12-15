@@ -167,73 +167,6 @@ function occCut(cell1, cell2)
     return outDimTags
 end
 
-# Unify the volumes and get the surface IDs of the bounding shell
-# function unifyModel(cells, box=-1)
-#     # Works for both 2D and 3D geometries
-    
-#     dim = cells[1][1] # Get dimension of the model
-
-#     inputBox::Bool = box > 0 # Check if a bounding cell was provided
-
-#     # Fragment to make a unified geometry
-#     if box > 0
-#         fragments, _ = gmsh.model.occ.fragment(vcat(cells,[(dim, box)]), [])
-#     else
-#         fragments, _ = gmsh.model.occ.fragment(cells, [])
-#     end
-
-#     gmsh.model.occ.synchronize()
-
-#     # Update cell ids
-#     newCells = box > 0 ? fragments[1:end-1] : fragments[1:end]
-
-#     if length(newCells) > length(cells)
-#         println("Warning: 'unifyModel' outputs more cells it received \n")
-
-#         # Update 'cells' with the new cells up to the same number of cells
-#         for i in 1:length(cells)
-#             cells[i] = (cells[i][1], newCells[i][2])
-#         end
-
-#         # Push the new cells
-#         for i in length(cells)+1:length(newCells)
-#             push!(cells, newCells[i])
-#         end
-
-#     else
-#         cells .= newCells
-#     end
-    
-#     # Set the box to the last volume
-#     box = fragments[end][2]
-
-#     # Get bounding shell surface id
-#     shell_id = gmsh.model.getBoundary([(dim, box)], false, false, false) # (dim, tag)
-#     shell_id = [s[2] for s in shell_id] # tag
-
-#     # Volume surface ids
-#     if inputBox
-#         internal_surfaces = gmsh.model.getBoundary(cells, false, false, false) # (dim, tag)
-    
-#     else # The last cell is actually a box
-#         internal_surfaces = gmsh.model.getBoundary(cells[1:end-1], false, false, false) # (dim, tag)
-    
-#     end
-#     internal_surfaces = [s[2] for s in internal_surfaces] # tag
-
-
-#     shell_id = setdiff(shell_id, internal_surfaces) # Only the outer surfaces
-
-#     # Must separate return logic to not mess the logic of older code
-#     # otherwise shell_id will be a tuple in some cases
-#     if inputBox
-#         return shell_id
-#     else
-#         return shell_id, box
-#     end
-
-# end # Unify the volumes
-
 function unifyModel(cells, box = -1) # cells (dim, tag); box (tag of bounding shell)
 
     # The new cell IDs follow the order 
@@ -296,7 +229,7 @@ function unifyModel(cells, box = -1) # cells (dim, tag); box (tag of bounding sh
     # Only the outer surfaces
     shell_id = setdiff(shell_id, internal_surfaces) 
 
-    return shell_id, box  
+    return shell_id, box
 end
 
 
