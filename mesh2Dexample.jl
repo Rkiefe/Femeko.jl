@@ -27,7 +27,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
 	# Add a bounding shell
 	box = addDisk([0,0,0], 7.0)
-	shell_id = unifyModel(cells, box)
+	shell_id, box = unifyModel(cells, box)
 
 	# Add a hole
     id = addDisk([-0.75,0,0], 0.2)
