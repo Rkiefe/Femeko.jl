@@ -101,22 +101,10 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
     # Create model
     gmsh.initialize()
-    
-    # Add an obstacle
-    cells = []
-    # id = addRectangle([0,0,0], [5, 3], cells)
-    # id = addDisk([-5,0,0], 1.0, cells)
-
-    # Add a container
-    box = addRectangle([0,0,0], [5, 5])
-    # box = addDisk([0,0,0], 4)
-
-    # Combine the geometries
-    gmsh.model.occ.fragment(vcat(cells,[(2,box)]), [])
-    gmsh.model.occ.synchronize()
+    addRectangle([0,0,0], [5, 5])
 
     # Generate mesh
-    mesh::MESH = Mesh2D(cells, meshSize, localSize, 2)
+    mesh::MESH = Mesh2D([], meshSize, localSize, 2)
 
     println("\nNumber of elements ",size(mesh.t,2))
     println("Number of Inside elements ",length(mesh.InsideElements))
@@ -134,9 +122,6 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     # Define the viscosity on the domain
     mu::Vector{Float64} = zeros(mesh.nt) .+ viscosity
 
-    # Define the obstacle as an extremely viscous object to set the internal velocity to zero
-    mu[mesh.InsideElements] .= 1e3 * viscosity
-
     # Apply boundary conditions
     # NOTE! The boundary ID must be checked manually from Gmsh GUI directly
 
@@ -146,9 +131,6 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     # Walls
     walls::Vector{Int32} = [1, 2, 4]
     # note: the missing wall is an outflow
-
-
-
 
     # Run fluid simulation
     u::Matrix{Float64}, 
@@ -164,10 +146,6 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
         velocityNorm[i] = sqrt(sum(u[i,:].^2))   
     end
 
-
-
-
-
     # ----- Plot results ------
 
     # Sort the coordinates
@@ -177,7 +155,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     y::Vector{Float64} = zeros(mesh.nv)
     y[vertexID[1:mesh.nv]] .= mesh.p[2,:]
 
-    println("Printing plots")
+    println("Generating plots")
 
     # Plot results
     fig = Figure()

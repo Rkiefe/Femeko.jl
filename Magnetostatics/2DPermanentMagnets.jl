@@ -24,7 +24,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
 	# Add a bounding shell
 	box = addDisk([0.0, 0.0], 5.0)
-	shell_id = unifyModel(cells, box)
+	shell_id, _ = unifyModel(cells, box)
 
     # Generate mesh
 	mesh::MESH = Mesh2D(cells, meshSize, localSize)

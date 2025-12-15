@@ -53,7 +53,7 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     box = addSphere([0,0,0], 5*maximum(L))
 
     # Unify the volumes for a single geometry and get the bounding shell
-    shell_id = unifyModel(cells, box)
+    shell_id, _ = unifyModel(cells, box)
     
     # Generate Mesh
     mesh = Mesh(cells,meshSize,localSize,saveMesh)
