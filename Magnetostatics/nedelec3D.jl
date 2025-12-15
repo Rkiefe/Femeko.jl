@@ -151,7 +151,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     nu::Vector{Float64} = ones(mesh.nt)
 
     # Prepare output
-    u::Vector{Float64} = zeros(ne) # Magnetic scalar potential
+    u::Vector{Float64} = zeros(ne) # Magnetic vector potential
 
     Bfield::Matrix{Float64} = zeros(3, mesh.nt)
     B::Vector{Float64} = zeros(mesh.nt)
