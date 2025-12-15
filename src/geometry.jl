@@ -168,71 +168,137 @@ function occCut(cell1, cell2)
 end
 
 # Unify the volumes and get the surface IDs of the bounding shell
-function unifyModel(cells, box=-1)
-    # Works for both 2D and 3D geometries
+# function unifyModel(cells, box=-1)
+#     # Works for both 2D and 3D geometries
     
+#     dim = cells[1][1] # Get dimension of the model
+
+#     inputBox::Bool = box > 0 # Check if a bounding cell was provided
+
+#     # Fragment to make a unified geometry
+#     if box > 0
+#         fragments, _ = gmsh.model.occ.fragment(vcat(cells,[(dim, box)]), [])
+#     else
+#         fragments, _ = gmsh.model.occ.fragment(cells, [])
+#     end
+
+#     gmsh.model.occ.synchronize()
+
+#     # Update cell ids
+#     newCells = box > 0 ? fragments[1:end-1] : fragments[1:end]
+
+#     if length(newCells) > length(cells)
+#         println("Warning: 'unifyModel' outputs more cells it received \n")
+
+#         # Update 'cells' with the new cells up to the same number of cells
+#         for i in 1:length(cells)
+#             cells[i] = (cells[i][1], newCells[i][2])
+#         end
+
+#         # Push the new cells
+#         for i in length(cells)+1:length(newCells)
+#             push!(cells, newCells[i])
+#         end
+
+#     else
+#         cells .= newCells
+#     end
+    
+#     # Set the box to the last volume
+#     box = fragments[end][2]
+
+#     # Get bounding shell surface id
+#     shell_id = gmsh.model.getBoundary([(dim, box)], false, false, false) # (dim, tag)
+#     shell_id = [s[2] for s in shell_id] # tag
+
+#     # Volume surface ids
+#     if inputBox
+#         internal_surfaces = gmsh.model.getBoundary(cells, false, false, false) # (dim, tag)
+    
+#     else # The last cell is actually a box
+#         internal_surfaces = gmsh.model.getBoundary(cells[1:end-1], false, false, false) # (dim, tag)
+    
+#     end
+#     internal_surfaces = [s[2] for s in internal_surfaces] # tag
+
+
+#     shell_id = setdiff(shell_id, internal_surfaces) # Only the outer surfaces
+
+#     # Must separate return logic to not mess the logic of older code
+#     # otherwise shell_id will be a tuple in some cases
+#     if inputBox
+#         return shell_id
+#     else
+#         return shell_id, box
+#     end
+
+# end # Unify the volumes
+
+function unifyModel(cells, box = -1) # cells (dim, tag); box (tag of bounding shell)
+
+    # The new cell IDs follow the order 
+    # in which the cells were originally added
+
     dim = cells[1][1] # Get dimension of the model
 
-    inputBox::Bool = box > 0 # Check if a bounding cell was provided
-
-    # Fragment to make a unified geometry
+    # Check if a bounding shell cell ID was provided
+    inputBox::Bool = false
     if box > 0
-        fragments, _ = gmsh.model.occ.fragment(vcat(cells,[(dim, box)]), [])
+        inputBox = true
+    end
+
+    # Unify the model by fragment()
+    if !inputBox
+        _, tagsMap = gmsh.model.occ.fragment(cells, [])
     else
-        fragments, _ = gmsh.model.occ.fragment(cells, [])
+        _, tagsMap = gmsh.model.occ.fragment(vcat(cells, [(dim, box)]), [])
     end
 
     gmsh.model.occ.synchronize()
 
-    # Update cell ids
-    newCells = box > 0 ? fragments[1:end-1] : fragments[1:end]
-
-    if length(newCells) > length(cells)
-        println("Warning: 'unifyModel' outputs more cells it received \n")
-
-        # Update 'cells' with the new cells up to the same number of cells
-        for i in 1:length(cells)
-            cells[i] = (cells[i][1], newCells[i][2])
+    # Update the cells ID, preserving the order of when they were added to the model 
+    for (i, tags) in enumerate(tagsMap)
+        
+        if tags[1][2] != box
+            cells[i] = tags[1]
         end
 
-        # Push the new cells
-        for i in length(cells)+1:length(newCells)
-            push!(cells, newCells[i])
+        if length(tags) > 1 && box < 0 # Found the cell ID of the bounding shell
+            box = tags[1][2]
         end
-
-    else
-        cells .= newCells
     end
-    
-    # Set the box to the last volume
-    box = fragments[end][2]
 
     # Get bounding shell surface id
     shell_id = gmsh.model.getBoundary([(dim, box)], false, false, false) # (dim, tag)
-    shell_id = [s[2] for s in shell_id] # tag
+    shell_id = [s[2] for s in shell_id] # Remove the dim, leave only the tag
 
-    # Volume surface ids
-    if inputBox
-        internal_surfaces = gmsh.model.getBoundary(cells, false, false, false) # (dim, tag)
+    # Internal cells
+    if !inputBox # No bounding shell cell ID provided
+        
+        innerCells = []
+
+        # Find which cells are not the bounding shell
+        for (i, cell) in enumerate(cells)
+            if cell[2] != box
+                push!(innerCells, cell)
+            end
+        end
     
-    else # The last cell is actually a box
-        internal_surfaces = gmsh.model.getBoundary(cells[1:end-1], false, false, false) # (dim, tag)
-    
-    end
+    else # Every cell in 'cells' is an internal cell
+        innerCells = cells
+
+    end # Internal cells
+
+    # Surface tags of cells inside bounding shell
+    internal_surfaces = gmsh.model.getBoundary(innerCells, false, false, false) # (dim, tag)
     internal_surfaces = [s[2] for s in internal_surfaces] # tag
 
+    # Only the outer surfaces
+    shell_id = setdiff(shell_id, internal_surfaces) 
 
-    shell_id = setdiff(shell_id, internal_surfaces) # Only the outer surfaces
+    return shell_id, box  
+end
 
-    # Must separate return logic to not mess the logic of older code
-    # otherwise shell_id will be a tuple in some cases
-    if inputBox
-        return shell_id
-    else
-        return shell_id, box
-    end
-
-end # Unify the volumes
 
 # Save variable to .txt
 function save2file(fileName,input)
