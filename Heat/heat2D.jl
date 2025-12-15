@@ -18,16 +18,15 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     
     # Add a 2D rectangle
     cells = []
-    id = addRectangle([0,0,0], [1, 1], cells)
-    # id = addDisk([0,0,0], 1, cells)
+    addRectangle([0,0,0], [1, 1], cells)
+    # addDisk([0,0,0], 1, cells)
 
     # Add a container
     # box = addRectangle([0,0,0], [2, 4])
     box = addDisk([0,0,0], 4)
 
     # Combine the geometries
-    gmsh.model.occ.fragment(vcat(cells,[(2,box)]), [])
-    gmsh.model.occ.synchronize()
+    unifyModel(cells, box)
 
     # Generate mesh
     mesh::MESH = Mesh2D(cells, meshSize, localSize)
