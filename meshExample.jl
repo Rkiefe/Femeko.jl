@@ -24,13 +24,11 @@ function userMade(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     box = addSphere([0,0,0], 5*maximum(L)) # Don't update the cell list and get the volume id
 
     # Unify the volumes for a single geometry and get the bounding shell
-    shell_id = unifyModel(cells, box)
+    shell_id, box = unifyModel(cells, box)
 
     # Volume surface ids
     internal_surfaces = gmsh.model.getBoundary(cells, false, false, false) # (dim, tag)
     internal_surfaces = [s[2] for s in internal_surfaces] # tag
-
-    # shell_id = setdiff(shell_id, internal_surfaces) # Only the outer surfaces
 
     # Generate Mesh
     mesh = Mesh(cells, meshSize, localSize, saveMesh)
