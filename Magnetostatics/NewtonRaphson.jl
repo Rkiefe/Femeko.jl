@@ -9,7 +9,7 @@ include("../src/magneticProperties.jl")
 
 using GLMakie
 
-function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
+function main(meshSize=0, localSize=0, showGmsh=true, saveMesh=false)
     #=
         Makes a model with cubes and spheres and refines the mesh on the spheres
     
@@ -27,7 +27,7 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     scale::Float64 = 1e-6 # cm^3 -> m^3
 
     # Temperature
-    T::Float64 = 293.0
+    T::Float64 = 300.0
 
     # Applied field A/m
     Hext::Vector{Float64} = [1.0, 
@@ -44,12 +44,11 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     data = DATA()
 
     # Load Gd
-    density::Float64 = 7.9 # g/cm3
     loadMaterial( data,
                   "Materials",  # Folder with materials
                   "Gd_MFT",     # Data folder of target material
                   "Gd",         # Material name
-                  density,      # g/cm3
+                  7.9,          # Density g/cm3
                   T)
 
     # Spline for interpolation of the permeability
@@ -57,8 +56,7 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
                    ; bc="error" # nearest , extrapolate , error
                    )
 
-    spl_dmu = Spline1D( data.HofM,
-                        data.dmu
+    spl_dmu = Spline1D( data.HofM, data.dmu
                       ; bc="error" # nearest , extrapolate , error
                       ) 
 
@@ -99,12 +97,10 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     gmsh.finalize()
 
     # Element centroids
-    centroids::Matrix{Float64} = zeros(3,mesh.nt)
+    centroids::Matrix{Float64} = zeros(3, mesh.nt)
     for k in 1:mesh.nt
-        nds = mesh.t[:,k]
-        centroids[1,k] = sum(mesh.p[1,nds])/4
-        centroids[2,k] = sum(mesh.p[2,nds])/4
-        centroids[3,k] = sum(mesh.p[3,nds])/4
+        nds = mesh.t[:, k]
+        centroids[:, k] = mean(mesh.p[:, nds], 2)
     end
 
     # Boundary conditions
@@ -308,37 +304,33 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
         M_avg += M[k]*mesh.VE[k]
     end # <H>
     M_avg /= volume
-    println("<M> (emu/g) = ", M_avg/(density*1e3))
+    println("<M> (emu/g) = ", M_avg/(data.density*1e3))
 
     # Output plot
     println("Generating plots...")
     fig = Figure()
-    Axis3(fig[1, 1], aspect = :data)
+    ax = Axis3(fig[1, 1], aspect = :data)
 
-    ax::Vector{Float64} = Mfield[1,mesh.InsideElements]./M[mesh.InsideElements]
-    ay::Vector{Float64} = Mfield[2,mesh.InsideElements]./M[mesh.InsideElements]
-    az::Vector{Float64} = Mfield[3,mesh.InsideElements]./M[mesh.InsideElements]
+    graph = arrows3d!(  ax
+                        , centroids[1, mesh.InsideElements]
+                        , centroids[2, mesh.InsideElements]
+                        , centroids[3, mesh.InsideElements]
+                        , mu0*Mfield[1, mesh.InsideElements]
+                        , mu0*Mfield[2, mesh.InsideElements]
+                        , mu0*Mfield[3, mesh.InsideElements]
+                        , color = M[mesh.InsideElements]./(data.density*1e3)
+                        , lengthscale = 0.5
+                        , colormap = :CMRmap,  # :CMRmap :viridis :redsblues :turbo :rainbow
+                      )
 
-    graph = arrows3d!(    centroids[1,mesh.InsideElements]
-                        , centroids[2,mesh.InsideElements]
-                        , centroids[3,mesh.InsideElements]
-                        , ax
-                        , ay
-                        , az
-                        , color = M[mesh.InsideElements]./(density*1e3)
-                        , lengthscale = 0.1
-                        , colormap = :turbo
-                        )
-
-    Colorbar(fig[1, 2], graph, label = "M (emu/g)"
-             #, vertical = false
-             )
+    # Add a colorbar
+    Colorbar(fig[1, 2], graph, label = "M (emu/g)")
 
     wait(display(fig))
 
 end # end of main
 
-meshSize  = 1.0
+meshSize  = 5.0
 localSize = 0.1
 showGmsh = false
 
