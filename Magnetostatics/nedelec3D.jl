@@ -12,13 +12,44 @@
 
     This example also includes the implementation of the Newton-Raphson method 
     with Nedelec shape elements
+
+    In my experience, using a single F-P iteration and then immediately using
+    the N-R method is best. Specially since there is now a line search method to
+    reduce the residue of the next iteration
 =#
 
 include("../src/Femeko.jl")
 include("../src/magneticProperties.jl")
 
 using IterativeSolvers
-using GLMakie
+# using GLMakie
+
+# Updates the Newton-Raphson iteration with a line search
+# where the full step size is reduced to minimize the new residue
+function lineSearch(u, du, A, RHS)
+    # Update the solution with a weight: u_new = u + alf*du
+    alf = 1.0 # Initial weight (full step)
+
+    # Residual before update of u
+    residual_old = norm(RHS - A*u) 
+
+    # New solution trial
+    u_trial = u + du
+    residual_new = norm(RHS - A*u_trial)
+    
+    # Reduce the step size until the new solution is more accurate than the old solution
+    while residual_new > residual_old && alf > 1e-2
+        alf *= 0.9 # Reduce the size of the weight by 10 %
+        
+        # New trial solution
+        u_trial = u + alf*du
+        residual_new = norm(RHS - A*u_trial)
+    end
+    
+    # Update the solution
+    u .= u_trial
+
+end # Adapt the N-R step size based on the residual
 
 function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
@@ -26,36 +57,41 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     mu0::Float64 = pi*4e-7
 
     # Temperature
-    T::Float64 = 293.0
+    T::Float64 = 300.0
 
     # Applied field | Tesla
-    Bext::Vector{Float64} = [1.0, 
+    Bext::Vector{Float64} = [0.5, 
                              0.0,
                              0.0]
 
     # Convergence criteria
-    picardDeviation::Float64 = 1e-4
-    maxDeviation::Float64 = Inf # 1e-7 , use Inf to skip Newton-Raphson
+    picardDeviation::Float64 = 1.1*norm(Bext) # Only let 1 F-P iteration
+    maxDeviation::Float64 = 1e-4
     maxAtt::Int32 = 100
 
-    # Data of magnetic materials
-    density::Float64 = 7.9 # g/cm3
-    data = DATA()
-    loadMaterial( data,
-                 "Materials", # Folder with materials
-                 "Gd_MFT",    # Data folder of target material
-                 "Gd",        # Material name
-                 density,
-                 T)
+    # Load Gd data
+    # data = DATA()
+    # loadMaterial( data,
+    #              "Materials", # Folder with materials
+    #              "Gd_MFT",    # Data folder of target material
+    #              "Gd",        # Material name
+    #              7.9,         # density g/cm3
+    #              T)
 
-    spl = Spline1D(data.B, mu0.*(data.HofM./data.B))
+    # Load Fe data
+    data = DATA()
+    data.density = 7.874 # g/cm3
+    data.HofM = vec(readdlm("Materials/Pure_Iron_FEMM/H_Fe_extrap.dat"))  # A/m
+    data.B = vec(readdlm("Materials/Pure_Iron_FEMM/B_Fe_extrap.dat"))     # T
+    materialPermeability(data) # Get the permeability and its derivative
+
+    # Prepare the spline for interpolation over the dataset
+    spl = Spline1D(data.B, data.nu; bc = "nearest")
 
     # Derivative of the magnetic reluctance
     spl_dnu = Spline1D( data.B,   # x
-                        gradient(
-                                 data.B, 
-                                 mu0.*(data.HofM./data.B)
-                                ) # y
+                        gradient(data.B, data.nu) # y
+                        ; bc = "nearest"
                        )
 
     # Create model
@@ -180,7 +216,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
         end
 
         # Solve the magnetostatic vector potential
-        u = cg(A, RHS)
+        u = cg(A, RHS) # ; verbose=true
 
         # Get the magnetic flux B
         Bfield .= 0.0
@@ -227,6 +263,10 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
         # Update reluctance
         nu[mesh.InsideElements] = spl(B[mesh.InsideElements])
 
+        if any(x->!isfinite(x), nu)
+            error("Nans in the interpolation")
+        end
+
         div = maximum(abs.(B .- Bold))
         println(att, " , |B(n)-B(n-1)| = ", div)
 
@@ -237,7 +277,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     # Newton-Raphson
     dnu::Vector{Float64} = zeros(mesh.nt)
     dnu[mesh.InsideElements] = spl_dnu(B[mesh.InsideElements])
-    while div > maxDeviation && att < maxAtt # maxAtt
+    while div > maxDeviation && att < maxAtt
 
         att += 1
         Bold .= B
@@ -261,10 +301,12 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
                                         dnu, ne, Bfield, B)
 
         # Correction to the magnetic scalar potential
-        du = gmres(A+At, RHS-A*u) # The Jacobian (A+At) is symmetric, but gmres was the only stable solver
+        du = cg(A+At, RHS-A*u; verbose=false)
 
         # Update the vector potential
-        u .+= du
+        # u .+= du # Direct update
+        lineSearch(u, du, A, RHS) # Line search (more stable)
+        residue = norm(RHS - A*u)
 
         # Get the magnetic flux B
         Bfield .= 0.0
@@ -320,7 +362,13 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
         # Check deviation from previous result
         div = maximum(abs.(B .- Bold))
-        println(att, " , |B(n)-B(n-1)| = ", div)
+        println(att, " , |B(n)-B(n-1)| = ", div, " , |y-Ax| = ", residue)
+
+        # Check if Au = RHS by the residue
+        # if residue < 1e-7 && att > 2
+        #     println("condition Au = RHS reached within tol = ", residue)
+        #     break
+        # end
 
     end # Newton iteration
 
@@ -343,46 +391,42 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     Mfield[3, :] = chi.*Hfield[3, :]
 
     # M (emu/g)
-    M_emug = M./(density*1e3)
-    Mfield_emug = Mfield./(density*1e3)
+    M_emug = M./(data.density*1e3)
+    Mfield_emug = Mfield./(data.density*1e3)
 
+    return
     # Plot results
     println("\nGenerating plots...")
     elements =  
                 # 1:mesh.nt               # All elements of the mesh
                 mesh.InsideElements     # Only the magnetic region
 
-    x = zeros(length(elements))
-    y = zeros(length(elements))
-    z = zeros(length(elements))
-
-    for (i, k) in enumerate(elements)
-        nds = @view mesh.t[1:4, k]
-        
-        x[i] = mean(mesh.p[1, nds])
-        y[i] = mean(mesh.p[2, nds])
-        z[i] = mean(mesh.p[3, nds])
+    # Element centroids
+    centroids::Matrix{Float64} = zeros(3, mesh.nt)
+    for k in 1:mesh.nt
+        nds = mesh.t[:, k]
+        centroids[:, k] = mean(mesh.p[:, nds], 2)
     end
-    
+
     fig = Figure()
     ax = Axis3(fig[1,1], aspect = :data)
     
-    graph = arrows3d!(  ax,
-                        x, y, z,
-                        Mfield_emug[1, elements]./maximum(M_emug[elements]), 
-                        Mfield_emug[2, elements]./maximum(M_emug[elements]), 
-                        Mfield_emug[3, elements]./maximum(M_emug[elements])
+    graph = arrows3d!(  ax
+                        , centroids[1, elements]
+                        , centroids[2, elements]
+                        , centroids[3, elements]
+                        , mu0*Mfield[1, elements] 
+                        , mu0*Mfield[2, elements]
+                        , mu0*Mfield[3, elements]
                         , color = M_emug[elements]
-                        , lengthscale = 0.2
+                        , lengthscale = 0.1
                         , colormap = :CMRmap,  # :CMRmap :viridis :redsblues :turbo :rainbow
                     )
 
-    Colorbar(fig[1, 2], graph, label = "M (emu/g)"
-             # , vertical = false
-             )
+    # Add color bar
+    Colorbar(fig[1, 2], graph, label = "M (emu/g)")
 
     wait(display(fig))
-
 end
 
-main(1.0, 0.1, true)
+main(5.0, 0.1, false)
