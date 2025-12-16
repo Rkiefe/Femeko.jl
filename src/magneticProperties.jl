@@ -34,6 +34,9 @@ mutable struct DATA
     # d/dH mu (derivative of permeability)
     dmu::Vector{Float64}
 
+    # Relative reluctance
+    nu::Vector{Float64}
+
     # Constructor
     DATA() = new()
 end
@@ -157,6 +160,8 @@ function materialPermeability(data::DATA)
     # And the derivate of the permeability for the Newton Rapshon methods
     # And cleans NaN and Inf
 
+    mu0::Float64 = pi*4e-7
+
     # Permeability
     data.mu = data.B./data.HofM
     
@@ -175,6 +180,11 @@ function materialPermeability(data::DATA)
     dmu[idx] .= minimum(dmu)
 
     data.dmu = dmu
+
+    # Relative reluctance
+    data.nu = mu0.*(data.HofM./data.B)
+    idx = findall(x -> !isfinite(x), data.nu)
+    data.nu[idx] .= 0.0
 end
 
 # Get magnetic entropy change from magnetization data
