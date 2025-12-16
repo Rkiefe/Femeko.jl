@@ -26,7 +26,7 @@ using GLMakie
 
 # Updates the Newton-Raphson iteration with a line search
 # where the full step size is reduced to minimize the new residue
-function lineSearch(u, du, A, RHS)
+function lineSearch(u, du, A, RHS, minStep::Float64=1e-4)
     # Update the solution with a weight: u_new = u + alf*du
     alf = 1.0 # Initial weight (full step)
 
@@ -38,7 +38,7 @@ function lineSearch(u, du, A, RHS)
     residual_new = norm(RHS - A*u_trial)
     
     # Reduce the step size until the new solution is more accurate than the old solution
-    while residual_new > residual_old && alf > 1e-2
+    while residual_new > residual_old && alf > minStep
         alf *= 0.9 # Reduce the size of the weight by 10 %
         
         # New trial solution
@@ -48,6 +48,10 @@ function lineSearch(u, du, A, RHS)
     
     # Update the solution
     u .= u_trial
+
+    if alf < minStep
+        println("Warning: N-R could not decrease the residue further")
+    end
 
 end # Adapt the N-R step size based on the residual
 
