@@ -19,12 +19,16 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 	# Add two magnets
 	magnetCells::Vector{Int32} = [0, 0] # Store the cell id of each magnet
 
-	magnetCells[1] = addRectangle([0.0,  1.0], [1.0, 1.0], cells)
-	magnetCells[2] = addRectangle([0.0, -1.0], [1.0, 1.0], cells)
+	addRectangle([0.0,  1.0], [1.0, 1.0], cells)
+	addRectangle([0.0, -1.0], [1.0, 1.0], cells)
 
 	# Add a bounding shell
 	box = addDisk([0.0, 0.0], 5.0)
 	shell_id, _ = unifyModel(cells, box)
+
+	# Update the cell IDs of the magnets
+	magnetCells[1] = cells[1][2] # (dim, tag)[2] of first cell
+	magnetCells[2] = cells[2][2] # (dim, tag)[2] of second cell
 
     # Generate mesh
 	mesh::MESH = Mesh2D(cells, meshSize, localSize)

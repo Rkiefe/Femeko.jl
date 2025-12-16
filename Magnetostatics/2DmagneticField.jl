@@ -86,8 +86,8 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     # Magnetostatic simulation
     
     # Boundary conditions
-    bc::Vector{Float64} = zeros(mesh.ne)
-    for e in 1:mesh.ne
+    bc::Vector{Float64} = zeros(mesh.ns)
+    for e in 1:mesh.ns
         if mesh.surfaceT[3,e] == 1 # Only the container boundary
             bc[e] = mu0*dot(Hext, mesh.normal[:,e])
         end
@@ -95,7 +95,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
     # Boundary integral
     RHS::Vector{Float64} = zeros(mesh.nv)
-    for e in 1:mesh.ne
+    for e in 1:mesh.ns
         nds = @view mesh.surfaceT[:, e]
 
         # Length of the edge

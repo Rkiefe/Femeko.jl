@@ -82,19 +82,8 @@ function main(meshSize=0.0, showGmsh=false)
 	# Generate mesh
 	mesh::MESH = Mesh([], meshSize, 0.0)
 
-	# Get element tags to then use GMSH 'get' functions
-	t_tags, _ = gmsh.model.mesh.getElementsByType(4)
-
-	# Store cell id of each element
-	elementID::Vector{Int32} = zeros(mesh.nt)
-	for k in 1:mesh.nt
-	    # element type , nodes of the element , dimension , id
-	    _, _, _, id = gmsh.model.mesh.getElement(t_tags[k])
-	    elementID[k] = id
-	end
-
-	println("\nNumber of elements ",size(mesh.t,2))
-    println("Number of surface elements ",size(mesh.surfaceT,2))
+	println("\nNumber of elements ", mesh.nt)
+    println("Number of surface elements ", mesh.ns)
 
 	# Run Gmsh GUI
     if showGmsh
@@ -155,8 +144,8 @@ function main(meshSize=0.0, showGmsh=false)
 	@time begin 
 		C = Cmatrix(mesh)
 		D = Dmatrix(mesh)
-		B::Matrix{Float64} = zeros(mesh.nv, mesh.ne)
-		for s in 1:mesh.ne
+		B::Matrix{Float64} = zeros(mesh.nv, mesh.ns)
+		for s in 1:mesh.ns
 		    nds = mesh.surfaceT[1:3, s]
 		    B[nds,s] .-= mu0*mesh.AE[s]/3
 		end
@@ -182,15 +171,15 @@ function main(meshSize=0.0, showGmsh=false)
 		LHS::Matrix{Float64} = [A B; C D]; # Final FEM-BEM matrix
 
 		# # !! From Bruckner 2012, the load is a surface integral
-		# RHS::Vector{Float64} = zeros(mesh.nv + mesh.ne)
-		# for s in 1:mesh.ne
+		# RHS::Vector{Float64} = zeros(mesh.nv + mesh.ns)
+		# for s in 1:mesh.ns
 		#     nds = @view mesh.surfaceT[1:3, s]
 		#     k = surface2element[s]
 		#     RHS[nds] .+= (mu[k]-mu0)*dot(mesh.normal[:, s], Hext)*mesh.AE[s]/3
 		# end
 
 		# !! For non-linear materials, the RHS is a volume integral
-		RHS::Vector{Float64} = zeros(mesh.nv + mesh.ne)
+		RHS::Vector{Float64} = zeros(mesh.nv + mesh.ns)
 		for k in 1:mesh.nt
 		    nds = @view mesh.t[1:4, k]
 		    for i = 1:4
@@ -229,7 +218,7 @@ function main(meshSize=0.0, showGmsh=false)
 							H, 
 							materialProperties, 
 							cellLabels, 
-							elementID)
+							mesh.elementID)
 
 		# Check interpolation
 		idx = findall(findErr -> !isfinite(findErr), mu)
@@ -265,7 +254,7 @@ function main(meshSize=0.0, showGmsh=false)
 	for (id, key) in enumerate(cellLabels) # cell number, string with the data label
 
 	    # Find all elements of current cell ID
-	    elements = findall(x -> x==id, elementID)
+	    elements = findall(x -> x==id, mesh.elementID)
 	    
 	    # Normalize the magnetization by the max of the cell
 	    ux[elements] ./= maximum(M[elements])
@@ -276,7 +265,7 @@ function main(meshSize=0.0, showGmsh=false)
 
 	# Plot only the magnetization of a given cell ID
 	ID::Int32 = 1
-	elements = findall(x -> x==ID, elementID)
+	elements = findall(x -> x==ID, mesh.elementID)
 
 	graph = arrows3d!(	  centroids[1, elements]
 				  		, centroids[2, elements]

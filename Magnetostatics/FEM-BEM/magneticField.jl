@@ -79,8 +79,8 @@ function main(meshSize=0.0, showGmsh=false)
 	@time begin 
 		C = Cmatrix(mesh)
 		D = Dmatrix(mesh)
-		B::Matrix{Float64} = zeros(mesh.nv, mesh.ne)
-		for s in 1:mesh.ne
+		B::Matrix{Float64} = zeros(mesh.nv, mesh.ns)
+		for s in 1:mesh.ns
 		    nds = mesh.surfaceT[1:3, s]
 		    B[nds,s] .-= mu0*mesh.AE[s]/3
 		end
@@ -103,15 +103,15 @@ function main(meshSize=0.0, showGmsh=false)
 		LHS::Matrix{Float64} = [A B; C D]; # Final FEM-BEM matrix
 
 		# # !! From Bruckner 2012, the load is a surface integral
-		# RHS::Vector{Float64} = zeros(mesh.nv + mesh.ne)
-		# for s in 1:mesh.ne
+		# RHS::Vector{Float64} = zeros(mesh.nv + mesh.ns)
+		# for s in 1:mesh.ns
 		#     nds = @view mesh.surfaceT[1:3, s]
 		#     k = surface2element[s]
 		#     RHS[nds] .+= (mu[k]-mu0)*dot(mesh.normal[:, s], Hext)*mesh.AE[s]/3
 		# end
 
 		# !! For non-linear materials, the RHS is a volume integral
-		RHS::Vector{Float64} = zeros(mesh.nv + mesh.ne)
+		RHS::Vector{Float64} = zeros(mesh.nv + mesh.ns)
 		for k in 1:mesh.nt
 		    nds = @view mesh.t[1:4, k]
 		    for i = 1:4

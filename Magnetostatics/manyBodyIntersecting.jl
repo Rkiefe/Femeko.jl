@@ -31,9 +31,9 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=true, saveMesh=false)
     T::Float64 = 293.0
 
     # Applied field | A/m
-    Hext::Vector{Float64} = 1.0/mu0*[1.0,
-                                     0.0,
-                                     0.0]
+    Hext::Vector{Float64} = [1.0,
+                             0.0,
+                             0.0]*1.0/mu0
 
     # Convergence criteria
     picardDeviation::Float64 = 1e-2
@@ -82,27 +82,13 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=true, saveMesh=false)
     push!(cellLabels, "Air")
 
     # Unify the volumes for a single geometry and get the bounding shell
-    shell_id = unifyModel(cells, box)
+    shell_id, box = unifyModel(cells, box)
 
     # Generate Mesh
     mesh = Mesh(cells, meshSize, localSize, saveMesh)
-
-    # Get element tags to then use GMSH 'get' functions
-    t_tags, _ = gmsh.model.mesh.getElementsByType(4)
-
-    # Store cell id of each element
-    elementID::Vector{Int32} = zeros(mesh.nt)
-    for k in 1:mesh.nt
-        # element type , nodes of the element , dimension , id
-        _, _, _, id = gmsh.model.mesh.getElement(t_tags[k])
-        elementID[k] = id
-    end
     
-    println("Number of elements ",size(mesh.t,2))
-    println("Number of Inside elements ",length(mesh.InsideElements))
-    println("Number of nodes ",size(mesh.p,2))
-    println("Number of Inside nodes ",length(mesh.InsideNodes))
-    println("Number of surface elements ",size(mesh.surfaceT,2))
+    println("Number of elements ", mesh.nt)
+    println("Number of Inside elements ", mesh.nInside)
 
     if showGmsh
         gmsh.option.setNumber("Mesh.Clip", 1)
@@ -120,21 +106,19 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=true, saveMesh=false)
     end
 
     # Check cell IDs
-        # fig = Figure()
-        # ax = Axis3(fig[1, 1], aspect = :data, title="Mesh and Cell Id")
-        # scatterPlot = scatter!(ax, 
-        #     centroids[1, :], # mesh.InsideElements
-        #     centroids[2, :], # mesh.InsideElements
-        #     centroids[3, :], # mesh.InsideElements
-        #     color=elementID[:], # mesh.InsideElements
-        #     colormap=:rainbow,  # :CMRmap :redsblues
-        #     markersize=20)
-        #     # markersize=20 .* mesh.VE[mesh.InsideElements]./maximum(mesh.VE[mesh.InsideElements]))
-        #     # color = mu0.*H[mesh.InsideElements], 
-        # Colorbar(fig[1, 2], scatterPlot, label="Element ID") # Add a colorbar
+        fig = Figure()
+        ax = Axis3(fig[1, 1], aspect = :data, title="Mesh and Cell Id")
+        scatterPlot = scatter!(ax, 
+            centroids[1, :], # mesh.InsideElements
+            centroids[2, :], # mesh.InsideElements
+            centroids[3, :], # mesh.InsideElements
+            color=mesh.elementID[:], # mesh.InsideElements
+            colormap=:rainbow,  # :CMRmap :redsblues
+            markersize=20)
+        Colorbar(fig[1, 2], scatterPlot, label="Element ID") # Add a colorbar
         
-        # # Display the figure (this will open an interactive window)
-        # wait(display(fig)); return
+        # Display the figure (this will open an interactive window)
+        wait(display(fig)) #; return
 
     # Boundary conditions
     RHS::Vector{Float64} = BoundaryIntegral(mesh,mu0.*Hext,shell_id)
@@ -196,7 +180,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=true, saveMesh=false)
             id = cells[i][2]
 
             # Get the data set of current cell ID
-            key = cellLabels[id]
+            key = cellLabels[i]
 
             if key == "Air"
                 continue
@@ -207,7 +191,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=true, saveMesh=false)
                            ) # ;bc="nearest") # nearest , extrapolate
 
             # Find all elements of current cell ID
-            elements = findall(x -> x==id, elementID)
+            elements = findall(x -> x==id, mesh.elementID)
             
             # Interpolate the dataset for this elements
             mu[elements] .= spl(H[elements])
@@ -288,7 +272,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=true, saveMesh=false)
             id = cells[i][2]
 
             # Get the data set of current cell ID
-            key = cellLabels[id]
+            key = cellLabels[i]
 
             if key == "Air"
                 continue
@@ -299,17 +283,13 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=true, saveMesh=false)
                            ) # ;bc="nearest") # nearest , extrapolate
 
             # Find all elements of current cell ID
-            elements = findall(x -> x==id, elementID)
+            elements = findall(x -> x==id, mesh.elementID)
             
             # Interpolate the dataset for this elements
             mu[elements] .= spl(H[elements])
 
 
             # d/dH mu
-
-            # Get the data set of current cell ID
-            key = cellLabels[id]
-
             if key == "Air"
                 continue
             end
@@ -362,7 +342,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=true, saveMesh=false)
     id = cells[i][2]
 
     # Find all elements of current cell ID
-    elements = findall(x -> x==id, elementID)
+    elements = findall(x -> x==id, mesh.elementID)
 
     # Average magnetization of Gd
     M_avg::Float64 = 0.0

@@ -27,8 +27,8 @@ function denseStiffnessMatrix(mesh::MESH, F::Vector{Float64}=ones(mesh.nt))
 end
 
 function Bmatrix(mesh::MESH)
-    B::Matrix{Float64} = zeros(mesh.nv, mesh.ne)
-    for s in 1:mesh.ne
+    B::Matrix{Float64} = zeros(mesh.nv, mesh.ns)
+    for s in 1:mesh.ns
         nds = mesh.surfaceT[1:3, s]
         B[nds,s] .+= mesh.AE[s]/3
     end
@@ -54,15 +54,15 @@ function Cmatrix(mesh::MESH)
             0.2500    0.2500    0.5000]';
 
     # Mmj
-    C::Matrix{Float64} = zeros(mesh.ne,mesh.nv)
-    for m in 1:mesh.ne
+    C::Matrix{Float64} = zeros(mesh.ns, mesh.nv)
+    for m in 1:mesh.ns
         nds = mesh.surfaceT[1:3,m]
 
         C[m,nds] .= 1/6
-        xm::Vector{Float64} = mean(mesh.p[:,nds],2)
+        xm::Vector{Float64} = mean(mesh.p[:,nds], 2)
 
         # Now add the boundary integral
-        for s in 1:mesh.ne
+        for s in 1:mesh.ns
             nds_j = mesh.surfaceT[1:3,s]
 
             # Nodes of the quadrature
@@ -86,13 +86,13 @@ end # BEM matrix Mmj
 function Dmatrix(mesh::MESH)
 
     # Mmn
-    D::Matrix{Float64} = zeros(mesh.ne,mesh.ne)
-    for m in 1:mesh.ne
+    D::Matrix{Float64} = zeros(mesh.ns,mesh.ns)
+    for m in 1:mesh.ns
 
         nds = mesh.surfaceT[1:3,m]                       # Nodes of the surface triangle m
         xm::Vector{Float64} = mean(mesh.p[1:3,nds],2)    # Center of edge
 
-        for n in 1:mesh.ne
+        for n in 1:mesh.ns
             nds = mesh.surfaceT[1:3,n]                   # Nodes of the surface triangle n
 
             # Quadrature coordinates

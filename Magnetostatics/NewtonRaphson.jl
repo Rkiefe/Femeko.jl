@@ -82,11 +82,11 @@ function main(meshSize=0, localSize=0, showGmsh=true, saveMesh=false)
     # Generate Mesh
     mesh = Mesh(cells,meshSize,localSize,saveMesh)
     
-    println("Number of elements ",size(mesh.t,2))
-    println("Number of Inside elements ",length(mesh.InsideElements))
-    println("Number of nodes ",size(mesh.p,2))
-    println("Number of Inside nodes ",length(mesh.InsideNodes))
-    println("Number of surface elements ",size(mesh.surfaceT,2))
+    println("Number of elements ", mesh.nt)
+    println("Number of Inside elements ", mesh.nInside)
+    println("Number of nodes ", mesh.nv)
+    println("Number of Inside nodes ", mesh.nInsideNodes)
+    println("Number of surface elements ", mesh.ns)
 
     if showGmsh
         gmsh.option.setNumber("Mesh.Clip", 1)
