@@ -19,7 +19,16 @@ mutable struct MESH
     
     # Surface triangles
     surfaceT::Matrix{Int32}
+
+    # Edges (updated when doing second order meshes)
+    edges::Vector{Int32} # Gmsh label of each edge midpoint (2nd order mesh node)
     
+    # Map the global edge label to a local edge from 1 to 'ne'
+    edge2localMap::Vector{Int32} 
+
+    # Map mesh volume elements to the parent Cell/Volume ID
+    elementID::Vector{Int32}
+
     # Elements inside material
     InsideElements::Vector{Int32}
     
@@ -37,7 +46,9 @@ mutable struct MESH
     
     nv::Int32           # Number of nodes
     nt::Int32           # Number of elements
-    ne::Int32           # Number of surface elements
+    ns::Int32           # Number of surface elements
+    ne::Int32           # Number of edges
+
     nInside::Int32      # Number of elements for the inside cells
     nInsideNodes::Int32 # Numberf of nodes for the inside cells
 
@@ -109,7 +120,7 @@ function Mesh(cells, meshSize=0.0, localSize=0.0, saveMesh::Bool=false, order=1)
     mesh.p = reshape(p, 3, Int(size(p,1)/3))
     mesh.nv = size(mesh.p, 2)
 
-    # Get all tetrahedral element tags
+    # Get all tetrahedral element GMSH tags
     # 4 - linear tetra. ; 11 - 2nd order tetra. (10 nodes)
     if order < 2
         t_tags, t = gmsh.model.mesh.getElementsByType(4)
@@ -118,9 +129,17 @@ function Mesh(cells, meshSize=0.0, localSize=0.0, saveMesh::Bool=false, order=1)
     elseif order > 1 # Assume quadratic order
         t_tags, t = gmsh.model.mesh.getElementsByType(11)
         mesh.t = reshape(t, 10, Int(length(t)/10))
-    
+
     end
     mesh.nt = size(mesh.t, 2)
+
+    # Set a cell ID to each mesh element
+    mesh.elementID = zeros(mesh.nt)
+    for k in 1:mesh.nt
+        # element type , nodes of the element , dimension , id
+        _, _, _, id = gmsh.model.mesh.getElement(t_tags[k]) # Cell ID of this element
+        mesh.elementID[k] = id
+    end
 
     # Get all surface triangles
     if order < 2
@@ -143,7 +162,26 @@ function Mesh(cells, meshSize=0.0, localSize=0.0, saveMesh::Bool=false, order=1)
         _,_,_, id = gmsh.model.mesh.getElement(surfaceT_tags[i])
         mesh.surfaceT[end, i] = id
     end
-    mesh.ne = size(mesh.surfaceT, 2) # Number of surface elements
+    mesh.ns = size(mesh.surfaceT, 2) # Number of surface elements
+
+    # Mesh edges (mid-points in a 2nd order mesh)
+    if order > 1 # assume 2nd order
+        mesh.edges = unique(mesh.t[5:10, :]) # Edges (mid-points)
+        mesh.ne = length(mesh.edges)
+
+        # Map the global edge label to an ordered, local edge label
+        # (Gmsh does not order the 2nd order mesh nodes after the 1st order nodes)
+        mesh.edge2localMap = zeros(maximum(mesh.edges))
+        for e in 1:mesh.ne # For each edge
+            
+            # Get the global edge label (its unique)
+            edge = mesh.edges[e]
+
+            # Map the global edge label 'edge' to the local edge label 'e'
+            mesh.edge2localMap[edge] = e
+        end # Map global to local edge labels
+    
+    end # Manage mesh edges
 
     # Mesh elements inside the container
     if !isempty(cells)
@@ -180,9 +218,9 @@ function Mesh(cells, meshSize=0.0, localSize=0.0, saveMesh::Bool=false, order=1)
     end
 
     # List of all surface triangle normals are areas
-    mesh.normal = zeros(3, mesh.ne)
-    mesh.AE = zeros(mesh.ne)
-    for i in 1:mesh.ne
+    mesh.normal = zeros(3, mesh.ns)
+    mesh.AE = zeros(mesh.ns)
+    for i in 1:mesh.ns
         nds = @view mesh.surfaceT[1:3, i]
         mesh.normal[:, i] = normalSurface(mesh.p, nds);
         mesh.AE[i] = areaTriangle(mesh.p[1, nds], 
@@ -285,7 +323,7 @@ function Mesh2D(cells, meshSize=0.0, localSize=0.0, order::Int=1, saveMesh=false
     end
 
     mesh.surfaceT = edges
-    mesh.ne = size(edges, 2)
+    mesh.ns = size(edges, 2) # Its a surface element and an edge
 
     # Mesh elements inside the container
     if !isempty(cells)
@@ -325,8 +363,8 @@ function Mesh2D(cells, meshSize=0.0, localSize=0.0, order::Int=1, saveMesh=false
     end
 
     # Normal to each edge
-    mesh.normal = zeros(2, mesh.ne)
-    for e in 1:mesh.ne
+    mesh.normal = zeros(2, mesh.ns)
+    for e in 1:mesh.ns
         nds = @view mesh.surfaceT[1:2, e]
         mesh.normal[:, e] = normalEdge(mesh.p, nds)
     end
@@ -401,9 +439,9 @@ end # Normal to surface triangle
 
 # Sets a volume element to each surface element
 function surface2volume(mesh::MESH)
-    surface2element::Vector{Int32} = zeros(mesh.ne)
+    surface2element::Vector{Int32} = zeros(mesh.ns)
 
-    for s in 1:mesh.ne
+    for s in 1:mesh.ns
         surface_nds = @view mesh.surfaceT[1:3, s]
 
         for k in 1:mesh.nt
@@ -500,7 +538,7 @@ function findNodes(mesh::MESH, region::String, id)
     if region == "face" || region == "Face" # added "Face" to handle variations
 
         # Go to each surface triangle
-        for s in 1:mesh.ne
+        for s in 1:mesh.ns
             # Get the surface id of current triangle
             current_Id::Int32 = mesh.surfaceT[end,s]
             if current_Id in id

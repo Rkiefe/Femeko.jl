@@ -143,7 +143,7 @@ function tangentialStiffnessMatrix(mesh::MESH, H_vec::Matrix{Float64}, dmu::Vect
 end # Newton iteration matrix
 
 # Local stiffness matrix with Nedelec shape elements
-function nedelecStiffness(mesh::MESH)
+function nedelecLocalStiffness(mesh::MESH)
 
     # Local stiffness matrix
     Ak::Matrix{Float64} = zeros(36, mesh.nt) # 6x6 edges per volume element
@@ -182,32 +182,18 @@ function nedelecStiffness(mesh::MESH)
         
     end # Loop over the volume element labels
 
-    # You can then make a global, sparse matrix with:
-    # A = spzeros(ne, ne)
-    # n = 0
-    # for i in 1:6
-    #     for j in 1:6
-    #         n += 1
-    #         A += sparse(global2local_edge[mesh.t[4+i, :]], 
-    #                     global2local_edge[mesh.t[4+j, :]], 
-    #                     Ak[n,:], ne, ne)
-    #     end
-    # end
-
     return Ak
 end # Local stiffness matrix with Nedelec shape elements
 
 # Global tangential stiffness matrix with Nedelec shape elements
 function nedelecTangentialStiffness(mesh::MESH, 
-                                    global2local_edge::Vector{Int32},
-                                    dnu::Vector{Float64},   # d/dB nu
-                                    ne,                     # Number of edges
-                                    Bfield::Matrix{Float64}, # Magnetic flux density
+                                    dnu::Vector{Float64},    # d/dB nu
+                                    Bfield::Matrix{Float64}, # Vector field B
                                     B::Vector{Float64}       # Norm of B
                                     )
     
     # Global sparse tangential stiffness matrix
-    At = spzeros(ne, ne)
+    At = spzeros(mesh.ne, mesh.ne)
 
     # Local tangential stiffness matrix
     Alocal::Matrix{Float64} = zeros(6, 6)    # For a single element
@@ -236,14 +222,15 @@ function nedelecTangentialStiffness(mesh::MESH,
             curlN[:, ie] = 2.0*edgeLength*cross(hat[2:4, ndi], hat[2:4, ndj])
         end
 
-        # Force symmetry in the tangential stiffness matrix
+        # Update local tangential stiffness matrix
         for i in 1:6
-            for j in i:6
+            for j in i:6 # Force symmetry in the tangential stiffness matrix
+
                 Alocal[i, j] = mesh.VE[k] * dot(curlN[:, i], Bfield[:, k])  *
                                             dot(curlN[:, j], Bfield[:, k])  *
                                             dnu[k]/B[k]
 
-                Alocal[j, i] = Alocal[i, j]
+                Alocal[j, i] = Alocal[i, j] # At should be symmetric
             end
         end
 
@@ -261,13 +248,13 @@ function nedelecTangentialStiffness(mesh::MESH,
     # Update global sparse stiffness matrix
     n = 0
     for i in 1:6
-        edge1 = global2local_edge[mesh.t[4+i, :]]
-        
+        edge1 = mesh.edge2localMap[mesh.t[4+i, :]]
+
         for j in 1:6
-            edge2 = global2local_edge[mesh.t[4+j, :]]
+            edge2 = mesh.edge2localMap[mesh.t[4+j, :]]
 
             n += 1
-            At += sparse(edge1, edge2, Ak[n, :], ne, ne)
+            At += sparse(edge1, edge2, Ak[n, :], mesh.ne, mesh.ne)
         end
     end
 
@@ -287,7 +274,7 @@ end # Lagrange multiplier technique
 # Boundary condition
 function BoundaryIntegral(mesh::MESH,F::Vector{Float64},shell_id)
     RHS::Vector{Float64} = zeros(mesh.nv);
-    for s in 1:mesh.ne
+    for s in 1:mesh.ns
 
         # Only integrate over the outer shell
         if !(mesh.surfaceT[4,s] in shell_id)

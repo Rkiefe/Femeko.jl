@@ -2,20 +2,17 @@
         Calculate the magnetostatic interaction between non-linear magnetic materials and a source field
 
     Using: 
-        - Nedelec shape functions (instead of linear Lagrange)
-        - The magnetostatic vector potential (instead of the scalar potential)
-        - Magnetic Reluctance (instead of permeability)
+        + Nedelec shape functions (instead of linear Lagrange)
+        + The magnetostatic vector potential (instead of the scalar potential)
+        + Magnetic Reluctance (instead of permeability)
+        + Newton-Raphson iteration method
 
     Why:
-        - Should be much more stable for non-linear media
-        - Can include Surface and Volume electric currents
+        + Should be much more stable for non-linear media
+            + Its actually much better for simulating iron structures
+            - Its much worse at simulating Gd at low temperatures (280 K already breaks)
+        + Can include Surface and Volume electric currents
 
-    This example also includes the implementation of the Newton-Raphson method 
-    with Nedelec shape elements
-
-    In my experience, using a single F-P iteration and then immediately using
-    the N-R method is best. Specially since there is now a line search method to
-    reduce the residue of the next iteration
 =#
 
 include("../src/Femeko.jl")
@@ -62,7 +59,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     mu0::Float64 = pi*4e-7
 
     # Temperature
-    T::Float64 = 300.0
+    T::Float64 = 290.0
 
     # Applied field | Tesla
     Bext::Vector{Float64} = [0.5, 
@@ -70,11 +67,10 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
                              0.0]
 
     # Convergence criteria
-    picardDeviation::Float64 = 1.1*norm(Bext) # Only let 1 F-P iteration
-    maxDeviation::Float64 = 1e-4
-    maxAtt::Int32 = 100
+    tol::Float64 = 1e-4 # Stop when B changes less than this (tesla)
+    maxAtt::Int32 = 100 # Maximum number of iterations
 
-    # Load Gd data
+    # Load Gd data automatically from a folder
     # data = DATA()
     # loadMaterial( data,
     #              "Materials", # Folder with materials
@@ -83,7 +79,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     #              7.9,         # density g/cm3
     #              T)
 
-    # Load Fe data
+    # Load Fe data manually
     data = DATA()
     data.density = 7.874 # g/cm3
     data.HofM = vec(readdlm("Materials/Pure_Iron_FEMM/H_Fe_extrap.dat"))  # A/m
@@ -119,24 +115,12 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     # Generate mesh
     mesh = Mesh(cells, meshSize, localSize, false, 2)
 
-    # Edges (mid-points)
-    edges = unique(mesh.t[5:10, :])
-    ne = length(edges)
-
-    # Map the global edge label to an ordered, local edge label
-    # (the global edge label is not ordered with the node label)
-    global2local_edge::Vector{Int32} = zeros(maximum(edges))
-    for e in 1:ne
-        edge = edges[e] # Global edge ID (its unique)
-        global2local_edge[edge] = e
-    end
-
     println("\nNumber of elements: ", mesh.nt)
     println("Number of Inside elements ", mesh.nInside)
-    println("Number of edges: ", ne)
+    println("Number of edges: ", mesh.ne)
     println("Number of vertices: ", mesh.nv)
     println("Number of Inside nodes ", mesh.nInsideNodes)
-    println("Number of surface elements ", mesh.ne)
+    println("Number of surface elements ", mesh.ns)
     println("")
 
     # Run Gmsh GUI
@@ -149,10 +133,10 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     gmsh.fltk.finalize()
 
     # Local stiffness matrix
-    Ak::Matrix{Float64} = nedelecStiffness(mesh)
+    Ak::Matrix{Float64} = nedelecLocalStiffness(mesh)
 
     # Load vector
-    RHS::Vector{Float64} = zeros(ne)
+    RHS::Vector{Float64} = zeros(mesh.ne)
     for k in 1:mesh.nt
         nds = @view mesh.t[1:4, k] # Nodes of the linear volume element
         
@@ -165,14 +149,10 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
             hat[4, i] = abcd(mesh.p, nds, nds[i])
         end
 
-        for ie in 1:6 # For each edge of the tetrahedron
+        for i in 1:6 # For each edge of the tetrahedron
             
-            # Global edge label
-            edge = mesh.t[4+ie, k]
-            i = global2local_edge[edge] # Local edge label
-            
-            # Global node labels of the edge
-            ndi, ndj = NodesFromLocalEdge(mesh, k, ie)
+            # Global node labels of current edge
+            ndi, ndj = NodesFromLocalEdge(mesh, k, i)
 
             # Length of edge
             edgeLength = norm(mesh.p[1:3, nds[ndj]] - mesh.p[1:3, nds[ndi]])
@@ -181,135 +161,63 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
             _, bi, ci, di = hat[:, ndi]
             _, bj, cj, dj = hat[:, ndj]
 
+            # Curl element from Lagrange element
             curlN = 2.0*edgeLength*cross([bi, ci, di], [bj, cj, dj])
 
-            RHS[i] += mesh.VE[k]*dot(Bext, curlN)
+            # Global edge label
+            edge = mesh.t[4+i, k]
+            e = mesh.edge2localMap[edge] # Local edge label
+
+            # Update the load vector on the local edge
+            RHS[e] += mesh.VE[k]*dot(Bext, curlN)
         end
-    
+
     end # Loop over the volume element labels
 
     # Relative magnetic reluctance
     nu::Vector{Float64} = ones(mesh.nt)
+    dnu::Vector{Float64} = zeros(mesh.nt)
 
     # Prepare output
-    u::Vector{Float64} = zeros(ne) # Magnetic vector potential
+    u::Vector{Float64} = zeros(mesh.ne) # Magnetic vector potential on each edge
 
-    Bfield::Matrix{Float64} = zeros(3, mesh.nt)
-    B::Vector{Float64} = zeros(mesh.nt)
-    Bold::Vector{Float64} = zeros(mesh.nt)
+    Bfield = zeros(3, mesh.nt)            # 3D vector field B
+    B::Vector{Float64} = zeros(mesh.nt)        # Norm of B
+    Bold::Vector{Float64} = zeros(mesh.nt)     # Norm of B from previous iteration
 
+    # Newton-Raphson iteration method
     att::Int32 = 0
     div::Float64 = Inf
-    while att < maxAtt && div > picardDeviation
-        att += 1
-        Bold .= B
-
-        # Global stiffness matrix
-        A = spzeros(ne, ne)
-
-        # Update sparse global stiffness matrix
-        n = 0
-        for i in 1:6
-            edge1 = global2local_edge[mesh.t[4+i, :]]
-            
-            for j in 1:6
-                n += 1
-
-                edge2 = global2local_edge[mesh.t[4+j, :]]
-                A += sparse(edge1, edge2, Ak[n,:].*nu, ne, ne)
-            end
-        end
-
-        # Solve the magnetostatic vector potential
-        u = cg(A, RHS) # ; verbose=true
-
-        # Get the magnetic flux B
-        Bfield .= 0.0
-        for k in 1:mesh.nt
-            nds = @view mesh.t[1:4, k] # Nodes of the linear volume element
-            
-            # Hat shape element for each of the 4 nodes
-            hat::Matrix{Float64} = zeros(4, 4) # a,b,c,d for each node
-            for i in 1:4
-                hat[1, i], 
-                hat[2, i], 
-                hat[3, i], 
-                hat[4, i] = abcd(mesh.p, nds, nds[i])
-            end
-
-            for ie in 1:6 # For each edge of the tetrahedron
-                
-                # Global edge label
-                edge = mesh.t[4+ie, k]
-                i = global2local_edge[edge] # Local edge label
-                
-                # Global node labels of the edge
-                ndi, ndj = NodesFromLocalEdge(mesh, k, ie)
-
-                # Length of edge
-                edgeLength = norm(mesh.p[1:3, nds[ndj]] - mesh.p[1:3, nds[ndi]])
-
-                # 1st order Lagrange basis function (hat function)
-                _, bi, ci, di = hat[:, ndi]
-                _, bj, cj, dj = hat[:, ndj]
-
-                curlN = 2.0*edgeLength*cross([bi, ci, di], [bj, cj, dj])
-
-                Bfield[:, k] += u[i].*curlN
-            end
-        end
-
-        # Norm of flux field B
-        B .= 0.0
-        for k in 1:mesh.nt
-            B[k] = norm(Bfield[:, k])
-        end
-
-        # Update reluctance
-        nu[mesh.InsideElements] = spl(B[mesh.InsideElements])
-
-        if any(x->!isfinite(x), nu)
-            error("Nans in the interpolation")
-        end
-
-        div = maximum(abs.(B .- Bold))
-        println(att, " , |B(n)-B(n-1)| = ", div)
-
-    end
-
-    println("Newton-Raphson iteration method")
-
-    # Newton-Raphson
-    dnu::Vector{Float64} = zeros(mesh.nt)
-    dnu[mesh.InsideElements] = spl_dnu(B[mesh.InsideElements])
-    while div > maxDeviation && att < maxAtt
+    while div > tol && att < maxAtt
 
         att += 1
         Bold .= B
 
         # Global sparse stiffness matrix
-        A = spzeros(ne, ne)
+        A = spzeros(mesh.ne, mesh.ne)
         n = 0
         for i in 1:6
-            edge1 = global2local_edge[mesh.t[4+i, :]]
+            edge1 = mesh.edge2localMap[mesh.t[4+i, :]]
             
             for j in 1:6
                 n += 1
 
-                edge2 = global2local_edge[mesh.t[4+j, :]]
-                A += sparse(edge1, edge2, Ak[n, :].*nu, ne, ne)
+                edge2 = mesh.edge2localMap[mesh.t[4+j, :]]
+                A += sparse(edge1, edge2, Ak[n, :].*nu, mesh.ne, mesh.ne)
             end
-        end
+        end # Global stiffness matrix
 
         # Tangential stiffness matrix
-        At = nedelecTangentialStiffness(mesh, global2local_edge, 
-                                        dnu, ne, Bfield, B)
+        if att > 1
+            At = nedelecTangentialStiffness(mesh, dnu, Bfield, B)
+        else
+            At = spzeros(mesh.ne, mesh.ne)
+        end
 
         # Correction to the magnetic scalar potential
         du = cg(A+At, RHS-A*u; verbose=false)
 
         # Update the vector potential
-        # u .+= du # Direct update
         lineSearch(u, du, A, RHS) # Line search (more stable)
         residue = norm(RHS - A*u)
 
@@ -327,14 +235,10 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
                 hat[4, i] = abcd(mesh.p, nds, nds[i])
             end
 
-            for ie in 1:6 # For each edge of the tetrahedron
-                
-                # Global edge label
-                edge = mesh.t[4+ie, k]
-                i = global2local_edge[edge] # Local edge label
+            for i in 1:6 # For each edge of the tetrahedron
                 
                 # Global node labels of the edge
-                ndi, ndj = NodesFromLocalEdge(mesh, k, ie)
+                ndi, ndj = NodesFromLocalEdge(mesh, k, i)
 
                 # Length of edge
                 edgeLength = norm(mesh.p[1:3, nds[ndj]] - mesh.p[1:3, nds[ndi]])
@@ -343,13 +247,19 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
                 _, bi, ci, di = hat[:, ndi]
                 _, bj, cj, dj = hat[:, ndj]
 
+                # Curl element from Lagrange element
                 curlN = 2.0*edgeLength*cross([bi, ci, di], [bj, cj, dj])
 
-                Bfield[:, k] += u[i].*curlN
-            end
-        end
+                # Global edge label
+                edge = mesh.t[4+i, k]
+                e = mesh.edge2localMap[edge] # Local edge label
 
-        # Norm of flux field B
+                # Update vector field
+                Bfield[:, k] += u[e].*curlN
+            end
+        end # Vector field B
+
+        # Norm of B
         B .= 0.0
         for k in 1:mesh.nt
             B[k] = norm(Bfield[:, k])
@@ -357,10 +267,9 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
         # Update magnetic reluctance
         nu[mesh.InsideElements] .= spl(B[mesh.InsideElements])
-        
-        # d/dB nu
         dnu[mesh.InsideElements] = spl_dnu(B[mesh.InsideElements])
 
+        # Check for nans
         if any(x->!isfinite(x), nu) || any(x->!isfinite(x), dnu)
             error("Nans in the interpolation")
         end
@@ -368,12 +277,6 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
         # Check deviation from previous result
         div = maximum(abs.(B .- Bold))
         println(att, " , |B(n)-B(n-1)| = ", div, " , |y-Ax| = ", residue)
-
-        # Check if Au = RHS by the residue
-        # if residue < 1e-7 && att > 2
-        #     println("condition Au = RHS reached within tol = ", residue)
-        #     break
-        # end
 
     end # Newton iteration
 
@@ -386,7 +289,6 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
     # Magnetization (A/m)
     chi::Vector{Float64} = 1.0./nu .- 1.0 # Magnetic susceptibility
-
     M::Vector{Float64} = chi.*H # Magnetization intensity
 
     # Magnetization vector field
