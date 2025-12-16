@@ -47,10 +47,11 @@ function lineSearch(u, du, A, RHS, minStep::Float64=1e-4)
     end
     
     # Update the solution
-    u .= u_trial
-
     if alf < minStep
+        # Don't update u otherwise it will increase the residue
         println("Warning: N-R could not decrease the residue further")
+    else
+        u .= u_trial
     end
 
 end # Adapt the N-R step size based on the residual
