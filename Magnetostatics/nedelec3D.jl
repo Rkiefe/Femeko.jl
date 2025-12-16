@@ -22,7 +22,7 @@ include("../src/Femeko.jl")
 include("../src/magneticProperties.jl")
 
 using IterativeSolvers
-# using GLMakie
+using GLMakie
 
 # Updates the Newton-Raphson iteration with a line search
 # where the full step size is reduced to minimize the new residue
@@ -394,7 +394,6 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     M_emug = M./(data.density*1e3)
     Mfield_emug = Mfield./(data.density*1e3)
 
-    return
     # Plot results
     println("\nGenerating plots...")
     elements =  
