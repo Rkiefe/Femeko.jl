@@ -23,38 +23,6 @@ include("../src/magneticProperties.jl")
 using IterativeSolvers
 using GLMakie
 
-# Updates the Newton-Raphson iteration with a line search
-# where the full step size is reduced to minimize the new residue
-function lineSearch(u, du, A, RHS, minStep::Float64=1e-4)
-    # Update the solution with a weight: u_new = u + alf*du
-    alf = 1.0 # Initial weight (full step)
-
-    # Residual before update of u
-    residual_old = norm(RHS - A*u) 
-
-    # New solution trial
-    u_trial = u + du
-    residual_new = norm(RHS - A*u_trial)
-    
-    # Reduce the step size until the new solution is more accurate than the old solution
-    while residual_new > residual_old && alf > minStep
-        alf *= 0.9 # Reduce the size of the weight by 10 %
-        
-        # New trial solution
-        u_trial = u + alf*du
-        residual_new = norm(RHS - A*u_trial)
-    end
-    
-    # Update the solution
-    if alf < minStep
-        # Don't update u otherwise it will increase the residue
-        println("Warning: N-R could not decrease the residue further")
-    else
-        u .= u_trial
-    end
-
-end # Adapt the N-R step size based on the residual
-
 function main(meshSize=0.0, localSize=0.0, showGmsh=false, verbose=true)
 
     # vacuum magnetic permeability
@@ -220,9 +188,8 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false, verbose=true)
         du = cg(A+At, RHS-A*u; verbose=false)
 
         # Update the vector potential
-        lineSearch(u, du, A, RHS) # Line search (more stable)
-        residue = norm(RHS - A*u)
-
+        residue = lineSearch(u, du, A, RHS) # Line search (more stable)
+        
         # Get the magnetic flux B
         Bfield .= 0.0
         for k in 1:mesh.nt

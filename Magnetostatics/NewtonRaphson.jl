@@ -170,8 +170,7 @@ function main(meshSize=0, localSize=0, showGmsh=true, verbose=false)
         du = [A+At Lag;Lag' 0]\[RHS-A*u;0]
 
         # Update the potential
-        residue = lineSearch(u, du[1:mesh.nv], A, RHS)
-        # u .+= du[1:mesh.nv]; residue = norm(RHS - A*u)
+        residue = lineSearch(u, du[1:mesh.nv], A, RHS) # residue = norm(RHS - A*u)
 
         # Magnetic field
         Hfield .= 0.0
@@ -268,39 +267,6 @@ function main(meshSize=0, localSize=0, showGmsh=true, verbose=false)
     wait(display(fig))
 
 end # end of main
-
-# Updates the Newton-Raphson iteration with a line search
-# where the full step size is reduced to minimize the new residue
-function lineSearch(u, du, A, RHS, minStep::Float64=1e-4)
-    # Update the solution with a weight: u_new = u + alf*du
-    alf = 1.0 # Initial weight (full step)
-
-    # Residual before update of u
-    residual_old = norm(RHS - A*u) 
-
-    # New solution trial
-    u_trial = u + du
-    residue = norm(RHS - A*u_trial)
-    
-    # Reduce the step size until the new solution is more accurate than the old solution
-    while residue > residual_old && alf > minStep
-        alf *= 0.9 # Reduce the size of the weight by 10 %
-        
-        # New trial solution
-        u_trial = u + alf*du
-        residue = norm(RHS - A*u_trial)
-    end
-    
-    # Update the solution
-    if alf < minStep
-        # Don't update u otherwise it will increase the residue
-        println("Warning: N-R could not decrease the residue further")
-    else
-        u .= u_trial
-    end
-
-    return residue
-end # Adapt the N-R step size based on the residual
 
 meshSize  = 5.0
 localSize = 0.1
