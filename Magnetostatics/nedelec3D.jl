@@ -53,7 +53,7 @@ function lineSearch(u, du, A, RHS, minStep::Float64=1e-4)
 
 end # Adapt the N-R step size based on the residual
 
-function main(meshSize=0.0, localSize=0.0, showGmsh=false)
+function main(meshSize=0.0, localSize=0.0, showGmsh=false, verbose=true)
 
     # vacuum magnetic permeability
     mu0::Float64 = pi*4e-7
@@ -276,7 +276,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
         # Check deviation from previous result
         div = maximum(abs.(B .- Bold))
-        println(att, " , |B(n)-B(n-1)| = ", div, " , |y-Ax| = ", residue)
+        verbose ? println(att, " , |B(n)-B(n-1)| = ", div, " , |y-Ax| = ", residue) : nothing
 
     end # Newton iteration
 
