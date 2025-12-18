@@ -10,9 +10,11 @@
     Why:
         + Should be much more stable for non-linear media
             + Its actually much better for simulating iron structures
-            - Its much worse at simulating Gd at low temperatures (280 K already breaks)
+
         + Can include Surface and Volume electric currents
 
+    WARNING
+    Cant simulate materials with spontaneous magnetization. M(H=0) must be close to zero.
 =#
 
 include("../src/Femeko.jl")
