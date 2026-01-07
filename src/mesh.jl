@@ -492,6 +492,15 @@ function elementVolume(p,nds)
     return volume
 end # Mesh element volume
 
+# Set mesh extension to on/off (default off)
+function meshExtend(value = 0)
+    # 0 -> Dont extend mesh size, to prevent over-refinement inside entity
+    # 1 -> Extend mesh refinement
+    gmsh.option.setNumber("Mesh.MeshSizeFromPoints", value)
+    gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", value)
+    gmsh.option.setNumber("Mesh.MeshSizeExtendFromBoundary", value)
+end
+
 # Local mesh refinement on target cell
 function refineCell(cell,localSize,meshSize)
     # Sets every volume in 'cell' to be locally refined with target 'localSize' 
@@ -508,11 +517,15 @@ function refineCell(cell,localSize,meshSize)
         gmsh.model.mesh.field.setNumbers(distance_field, "FacesList", [s[2] for s in cell_boundary])
     end
 
-    setDistanceField(distance_field, meshSize, localSize)
+    # Set number of sampling points over the surfaces
+    gmsh.model.mesh.field.setNumber(distance_field, "Sampling", 500) # default is 100
+
+    # Enforce the distance field by a threshold field
+    setDistanceField(distance_field, meshSize, localSize, 2*meshSize)
 
 end # Local mesh refinement on target cell
 
-function setDistanceField(distance_field, meshSize, localSize)
+function setDistanceField(distance_field, meshSize, localSize, refineRange)
 
     # Create a threshold field that defines the refinement region
     threshold_field = gmsh.model.mesh.field.add("Threshold")
@@ -520,12 +533,11 @@ function setDistanceField(distance_field, meshSize, localSize)
     gmsh.model.mesh.field.setNumber(threshold_field, "InField", distance_field)
     gmsh.model.mesh.field.setNumber(threshold_field, "SizeMin", localSize)
     gmsh.model.mesh.field.setNumber(threshold_field, "SizeMax", meshSize)
-    gmsh.model.mesh.field.setNumber(threshold_field, "DistMin", 0.0)
-    gmsh.model.mesh.field.setNumber(threshold_field, "DistMax", max(0.1*meshSize,10*localSize))
+    gmsh.model.mesh.field.setNumber(threshold_field, "DistMin", localSize)
+    gmsh.model.mesh.field.setNumber(threshold_field, "DistMax", refineRange)
 
-    gmsh.model.mesh.field.setNumber(threshold_field, "Sigmoid", true)
+    # gmsh.model.mesh.field.setNumber(threshold_field, "Sigmoid", true)
     gmsh.model.mesh.field.setAsBackgroundMesh(threshold_field)
-
 end
 
 function findNodes(mesh::MESH, region::String, id)
