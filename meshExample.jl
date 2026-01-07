@@ -12,7 +12,7 @@ function userMade(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     gmsh.initialize()
 
     # Cuboid dimensions
-    L::Vector{Float64} = [1.65, 1.65, 0.04]
+    L::Vector{Float64} = [2.0, 2.0, 2.0]
 
     # List of volume cells
     cells = []
@@ -31,6 +31,7 @@ function userMade(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     internal_surfaces = [s[2] for s in internal_surfaces] # tag
 
     # Generate Mesh
+    meshExtend(0) # Extend or not the local refinement from the boundary to the volume
     mesh = Mesh(cells, meshSize, localSize, saveMesh)
 
     println("\nOuter shell ID: ", shell_id)
@@ -43,6 +44,9 @@ function userMade(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     println("")
 
     if showGmsh # Show GUI
+        gmsh.option.setNumber("Mesh.Clip", 1)
+        gmsh.option.setNumber("Mesh.VolumeFaces", 1)
+        gmsh.option.setNumber("General.ClipWholeElements", 1)
         gmsh.fltk.run()
     end
     gmsh.finalize()
@@ -101,4 +105,3 @@ saveMesh = false
 
 userMade(meshSize, localSize, showGmsh, saveMesh)
 meshCAD(0, 0, true, false)
-
