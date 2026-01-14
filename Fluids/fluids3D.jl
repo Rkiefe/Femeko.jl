@@ -72,26 +72,76 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     end
 
 
-    # Testing quadratic basis function
-    nds = @view mesh.t[:, 1] # All nodes of element
+    # # Testing quadratic basis function
+    # nds = @view mesh.t[:, 1] # All nodes of element
         
-    # Target first node
-    S = quadraticBasis(mesh, nds, nds[1])
+    # # Target first node
+    # S = quadraticBasis(mesh, nds, nds[1])
 
-    # Evaluate at target point:
-    for i in 1:10
-        xt = mesh.p[1, nds[i]]
-        yt = mesh.p[2, nds[i]]
-        zt = mesh.p[3, nds[i]]
+    # # Evaluate at target point:
+    # for i in 1:10
+    #     xt = mesh.p[1, nds[i]]
+    #     yt = mesh.p[2, nds[i]]
+    #     zt = mesh.p[3, nds[i]]
 
-        u = S[1] + S[2]*xt + S[3]*yt + S[4]*zt + 
-            S[5]*xt^2 + S[6]*xt*yt + S[7]*xt*zt + 
-            S[8]*yt^2 + S[9]*yt*zt + S[10]*zt^2
+    #     u = S[1] + S[2]*xt + S[3]*yt + S[4]*zt + 
+    #         S[5]*xt^2 + S[6]*xt*yt + S[7]*xt*zt + 
+    #         S[8]*yt^2 + S[9]*yt*zt + S[10]*zt^2
 
-        println(u)
-    end
+    #     println(u)
+    # end
 
-    # Passed the test
+    # Pre compute the quadratic basis function for the entire mesh
+    S = zeros(10, 10, mesh.nt)
+    @time for k in 1:mesh.nt
+        nds = @view mesh.t[:, k]
+
+        for i in 1:10
+            # a, b, c, ... of current node and element
+            S[:, i, k] = quadraticBasis(mesh, nds, nds[i])
+        end
+
+    end # Quadratic basis function for every node and element
+
+
+    # Quadratic Stiffness matrix (all nodes)
+    A = zeros(mesh.nv, mesh.nv)
+    @time for k in 1:mesh.nt
+        nds = @view mesh.t[:, k]
+
+        for i in 1:10
+            Si = @view S[:, i, k]
+            
+            for j in 1:10
+                Sj = @view S[:, j, k]
+
+                # 10 node quadrature
+                aux::Float64 = 0.0
+                for n in 1:10
+
+                    x::Float64 = mesh.p[1, nds[n]] 
+                    y::Float64 = mesh.p[2, nds[n]] 
+                    z::Float64 = mesh.p[3, nds[n]]
+                    
+                    dxi::Float64 = Si[2] + 2*Si[5] *x + Si[6]*y + Si[7]*z
+                    dyi::Float64 = Si[3] + 2*Si[8] *y + Si[6]*x + Si[9]*z
+                    dzi::Float64 = Si[4] + 2*Si[10]*z + Si[7]*x + Si[9]*y
+
+                    dxj::Float64 = Sj[2] + 2*Sj[5] *x + Sj[6]*y + Sj[7]*z
+                    dyj::Float64 = Sj[3] + 2*Sj[8] *y + Sj[6]*x + Sj[9]*z
+                    dzj::Float64 = Sj[4] + 2*Sj[10]*z + Sj[7]*x + Sj[9]*y
+
+                    aux += dxi*dxj + dyi*dyj + dzi*dzj
+                end 
+                aux /= 10
+
+                # temp[i,j] = mu[k]*aux*mesh.VE[k]
+                # temp[j,i] = temp[i,j] # It is symmetric
+            end
+        end
+
+    end # Local stiffness matrix
+
 
 
 end # main()
