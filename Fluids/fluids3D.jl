@@ -15,18 +15,21 @@ include("../src/Femeko.jl")
 
 function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
+    # Setup
+    viscosity = 1.0                   # Fluid viscosity
+    velocity::Vector{Float64} = [1.0, 
+                                 0.0,
+                                 0.0] # Inflow
+
+    # Create 3D model
     gmsh.initialize()
-
-    cells = []
+    cells = [] # Store the obstacles cell ID
     
-    # Add obstacle
-    addSphere([0,0,0], 1.0, cells)
+    addSphere([0,0,0], 1.0, cells)              # Add obstacle
+    box = addCuboid([0,0,0], [5.0, 20.0, 5.0])  # Add tube
 
-    # Add tube
-    box = addCuboid([0,0,0], [5.0, 20.0, 5.0])
-
-    # Unify the volumes for a single geometry and get the bounding shell
-    shell_id, box = unifyModel(cells, box)
+    # Unify the volumes for a single geometry
+    _, box = unifyModel(cells, box)
 
     # Generate Mesh
     mesh = Mesh(cells, meshSize, localSize, false, 2)
@@ -45,12 +48,9 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     end
     gmsh.finalize()
 
-
-    # mesh.edges # Global edge ID (mid-points)
-
     # Sort the quadratic mesh vertices and edge midpoints
-    # Vertices must start from 1 to 'nVertices'. Edge midpoints  must 
-    # start from 'nVertices'+1 to mesh.nv
+        # Vertices must start from 1 to 'nVertices'. Edge midpoints  must 
+        # start from 'nVertices'+1 to mesh.nv
 
     # 1st order element nodes
     vertices::Vector{Int32} = unique(mesh.t[1:4, :])
@@ -71,25 +71,12 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
         localNodeID[ID] = nVertices + i
     end
 
-
-    # # Testing quadratic basis function
-    # nds = @view mesh.t[:, 1] # All nodes of element
-        
     # # Target first node
+    # nds = @view mesh.t[:, 1] # All nodes of element
     # S = quadraticBasis(mesh, nds, nds[1])
-
-    # # Evaluate at target point:
-    # for i in 1:10
-    #     xt = mesh.p[1, nds[i]]
-    #     yt = mesh.p[2, nds[i]]
-    #     zt = mesh.p[3, nds[i]]
-
-    #     u = S[1] + S[2]*xt + S[3]*yt + S[4]*zt + 
-    #         S[5]*xt^2 + S[6]*xt*yt + S[7]*xt*zt + 
-    #         S[8]*yt^2 + S[9]*yt*zt + S[10]*zt^2
-
-    #     println(u)
-    # end
+    # u = S[1] + S[2]*xt + S[3]*yt + S[4]*zt + 
+    # S[5]*xt^2 + S[6]*xt*yt + S[7]*xt*zt + 
+    # S[8]*yt^2 + S[9]*yt*zt + S[10]*zt^2
 
     # Pre compute the quadratic basis function for the entire mesh
     S = zeros(10, 10, mesh.nt)
@@ -103,10 +90,15 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
     end # Quadratic basis function for every node and element
 
+    # Define the viscosity on each element of the mesh
+    mu::Vector{Float64} = zeros(mesh.nt) .+ viscosity
+    mu[mesh.InsideElements] .= 1e3*viscosity
 
     # Quadratic Stiffness matrix (all nodes)
     A = zeros(mesh.nv, mesh.nv)
-    @time for k in 1:mesh.nt
+    temp = zeros(10, 10) # Local element wise stiffness matrix
+
+    for k in 1:mesh.nt
         nds = @view mesh.t[:, k]
 
         for i in 1:10
@@ -135,10 +127,13 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
                 end 
                 aux /= 10
 
-                # temp[i,j] = mu[k]*aux*mesh.VE[k]
-                # temp[j,i] = temp[i,j] # It is symmetric
+                temp[i,j] = mesh.VE[k]*mu[k]*aux
+                temp[j,i] = temp[i,j] # Stiffness matrix is symmetric
             end
-        end
+        end # Local element wise stiffness matrix
+
+        # Update global stiffness matrix
+        A[nds, nds] += temp
 
     end # Local stiffness matrix
 
