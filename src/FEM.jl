@@ -497,7 +497,7 @@ function localDivergenceMatrix2D(mesh::MESH)
             end # Quadratic nodes loop
         end # Linear nodes loop
 
-        # Update local stiffness matrix
+        # Update local divergence matrix
         B1k[:,k] = vec(B1_local')
         B2k[:,k] = vec(B2_local')
 
