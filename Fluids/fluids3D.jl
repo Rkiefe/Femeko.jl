@@ -248,6 +248,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
     graph = scatter!(ax2, x, y, z
                      , color = p
+                     , markersize = 20
                      , colormap = :CMRmap  # :CMRmap :viridis :redsblues :turbo :rainbow
                     )
     
