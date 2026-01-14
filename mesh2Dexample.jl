@@ -38,7 +38,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     cells = occCut(cells, [2, id])
 
     # Generate mesh
-    meshExtend(0)
+    extendLocalRefinement(0)
 	mesh::MESH = Mesh2D(cells, meshSize, localSize)
 
 	println("\nBox cell ID: ", box)
