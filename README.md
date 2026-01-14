@@ -3,21 +3,19 @@ Creating a Finite Element simulation from scratch is unnecessarily complicated. 
 
 Femeko is my answer to "I want to make my own FEM, have full control over my implementation, but I want everything else related to FEM to be as easy as possible" (mesh generation, model handling and data structures).
 
-Powered by Gmsh, with Femeko you can import your CAD file (e.g.: .step) and generate a volume mesh with straightforward local refinement. For example:
+Femeko streamlines Gmsh functionality, making geometry handling and mesh generation more straightforward
 
 ```julia
     # Import cad file 
     importCAD("STEP_Models/Fennec_Fox.step")
 
-    # Generate tetrahedral mesh
-    mesh = Mesh(cells, meshSize, localSize, saveMesh)
+    # Generate a tetrahedral mesh
+    mesh = Mesh(cells, meshSize, localSize, saveMesh) # typeof(mesh) -> struct
 ```
-The `mesh` struct holds the mesh information in a digested format, such as node connectivity and node coordinates, element volume and surface element area, etc.
-
-You can access the node indices of the first element like this: `mesh.t[:,1]`, which would output a vector of 4 integers.
+The `mesh` struct holds the mesh information in a digested format, such as node connectivity and node coordinates, element volume and surface element area, etc. For example, you can access the 4 nodes of the first tetrahedron with `mesh.t[:, 1]`, which would output a vector of 4 integers; access the 3 nodes of the 2nd surface triangle with `mesh.surfaceT[1:3, 2]` and its corresponding boundary ID with `mesh.surfaceT[4, 2]` (the 4th row stores the IDs of each triangle).
 
 ## Femeko.jl currently has full fledged implementations for
-- Magnetostatics (magnetic materials under applied fields, permanent magnets, etc)
+- Magnetostatics (non-linear magnetic materials under applied fields, permanent magnets, etc)
 - Heat equation (with implicit time stepping)
 - Viscous fluid (incompressible, static)
 - Micromagnetics (both in time and steepest descent energy minimization)
