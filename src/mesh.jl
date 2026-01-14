@@ -493,7 +493,7 @@ function elementVolume(p,nds)
 end # Mesh element volume
 
 # Set mesh extension to on/off (default off)
-function meshExtend(value = 0)
+function extendLocalRefinement(value = 0)
     # 0 -> Dont extend mesh size, to prevent over-refinement inside entity
     # 1 -> Extend mesh refinement
     gmsh.option.setNumber("Mesh.MeshSizeFromPoints", value)

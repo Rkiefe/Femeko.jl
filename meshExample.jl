@@ -31,7 +31,7 @@ function userMade(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     internal_surfaces = [s[2] for s in internal_surfaces] # tag
 
     # Generate Mesh
-    meshExtend(0) # Extend or not the local refinement from the boundary to the volume
+    extendLocalRefinement(0) # Extend or not the local refinement from the boundary to the volume
     mesh = Mesh(cells, meshSize, localSize, saveMesh)
 
     println("\nOuter shell ID: ", shell_id)
