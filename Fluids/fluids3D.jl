@@ -46,13 +46,14 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     println("")
 
     if showGmsh
-        # gmsh.option.setNumber("Mesh.Clip", 1)
-        # gmsh.option.setNumber("Mesh.VolumeFaces", 1)
-        # gmsh.option.setNumber("General.ClipWholeElements", 1)
+        gmsh.option.setNumber("Mesh.Clip", 1)
+        gmsh.option.setNumber("Mesh.VolumeFaces", 1)
+        gmsh.option.setNumber("General.ClipWholeElements", 1)
         gmsh.fltk.run()
     end
 
     # Apply boundary conditions at ...
+    
     # Fluid intake
     inFlowNodes::Vector{Int32}, _, _ = gmsh.model.mesh.getNodes(2, inFlow) # 2 is for 3-node triangles
 
@@ -68,29 +69,13 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
     gmsh.finalize() # No more need for Gmsh
 
-    # # Test the wallNodes
-    # fig, ax, _ = scatter(mesh.p[1,:], mesh.p[2,:], mesh.p[3,:])
-    # scatter!(ax, mesh.p[1, wallNodes], mesh.p[2, wallNodes], mesh.p[3, wallNodes])
-    # wait(display(fig))
-    # # return
-
-    # # Test the inFlowNodes
-    # fig, ax, _ = scatter(mesh.p[1,:], mesh.p[2,:], mesh.p[3,:])
-    # scatter!(ax, mesh.p[1, inFlowNodes], mesh.p[2, inFlowNodes], mesh.p[3, inFlowNodes])
-    # wait(display(fig))
-    # return
-
-
-
     # Sort the quadratic mesh vertices and edge midpoints
         # Vertices must start from 1 to 'nVertices'. Edge midpoints  must 
         # start from 'nVertices'+1 to mesh.nv
 
-    # 1st order element nodes
+    # 1st order nodes
     vertices::Vector{Int32} = unique(mesh.t[1:4, :])
     nVertices::Int32 = length(vertices)
-    
-    # 2nd order element nodes -> mesh.edges::Vector{Int32}
     
     # Map the global Gmsh node IDs to a local ordered ID
     localNodeID::Vector{Int32} = zeros(mesh.nv)
@@ -126,6 +111,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
     # Quadratic Stiffness matrix (all nodes)
     A = spzeros(mesh.nv, mesh.nv)
+    # Ak = zeros(100, mesh.nt)
     temp = zeros(10, 10)     # Local element wise stiffness matrix
 
     @time for k in 1:mesh.nt
@@ -134,7 +120,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
         for i in 1:10
             Si = @view S[:, i, k]
             
-            for j in 1:10
+            for j in i:10
                 Sj = @view S[:, j, k]
 
                 # 10 node quadrature
@@ -158,7 +144,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
                 aux /= 10
 
                 temp[i,j] = mesh.VE[k]*mu[k]*aux
-                # temp[j,i] = temp[i,j] # Stiffness matrix is symmetric
+                temp[j,i] = temp[i,j] # Stiffness matrix is symmetric
             end
         end # Local element wise stiffness matrix
 
@@ -319,6 +305,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     ax2 = Axis3(fig[1,2], aspect=:data
                 , title="Velocity field"
               )
+    
     x = zeros(nVertices)
     y = zeros(nVertices)
     z = zeros(nVertices)
@@ -341,6 +328,6 @@ end # main()
 
 meshSize = 0.0
 localSize = 0.0
-showGmsh = false
+showGmsh = true
 
 main(meshSize, localSize, showGmsh)
