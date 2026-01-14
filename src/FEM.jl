@@ -59,6 +59,24 @@ function quadraticBasis2D(p::Matrix{Float64}, nodes::AbstractVector,nd::Int32)
     return S
 end
 
+# 3D quadratic basis function
+function quadraticBasis(mesh::MESH, nds, nd)
+
+    # f(x,y,z) = S[1] + S[2]*x + S[3]*y + S[4]*z 
+    #          + S[5]*x^2 + S[6]*x*y + S[7]*x*z
+    #          + S[8]*y^2 + S[9]*y*z + S[10]*z^2
+
+    nodes = nds[nds .!= nd] # All other nodes of the element
+
+    # x y z coordinates on the order 'nd' then the other 'nodes'
+    xo = @view mesh.p[1, [nd; nodes]]
+    yo = @view mesh.p[2, [nd; nodes]]
+    zo = @view mesh.p[3, [nd; nodes]]
+
+    S = [ones(10) xo yo zo xo.^2 xo.*yo xo.*zo yo.^2 yo.*zo zo.^2]\ [1.0; zeros(9)]
+
+    return S
+end
 
 # Sparse, global stiffness matrix
 function stiffnessMatrix(mesh::MESH, f::Vector{Float64}=ones(mesh.nt))
