@@ -110,7 +110,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     # mu[mesh.InsideElements] .= 1e3*viscosity
 
     # Quadratic Local Stiffness matrix
-    Ak = quadraticLocalStiffnessMatrix(mesh, S, mu)
+    Ak = @time quadraticLocalStiffnessMatrix(mesh, S, mu)
     
     # Global stiffness matrix
     A = spzeros(mesh.nv, mesh.nv)
@@ -124,71 +124,14 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
         end
     end    
 
-    # 3D Divergence matrix
-        
+    # Local 3D divergence matrix
+    B1k, B2k, B3k = @time localDivergenceMatrix(mesh, S)
+
     # Global Divergence matrix
     B1 = spzeros(nVertices, mesh.nv) # Vertices by Nodes
     B2 = spzeros(nVertices, mesh.nv) # ...
     B3 = spzeros(nVertices, mesh.nv) # ...
 
-    # Local divergence matrix
-    B1k = zeros(40, mesh.nt) # 4 by 10 by nt
-    B2k = zeros(40, mesh.nt) # ...
-    B3k = zeros(40, mesh.nt) # ...
-
-    # Local Divergence matrix
-    B1temp::Matrix{Float64} = zeros(4, 10) # Element wise matrix
-    B2temp::Matrix{Float64} = zeros(4, 10) # ...
-    B3temp::Matrix{Float64} = zeros(4, 10) # ...
-
-    @time for k in 1:mesh.nt
-        nds = @view mesh.t[:, k]
-
-        for i in 1:4
-            
-            a, b, c, d = abcd(mesh.p, nds[1:4], nds[i]) # Linear basis function
-            
-            for j in 1:10
-                Sj = @view S[:, j, k]
-                
-                # 10 Node quadrature
-                b1::Float64 = 0.0
-                b2::Float64 = 0.0
-                b3::Float64 = 0.0
-                for n in 1:10
-
-                    x = mesh.p[1, nds[n]]
-                    y = mesh.p[2, nds[n]]
-                    z = mesh.p[3, nds[n]]
-
-                    b1 -= (a + b*x + c*y + d*z)*                    # Linear
-                          (Sj[2] + 2*Sj[5] *x + Sj[6]*y + Sj[7]*z)  # Quadratic
-                    
-                    b2 -= (a + b*x + c*y + d*z)*                    # Linear
-                          (Sj[3] + 2*Sj[8] *y + Sj[6]*x + Sj[9]*z)  # Quadratic
-
-                    b3 -= (a + b*x + c*y + d*z)*                    # Linear
-                          (Sj[4] + 2*Sj[10]*z + Sj[7]*x + Sj[9]*y)  # Quadratic
-
-
-                end # 10 node quadrature (quadratic nodes)
-
-                # Element wise divergence matrix
-                B1temp[i, j] = mesh.VE[k]*b1/10
-                B2temp[i, j] = mesh.VE[k]*b2/10
-                B3temp[i, j] = mesh.VE[k]*b3/10
-
-            end # Quadratic nodes loop
-        end # Linear nodes loop
-
-        # Update local divergence matrix
-        B1k[:, k] = vec(B1temp')
-        B2k[:, k] = vec(B2temp')
-        B3k[:, k] = vec(B3temp')
-
-    end # Local divergence matrix
-
-    # Update global divergence matrix
     n = 0
     for i in 1:4
         iLocal = localNodeID[mesh.t[i, :]]
@@ -199,16 +142,14 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
             B1 += sparse(iLocal, jLocal, B1k[n, :], nVertices, mesh.nv)
             B2 += sparse(iLocal, jLocal, B2k[n, :], nVertices, mesh.nv)
             B3 += sparse(iLocal, jLocal, B3k[n, :], nVertices, mesh.nv)
-
         end
     end # Update global divergence matrix
 
-
-    # # Full matrix
-    LHS =  [A zeros(mesh.nv, mesh.nv) zeros(mesh.nv, mesh.nv) B1'; 
-            zeros(mesh.nv, mesh.nv) A zeros(mesh.nv, mesh.nv) B2';
-            zeros(mesh.nv, mesh.nv) zeros(mesh.nv, mesh.nv) A B3';
-            B1 B2 B3 zeros(nVertices, nVertices)]
+    # Full matrix
+    LHS =  [A spzeros(mesh.nv, mesh.nv) spzeros(mesh.nv, mesh.nv) B1'; 
+            spzeros(mesh.nv, mesh.nv) A spzeros(mesh.nv, mesh.nv) B2';
+            spzeros(mesh.nv, mesh.nv) spzeros(mesh.nv, mesh.nv) A B3';
+            B1 B2 B3 spzeros(nVertices, nVertices)]
 
     # Schematic of the 2D equation to help build the 3D case
     # |A  0  B1| |ux| = f

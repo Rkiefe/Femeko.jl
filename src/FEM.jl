@@ -409,6 +409,129 @@ function quadraticLocalStiffnessMatrix2D(mesh::MESH, mu::Vector{Float64})
     return Ak
 end
 
+function quadraticLocalStiffnessMatrix(mesh::MESH
+                                       , S # Quadratic basis functions for every node and element
+                                       , mu::Vector{Float64} = ones(mesh.nt) # Viscosity
+                                      )
+# S -> quadratic basis function. 10 by 10 by nt
+# S[:, 1, 2] is the coef. of the basis function for the node 1 on
+# the second tetrahedron
+
+    Ak::Matrix{Float64} = zeros(100, mesh.nt)
+    temp::Matrix{Float64} = zeros(10, 10)     # Local element wise stiffness matrix
+
+    for k in 1:mesh.nt
+        nds = @view mesh.t[:, k]
+
+        for i in 1:10
+            Si = @view S[:, i, k]
+            
+            for j in i:10
+                Sj = @view S[:, j, k]
+
+                # 10 node quadrature
+                aux::Float64 = 0.0
+                for n in 1:10
+
+                    x::Float64 = mesh.p[1, nds[n]] 
+                    y::Float64 = mesh.p[2, nds[n]] 
+                    z::Float64 = mesh.p[3, nds[n]]
+                    
+                    dxi::Float64 = Si[2] + 2*Si[5] *x + Si[6]*y + Si[7]*z
+                    dyi::Float64 = Si[3] + 2*Si[8] *y + Si[6]*x + Si[9]*z
+                    dzi::Float64 = Si[4] + 2*Si[10]*z + Si[7]*x + Si[9]*y
+
+                    dxj::Float64 = Sj[2] + 2*Sj[5] *x + Sj[6]*y + Sj[7]*z
+                    dyj::Float64 = Sj[3] + 2*Sj[8] *y + Sj[6]*x + Sj[9]*z
+                    dzj::Float64 = Sj[4] + 2*Sj[10]*z + Sj[7]*x + Sj[9]*y
+
+                    aux += dxi*dxj + dyi*dyj + dzi*dzj
+                end 
+                aux /= 10
+
+                temp[i,j] = mesh.VE[k]*mu[k]*aux
+                temp[j,i] = temp[i,j] # Stiffness matrix is symmetric
+            end
+        end # Local element wise stiffness matrix
+
+        # Update the local stiffness matrix
+        Ak[:, k] = vec(temp)
+
+    end # Local stiffness matrix
+
+    return Ak
+
+end # Quadratic order, element-wise stiffness matrix
+
+# Local element-wise divergence matrix
+function localDivergenceMatrix(mesh::MESH, S)
+    
+    # Considering a combination of linear and quadratic Lagrange elements
+
+    # S -> quadratic basis function. 10 by 10 by nt
+    # S[:, 1, 2] is the coef. of the basis function for the node 1 on
+    # the second tetrahedron
+
+    # Local divergence matrix
+    B1k::Matrix{Float64} = zeros(40, mesh.nt) # 4 by 10 by nt
+    B2k::Matrix{Float64} = zeros(40, mesh.nt) # ...
+    B3k::Matrix{Float64} = zeros(40, mesh.nt) # ...
+
+    # Local Divergence matrix
+    B1temp::Matrix{Float64} = zeros(4, 10) # Element wise matrix
+    B2temp::Matrix{Float64} = zeros(4, 10) # ...
+    B3temp::Matrix{Float64} = zeros(4, 10) # ...
+
+    for k in 1:mesh.nt
+        nds = @view mesh.t[:, k]
+
+        for i in 1:4
+            a, b, c, d = abcd(mesh.p, nds[1:4], nds[i]) # Linear basis function
+            
+            for j in 1:10
+                Sj = @view S[:, j, k]
+                
+                # 10 Node quadrature
+                b1::Float64 = 0.0
+                b2::Float64 = 0.0
+                b3::Float64 = 0.0
+                for n in 1:10
+
+                    x::Float64 = mesh.p[1, nds[n]]
+                    y::Float64 = mesh.p[2, nds[n]]
+                    z::Float64 = mesh.p[3, nds[n]]
+
+                    b1 -= (a + b*x + c*y + d*z)*                    # Linear
+                          (Sj[2] + 2*Sj[5] *x + Sj[6]*y + Sj[7]*z)  # Quadratic
+                    
+                    b2 -= (a + b*x + c*y + d*z)*                    # Linear
+                          (Sj[3] + 2*Sj[8] *y + Sj[6]*x + Sj[9]*z)  # Quadratic
+
+                    b3 -= (a + b*x + c*y + d*z)*                    # Linear
+                          (Sj[4] + 2*Sj[10]*z + Sj[7]*x + Sj[9]*y)  # Quadratic
+
+
+                end # 10 node quadrature (quadratic nodes)
+
+                # Element wise divergence matrix
+                B1temp[i, j] = mesh.VE[k]*b1/10
+                B2temp[i, j] = mesh.VE[k]*b2/10
+                B3temp[i, j] = mesh.VE[k]*b3/10
+
+            end # Quadratic nodes loop
+        end # Linear nodes loop
+
+        # Update local divergence matrix
+        B1k[:, k] = vec(B1temp')
+        B2k[:, k] = vec(B2temp')
+        B3k[:, k] = vec(B3temp')
+    
+    end # Loop over the elements
+
+    return B1k, B2k, B3k
+
+end # Divergence matrix
+
 function massMatrix2D(mesh::MESH)
     Mlocal::Matrix{Float64} = 1/12 *[2 1 1;
                                      1 2 1;
