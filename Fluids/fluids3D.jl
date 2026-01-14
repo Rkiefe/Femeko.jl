@@ -7,8 +7,6 @@
     The implementation considers mixed-elements. The pressure is defined
     over linear lagrange elements, and the velocity is defined over
     quadratic lagrange elements.
-
-    WARNING: Currently not working
 =#
 
 
@@ -25,8 +23,8 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
     # Boundary surface IDs 
     inFlow = 4
-    walls = 2
-    # outFlow = 3
+    walls = [1, 2]
+    outFlow = 3
 
     # Create 3D model
     gmsh.initialize()
@@ -56,7 +54,25 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
     # Apply boundary conditions at ...
     # Fluid intake
-    inFlowNodes::Vector{Int32}, _, _ = gmsh.model.mesh.getNodes(2, inFlow, true) # 2 is for 3-node triangles
+    inFlowNodes::Vector{Int32}, _, _ = gmsh.model.mesh.getNodes(2, inFlow) # 2 is for 3-node triangles
+
+    # Walls (no-slip)
+    wallNodes::Vector{Int32} = Int32[]
+    for id in walls
+        nodes::Vector{Int32}, _, _ = gmsh.model.mesh.getNodes(2, id, true) # 2 is for 3-node triangles, true -> include the boundary
+        append!(wallNodes, nodes)
+    end
+
+    # Remove the overlapping nodes
+    inFlowNodes = setdiff(inFlowNodes, wallNodes)
+
+    gmsh.finalize() # No more need for Gmsh
+
+    # # Test the wallNodes
+    # fig, ax, _ = scatter(mesh.p[1,:], mesh.p[2,:], mesh.p[3,:])
+    # scatter!(ax, mesh.p[1, wallNodes], mesh.p[2, wallNodes], mesh.p[3, wallNodes])
+    # wait(display(fig))
+    # # return
 
     # # Test the inFlowNodes
     # fig, ax, _ = scatter(mesh.p[1,:], mesh.p[2,:], mesh.p[3,:])
@@ -64,20 +80,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     # wait(display(fig))
     # return
 
-    # Walls (no-slip)
-    wallNodes::Vector{Int32} = Int32[]
-    for id in walls
-        nodes::Vector{Int32}, _, _ = gmsh.model.mesh.getNodes(2, id, true) # 2 is for 3-node triangles
-        append!(wallNodes, nodes)
-    end
 
-    # # Test the wallNodes
-    # fig, ax, _ = scatter(mesh.p[1,:], mesh.p[2,:], mesh.p[3,:])
-    # scatter!(ax, mesh.p[1, wallNodes], mesh.p[2, wallNodes], mesh.p[3, wallNodes])
-    # wait(display(fig))
-    # return
-
-    gmsh.finalize()
 
     # Sort the quadratic mesh vertices and edge midpoints
         # Vertices must start from 1 to 'nVertices'. Edge midpoints  must 
@@ -102,6 +105,9 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
         localNodeID[ID] = nVertices + i
     end
 
+    # This way the P1 nodes are from 1 to nVertices, 
+    # the P2 nodes are from nVertices+1 to mesh.nv
+
     # Pre compute the quadratic basis function for the entire mesh
     S = zeros(10, 10, mesh.nt)
     @time for k in 1:mesh.nt
@@ -116,11 +122,10 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
     # Define the viscosity on each element of the mesh
     mu::Vector{Float64} = zeros(mesh.nt) .+ viscosity
-    mu[mesh.InsideElements] .= 1e3*viscosity
+    # mu[mesh.InsideElements] .= 1e3*viscosity
 
     # Quadratic Stiffness matrix (all nodes)
     A = spzeros(mesh.nv, mesh.nv)
-    # Ak = zeros(100, mesh.nt) # Local stiffness matrix
     temp = zeros(10, 10)     # Local element wise stiffness matrix
 
     @time for k in 1:mesh.nt
@@ -136,9 +141,9 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
                 aux::Float64 = 0.0
                 for n in 1:10
 
-                    x::Float64 = mesh.p[1, nds[n]] 
-                    y::Float64 = mesh.p[2, nds[n]] 
-                    z::Float64 = mesh.p[3, nds[n]]
+                    x = mesh.p[1, nds[n]] 
+                    y = mesh.p[2, nds[n]] 
+                    z = mesh.p[3, nds[n]]
                     
                     dxi::Float64 = Si[2] + 2*Si[5] *x + Si[6]*y + Si[7]*z
                     dyi::Float64 = Si[3] + 2*Si[8] *y + Si[6]*x + Si[9]*z
@@ -153,7 +158,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
                 aux /= 10
 
                 temp[i,j] = mesh.VE[k]*mu[k]*aux
-                temp[j,i] = temp[i,j] # Stiffness matrix is symmetric
+                # temp[j,i] = temp[i,j] # Stiffness matrix is symmetric
             end
         end # Local element wise stiffness matrix
 
@@ -170,10 +175,6 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     B3 = zeros(nVertices, mesh.nv) # ...
 
     # Local Divergence matrix
-    B1k::Matrix{Float64} = zeros(40, mesh.nt) # 4 vertices by 10 nodes by nt elements
-    B2k::Matrix{Float64} = zeros(40, mesh.nt) # ...
-    B3k::Matrix{Float64} = zeros(40, mesh.nt) # ...
-
     B1temp::Matrix{Float64} = zeros(4, 10) # Element wise matrix
     B2temp::Matrix{Float64} = zeros(4, 10) # ...
     B3temp::Matrix{Float64} = zeros(4, 10) # ...
@@ -185,7 +186,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
             
             a, b, c, d = abcd(mesh.p, nds[1:4], nds[i]) # Linear basis function
             
-            for j in 1:6
+            for j in 1:10
                 Sj = @view S[:, j, k]
                 
                 # 10 Node quadrature
@@ -223,38 +224,32 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
         B2[localNodeID[nds[1:4]], localNodeID[nds[1:10]]] += B2temp
         B3[localNodeID[nds[1:4]], localNodeID[nds[1:10]]] += B3temp
 
-        # Update local divergence matrix
-        # B1k[:, k] = vec(B1temp')
-        # B2k[:, k] = vec(B2temp')
-        # B3k[:, k] = vec(B3temp')
-
     end # Local divergence matrix
 
 
     # # Full matrix
-    LHS =  [A spzeros(mesh.nv, mesh.nv) spzeros(mesh.nv, mesh.nv) B1'; 
-            spzeros(mesh.nv, mesh.nv) A spzeros(mesh.nv, mesh.nv) B2';
-            spzeros(mesh.nv, mesh.nv) spzeros(mesh.nv, mesh.nv) A B3';
-            B1 B2 B3 spzeros(nVertices, nVertices)]
+    LHS =  [A zeros(mesh.nv, mesh.nv) zeros(mesh.nv, mesh.nv) B1'; 
+            zeros(mesh.nv, mesh.nv) A zeros(mesh.nv, mesh.nv) B2';
+            zeros(mesh.nv, mesh.nv) zeros(mesh.nv, mesh.nv) A B3';
+            B1 B2 B3 zeros(nVertices, nVertices)]
 
-    # Schematic of the 2D equation
+    # Schematic of the 2D equation to help build the 3D case
     # |A  0  B1| |ux| = f
     # |0  A  B2| |uy|
     # |B1 B2 0 | |p |
 
     # Nodes with boundary conditions
     fixed = [
-             # Velocity.xyz on the inFlow
-             localNodeID[inFlowNodes];              
-             localNodeID[inFlowNodes] .+ mesh.nv;
-             localNodeID[inFlowNodes] .+ 2*mesh.nv;
 
-             # Velocity.xyz on the walls
-             localNodeID[wallNodes];
-             localNodeID[wallNodes] .+ mesh.nv;
-             localNodeID[wallNodes] .+ 2*mesh.nv;
+            # Velocity field
+             localNodeID[inFlowNodes];              # .x              
+             localNodeID[wallNodes];                # .x
 
-             # No restraint on pressure
+             mesh.nv .+ localNodeID[inFlowNodes];   # .y
+             mesh.nv .+ localNodeID[wallNodes];     # .y
+
+             2*mesh.nv .+ localNodeID[inFlowNodes]; # .z
+             2*mesh.nv .+ localNodeID[wallNodes];   # .z
             ]
 
     DOF = 3*mesh.nv + nVertices # 3D vector field + Scalar field
@@ -263,9 +258,8 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     # Define boundary conditions 
     gD::Vector{Float64} = zeros(DOF)
 
-    # Velocity
     gD[localNodeID[inFlowNodes]]              .= velocity[1]
-    gD[mesh.nv .+ localNodeID[inFlowNodes]]   .= velocity[2]
+    gD[mesh.nv   .+ localNodeID[inFlowNodes]] .= velocity[2]
     gD[2*mesh.nv .+ localNodeID[inFlowNodes]] .= velocity[3]
 
     # Apply the boundary conditions
@@ -283,7 +277,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     u[3, :] .= UP[2*mesh.nv+1:3*mesh.nv]
 
     # Pressure (defined on the local node IDs)
-    p::Vector{Float64} = UP[3*mesh.nv.+(1:nVertices)]
+    p::Vector{Float64} = UP[3*mesh.nv .+ (1:nVertices)]
 
     # Norm of velocity (defined on the local node IDs)
     uNorm::Vector{Float64} = zeros(mesh.nv)
@@ -292,6 +286,15 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     end
 
     # Convert x,y,z coordinates to local node IDs
+
+    # Plot result
+    println("Generating plots...")
+    fig = Figure()
+    ax = Axis3(fig[1,1], aspect=:data
+                , title="Velocity field"
+              )
+
+    # Velocity vector field
     x = zeros(mesh.nv)
     y = zeros(mesh.nv)
     z = zeros(mesh.nv)
@@ -300,26 +303,41 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     y[localNodeID[1:mesh.nv]] .= mesh.p[2, :]
     z[localNodeID[1:mesh.nv]] .= mesh.p[3, :]
 
-    # Plot result
-    println("Generating plots...")
-    fig = Figure()
-    ax = Axis3(fig[1,1], aspect=:data, title="Velocity field")
-
     graph = arrows3d!(  ax
                         , x, y, z
                         , u[1, :]
                         , u[2, :]
                         , u[3, :]
                         , color = uNorm
-                        # , lengthscale = 0.1
+                        , lengthscale = 0.5
                         , colormap = :CMRmap,  # :CMRmap :viridis :redsblues :turbo :rainbow
                       )
+    Colorbar(fig[2, 1], graph, 
+             label = "Velocity", vertical = false)
 
+    # Pressure plot
+    ax2 = Axis3(fig[1,2], aspect=:data
+                , title="Velocity field"
+              )
+    x = zeros(nVertices)
+    y = zeros(nVertices)
+    z = zeros(nVertices)
+
+    x[localNodeID[vertices]] .= mesh.p[1, vertices]
+    y[localNodeID[vertices]] .= mesh.p[2, vertices]
+    z[localNodeID[vertices]] .= mesh.p[3, vertices]
+
+    graph = scatter!(ax2, x, y, z
+                     , color = p
+                     , colormap = :CMRmap  # :CMRmap :viridis :redsblues :turbo :rainbow
+                    )
+    
+    Colorbar(fig[2, 2], graph, 
+             label = "Pressure", vertical = false)
+    
     wait(display(fig))
 
 end # main()
-
-
 
 meshSize = 0.0
 localSize = 0.0
