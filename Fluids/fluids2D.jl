@@ -59,7 +59,7 @@ function fluid2D(mesh::MESH, velocity::Vector{Float64}, mu::Vector{Float64}, inF
     # No-slip boundary conditions
     wallNodes::Vector{Int32} = Int32[]
     for id in walls
-        nodes::Vector{Int32}, _, _ = gmsh.model.mesh.getNodes(1, id)
+        nodes::Vector{Int32}, _, _ = gmsh.model.mesh.getNodes(1, id, true)
         append!(wallNodes, nodes)
     end
 
