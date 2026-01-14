@@ -109,54 +109,11 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     mu::Vector{Float64} = zeros(mesh.nt) .+ viscosity
     # mu[mesh.InsideElements] .= 1e3*viscosity
 
-    # Quadratic Stiffness matrix (all nodes)
+    # Quadratic Local Stiffness matrix
+    Ak = quadraticLocalStiffnessMatrix(mesh, S, mu)
+    
+    # Global stiffness matrix
     A = spzeros(mesh.nv, mesh.nv)
-    Ak = zeros(100, mesh.nt)
-    temp = zeros(10, 10)     # Local element wise stiffness matrix
-
-    @time for k in 1:mesh.nt
-        nds = @view mesh.t[:, k]
-
-        for i in 1:10
-            Si = @view S[:, i, k]
-            
-            for j in i:10
-                Sj = @view S[:, j, k]
-
-                # 10 node quadrature
-                aux::Float64 = 0.0
-                for n in 1:10
-
-                    x = mesh.p[1, nds[n]] 
-                    y = mesh.p[2, nds[n]] 
-                    z = mesh.p[3, nds[n]]
-                    
-                    dxi::Float64 = Si[2] + 2*Si[5] *x + Si[6]*y + Si[7]*z
-                    dyi::Float64 = Si[3] + 2*Si[8] *y + Si[6]*x + Si[9]*z
-                    dzi::Float64 = Si[4] + 2*Si[10]*z + Si[7]*x + Si[9]*y
-
-                    dxj::Float64 = Sj[2] + 2*Sj[5] *x + Sj[6]*y + Sj[7]*z
-                    dyj::Float64 = Sj[3] + 2*Sj[8] *y + Sj[6]*x + Sj[9]*z
-                    dzj::Float64 = Sj[4] + 2*Sj[10]*z + Sj[7]*x + Sj[9]*y
-
-                    aux += dxi*dxj + dyi*dyj + dzi*dzj
-                end 
-                aux /= 10
-
-                temp[i,j] = mesh.VE[k]*mu[k]*aux
-                temp[j,i] = temp[i,j] # Stiffness matrix is symmetric
-            end
-        end # Local element wise stiffness matrix
-
-        # Update the local stiffness matrix
-        Ak[:, k] = vec(temp)
-
-        # # Update global stiffness matrix
-        # A[localNodeID[nds], localNodeID[nds]] += temp
-
-    end # Local stiffness matrix
-
-    # Update the global stiffness matrix
     n = 0
     for i in 1:10
         iLocal = localNodeID[mesh.t[i, :]]
@@ -167,20 +124,24 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
         end
     end    
 
-
     # 3D Divergence matrix
         
     # Global Divergence matrix
-    B1 = zeros(nVertices, mesh.nv) # Vertices by Nodes
-    B2 = zeros(nVertices, mesh.nv) # ...
-    B3 = zeros(nVertices, mesh.nv) # ...
+    B1 = spzeros(nVertices, mesh.nv) # Vertices by Nodes
+    B2 = spzeros(nVertices, mesh.nv) # ...
+    B3 = spzeros(nVertices, mesh.nv) # ...
+
+    # Local divergence matrix
+    B1k = zeros(40, mesh.nt) # 4 by 10 by nt
+    B2k = zeros(40, mesh.nt) # ...
+    B3k = zeros(40, mesh.nt) # ...
 
     # Local Divergence matrix
     B1temp::Matrix{Float64} = zeros(4, 10) # Element wise matrix
     B2temp::Matrix{Float64} = zeros(4, 10) # ...
     B3temp::Matrix{Float64} = zeros(4, 10) # ...
 
-    for k in 1:mesh.nt
+    @time for k in 1:mesh.nt
         nds = @view mesh.t[:, k]
 
         for i in 1:4
@@ -220,12 +181,27 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
             end # Quadratic nodes loop
         end # Linear nodes loop
 
-        # Update global divergence matrix
-        B1[localNodeID[nds[1:4]], localNodeID[nds[1:10]]] += B1temp
-        B2[localNodeID[nds[1:4]], localNodeID[nds[1:10]]] += B2temp
-        B3[localNodeID[nds[1:4]], localNodeID[nds[1:10]]] += B3temp
+        # Update local divergence matrix
+        B1k[:, k] = vec(B1temp')
+        B2k[:, k] = vec(B2temp')
+        B3k[:, k] = vec(B3temp')
 
     end # Local divergence matrix
+
+    # Update global divergence matrix
+    n = 0
+    for i in 1:4
+        iLocal = localNodeID[mesh.t[i, :]]
+        for j in 1:10
+            n += 1
+
+            jLocal = localNodeID[mesh.t[j, :]]
+            B1 += sparse(iLocal, jLocal, B1k[n, :], nVertices, mesh.nv)
+            B2 += sparse(iLocal, jLocal, B2k[n, :], nVertices, mesh.nv)
+            B3 += sparse(iLocal, jLocal, B3k[n, :], nVertices, mesh.nv)
+
+        end
+    end # Update global divergence matrix
 
 
     # # Full matrix
@@ -343,6 +319,6 @@ end # main()
 
 meshSize = 0.0
 localSize = 0.0
-showGmsh = true
+showGmsh = false
 
 main(meshSize, localSize, showGmsh)
