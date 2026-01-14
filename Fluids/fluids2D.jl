@@ -3,6 +3,10 @@
 
     Gets the static velocity and pressure of a viscous fluid
     flowing around an obstacle, following the stokes equation
+
+    The implementation considers mixed-elements. The pressure is defined
+    over linear lagrange elements, and the velocity is defined over
+    quadratic lagrange elements.
 =#
 
 include("../src/Femeko.jl")
@@ -14,6 +18,7 @@ function fluid2D(mesh::MESH, velocity::Vector{Float64}, mu::Vector{Float64}, inF
 
     # Gmsh orders the nodes arbitrarily
     # So I have to re-label the vertices and the midpoints
+    # because the velocity and pressure are solved in different basis
     vertexID::Vector{Int32}, nVertices::Int32 = sortMeshNodes2D(mesh)
 
     println("Building stiffness matrix")
