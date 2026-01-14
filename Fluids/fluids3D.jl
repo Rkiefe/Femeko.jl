@@ -111,7 +111,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
     # Quadratic Stiffness matrix (all nodes)
     A = spzeros(mesh.nv, mesh.nv)
-    # Ak = zeros(100, mesh.nt)
+    Ak = zeros(100, mesh.nt)
     temp = zeros(10, 10)     # Local element wise stiffness matrix
 
     @time for k in 1:mesh.nt
@@ -148,10 +148,25 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
             end
         end # Local element wise stiffness matrix
 
-        # Update global stiffness matrix
-        A[localNodeID[nds], localNodeID[nds]] += temp
+        # Update the local stiffness matrix
+        Ak[:, k] = vec(temp)
+
+        # # Update global stiffness matrix
+        # A[localNodeID[nds], localNodeID[nds]] += temp
 
     end # Local stiffness matrix
+
+    # Update the global stiffness matrix
+    n = 0
+    for i in 1:10
+        iLocal = localNodeID[mesh.t[i, :]]
+        for j in 1:10
+            jLocal = localNodeID[mesh.t[j, :]]
+            n += 1
+            A += sparse(iLocal, jLocal, Ak[n, :], mesh.nv, mesh.nv)
+        end
+    end    
+
 
     # 3D Divergence matrix
         
