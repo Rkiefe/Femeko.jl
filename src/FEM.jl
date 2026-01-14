@@ -60,7 +60,7 @@ function quadraticBasis2D(p::Matrix{Float64}, nodes::AbstractVector,nd::Int32)
 end
 
 # 3D quadratic basis function
-function quadraticBasis(mesh::MESH, nds::AbstractVector, nd::Int)
+function quadraticBasis(mesh::MESH, nds::AbstractVector, nd::Integer)
 
     # f(x,y,z) = S[1] + S[2]*x + S[3]*y + S[4]*z 
     #          + S[5]*x^2 + S[6]*x*y + S[7]*x*z
