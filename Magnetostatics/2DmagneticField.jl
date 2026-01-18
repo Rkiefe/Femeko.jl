@@ -6,6 +6,8 @@
 include("../src/Femeko.jl")
 include("../src/magneticProperties.jl")
 
+using IterativeSolvers
+
 using GLMakie
 
 function main(meshSize=0.0, localSize=0.0, showGmsh=false)
@@ -24,7 +26,6 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     depth = 1e-3 # 1 mm , same as FEMM default
 
     # Convergence criteria
-    picardDeviation::Float64 = 1e-4
     maxDeviation::Float64 = 1e-6
     maxAtt::Int32 = 10
     relax::Float64 = 1.0 # Relaxation factor for N-R ]0, 1.0]
@@ -46,17 +47,16 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     # Create model
     gmsh.initialize()
 
-    cells = []
+    cells = [] # Store the cell IDs (dim, tag)
 
     # Add a 2D rectangle
     # id = addRectangle([0,0,0], [0.25, 1], cells)
     id = addDisk([0,0,0], 1.0, cells)
 
     # Add a container
-    # box = addRectangle([0,0,0], [2, 4])
     box = addDisk([0,0,0], 5.0)
 
-    # Combine the geometries
+    # Combine the geometries to make a conforming mesh
     shell_id, box = unifyModel(cells, box)
 
     # Generate mesh
@@ -99,7 +99,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
         nds = @view mesh.surfaceT[:, e]
 
         # Length of the edge
-        l::Float64 = mesh.AE[e] # norm(mesh.p[:,nds[2]] - mesh.p[:,nds[1]])
+        l::Float64 = mesh.AE[e]
 
         RHS[nds[1]] = RHS[nds[1]] + 0.5*l*bc[e]
         RHS[nds[2]] = RHS[nds[2]] + 0.5*l*bc[e]
@@ -116,7 +116,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     mu::Vector{Float64} = zeros(mesh.nt) .+ mu0
 
     # Magnetic scalar potential
-    u::Vector{Float64} = zeros(mesh.nv+1)
+    u::Vector{Float64} = zeros(mesh.nv)
     
     # Magnetic field
     Hfield::Matrix{Float64} = zeros(2, mesh.nt)
@@ -125,8 +125,8 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     
     # Picard iteration to handle non-linear material
     att::Int32 = 0
-    div::Float64 = maxDeviation + 1.0
-    while div > picardDeviation && att < maxAtt 
+    div::Float64 = Inf
+    while div > maxDeviation && att < maxAtt 
 
         att += 1
         Hold .= H
@@ -135,7 +135,8 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
         A = stiffnessMatrix2D(mesh, mu)
 
         # Magnetic scalar potential
-        u = [A Lag;Lag' 0]\[RHS;0]
+        # u = [A Lag;Lag' 0]\[RHS;0]
+        u = cg(A, RHS)
 
         # Magnetic field
         Hfield .= 0.0
