@@ -11,6 +11,7 @@
 
 
 include("../src/Femeko.jl")
+using IterativeSolvers
 using GLMakie
 
 function main(meshSize=0.0, localSize=0.0, showGmsh=false)
@@ -186,7 +187,8 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     # Solve for the velocity and pressure (u and p)
     UP::Vector{Float64} = zeros(DOF)
     UP[fixed] .= gD[fixed]
-    UP[free] = LHS[free, free]\RHS    
+    # UP[free] = LHS[free, free]\RHS
+    UP[free] = cg(LHS[free, free], RHS)
 
     # Velocity (defined on the local node IDs)
     u::Matrix{Float64} = zeros(3, mesh.nv)
