@@ -362,11 +362,14 @@ function Mesh2D(cells, meshSize=0.0, localSize=0.0, order::Int=1, saveMesh=false
                                     mesh.p[3,nds])
     end
 
-    # Normal to each edge
+    # Edge normal and length
     mesh.normal = zeros(2, mesh.ns)
+    mesh.AE = zeros(mesh.ns)
     for e in 1:mesh.ns
         nds = @view mesh.surfaceT[1:2, e]
         mesh.normal[:, e] = normalEdge(mesh.p, nds)
+
+        mesh.AE[e] = norm(mesh.p[1:2, nds[2]] - mesh.p[1:2, nds[1]])
     end
 
     # Save mesh 
