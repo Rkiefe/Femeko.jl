@@ -196,7 +196,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
                         Bfield[1, :], Bfield[2, :]
                         , color = B
                         , lengthscale = 0.1
-                        , colormap = :redsblues,  # :CMRmap :viridis :redsblues :turbo :rainbow
+                        , colormap = :rainbow,  # :CMRmap :viridis :redsblues :turbo :rainbow
                     )
 
     Colorbar(fig[1, 2], graph, label="B field")
