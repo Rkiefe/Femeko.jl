@@ -99,7 +99,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
         nds = @view mesh.surfaceT[:, e]
 
         # Length of the edge
-        l::Float64 = norm(mesh.p[:,nds[2]] - mesh.p[:,nds[1]])
+        l::Float64 = mesh.AE[e] # norm(mesh.p[:,nds[2]] - mesh.p[:,nds[1]])
 
         RHS[nds[1]] = RHS[nds[1]] + 0.5*l*bc[e]
         RHS[nds[2]] = RHS[nds[2]] + 0.5*l*bc[e]
@@ -119,7 +119,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     u::Vector{Float64} = zeros(mesh.nv+1)
     
     # Magnetic field
-    H_field::Matrix{Float64} = zeros(mesh.nt, 2)
+    Hfield::Matrix{Float64} = zeros(2, mesh.nt)
     H::Vector{Float64} = zeros(mesh.nt)
     Hold::Vector{Float64} = zeros(mesh.nt)
     
@@ -135,10 +135,10 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
         A = stiffnessMatrix2D(mesh, mu)
 
         # Magnetic scalar potential
-        u = [A Lag;Lag' 0]\[-RHS;0]
+        u = [A Lag;Lag' 0]\[RHS;0]
 
         # Magnetic field
-        H_field .= 0.0
+        Hfield .= 0.0
         for k in 1:mesh.nt
             nds = @view mesh.t[:,k];
 
@@ -147,14 +147,14 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
                 # obtain the element parameters
                 _, bi, ci = abc(mesh.p, nds, nd)
 
-                H_field[k,1] -= u[nd]*bi;
-                H_field[k,2] -= u[nd]*ci;
+                Hfield[1, k] -= u[nd]*bi;
+                Hfield[2, k] -= u[nd]*ci;
             end
         end
 
         # Magnetic field intensity
         for k in 1:mesh.nt
-            H[k] = norm(H_field[k,:])
+            H[k] = norm(Hfield[:, k])
         end
 
         # Update magnetic permeability
@@ -175,7 +175,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
 
     # Magnetic flux density
-    B_field::Matrix{Float64} = mu.*H_field
+    Bfield::Matrix{Float64} = mu' .*Hfield
     B::Vector{Float64} = mu.*H
 
     # Calculate the magnetostatic energy
@@ -186,23 +186,28 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
     println("Energy: ",energy, " J")
 
-
     # Plot result | Uncomment "using GLMakie"
+    println("Generating plots...")
     fig = Figure()
-    ax = Axis(fig[1, 1], aspect = DataAspect(), title="Magnetic field H")
+    ax = Axis(fig[1, 1], aspect = DataAspect(), title="Magnetic field B")
 
-    scatterPlot = scatter!(ax, 
-        centroids[1,mesh.InsideElements],
-        centroids[2,mesh.InsideElements],
-        color = mu0.*H[mesh.InsideElements], 
-        colormap=:rainbow, 
-        markersize=20) # 20 .* mesh.VE[mesh.InsideElements]./maximum(mesh.VE[mesh.InsideElements])
+    graph = arrows2d!(  ax,
+                        centroids[1, :], centroids[2, :],
+                        Bfield[1, :], Bfield[2, :]
+                        , color = B
+                        , lengthscale = 0.1
+                        , colormap = :redsblues,  # :CMRmap :viridis :redsblues :turbo :rainbow
+                    )
 
-    Colorbar(fig[1, 2], scatterPlot, label="H field strength") # Add a colorbar
+    Colorbar(fig[1, 2], graph, label="B field")
     
     # Display the figure (this will open an interactive window)
     wait(display(fig)) # This is required only if runing outside the repl
 
 end
 
-main(1.0, 0.05, true)
+meshSize = 1.0
+localSize = 0.05
+showGmsh = false
+
+main(meshSize, localSize, showGmsh)
