@@ -57,7 +57,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     box = addDisk([0,0,0], 5.0)
 
     # Combine the geometries
-    unifyModel(cells, box)
+    shell_id, box = unifyModel(cells, box)
 
     # Generate mesh
     extendLocalRefinement() # Don't extend the refinement to the volume
@@ -88,8 +88,8 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     # Boundary conditions
     bc::Vector{Float64} = zeros(mesh.ns)
     for e in 1:mesh.ns
-        if mesh.surfaceT[3,e] == 1 # Only the container boundary
-            bc[e] = mu0*dot(Hext, mesh.normal[:,e])
+        if !isempty(intersect(mesh.surfaceT[3, e], shell_id)) # Only the container boundary
+            bc[e] = mu0*dot(Hext, mesh.normal[:, e])
         end
     end
 
