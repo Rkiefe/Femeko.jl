@@ -60,13 +60,14 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     unifyModel(cells, box)
 
     # Generate mesh
+    extendLocalRefinement() # Don't extend the refinement to the volume
     mesh::MESH = Mesh2D(cells, meshSize, localSize)
 
-    println("\nNumber of elements ",size(mesh.t,2))
-    println("Number of Inside elements ",length(mesh.InsideElements))
-    println("Number of nodes ",size(mesh.p,2))
-    println("Number of Inside nodes ",length(mesh.InsideNodes))
-    println("Number of surface elements ",size(mesh.surfaceT,2))
+    println("\nNumber of elements ", mesh.nt)
+    println("Number of Inside elements ", mesh.nInside)
+    println("Number of nodes ", mesh.nv)
+    println("Number of Inside nodes ", mesh.nInsideNodes)
+    println("Number of surface elements ", mesh.ns)
 
     # Run Gmsh GUI
     if showGmsh
@@ -76,11 +77,10 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
 
     # Element centroids
-    centroids::Matrix{Float64} = zeros(2,mesh.nt)
+    centroids::Matrix{Float64} = zeros(2, mesh.nt)
     for k in 1:mesh.nt
         nds = mesh.t[:,k]
-        centroids[1,k] = sum(mesh.p[1,nds])/3
-        centroids[2,k] = sum(mesh.p[2,nds])/3
+        centroids[:, k] = mean(mesh.p[1:2, nds], 2)
     end
 
     # Magnetostatic simulation
