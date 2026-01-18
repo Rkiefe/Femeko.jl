@@ -7,6 +7,7 @@
 include("../src/Femeko.jl")
 include("../src/magneticProperties.jl")
 
+using IterativeSolvers
 using GLMakie
 
 function main(meshSize=0, localSize=0, showGmsh=true, verbose=false)
@@ -168,6 +169,7 @@ function main(meshSize=0, localSize=0, showGmsh=true, verbose=false)
 
         # Correction to the magnetic scalar potential
         du = [A+At Lag;Lag' 0]\[RHS-A*u;0]
+        # du[1:mesh.nv] = cg(A+At, RHS-A*u)
 
         # Update the potential
         residue = lineSearch(u, du[1:mesh.nv], A, RHS) # residue = norm(RHS - A*u)
