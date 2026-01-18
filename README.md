@@ -1,4 +1,6 @@
+<img width="1536" height="1024" alt="femeko_logo" src="https://github.com/user-attachments/assets/fc6aeccb-e0ec-4415-9441-5241dbe22903" />
 # Femeko.jl
+
 Creating a Finite Element simulation from scratch is unnecessarily complicated. From mesh generation, mesh quality, geometry handling, data structures, when does your FEM implementation start?
 
 Femeko is my answer to "I want to make my own FEM, have full control over my implementation, but I want everything else related to FEM to be as easy as possible" (mesh generation, model handling and data structures).
