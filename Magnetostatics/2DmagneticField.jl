@@ -189,7 +189,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
     # Plot result | Uncomment "using GLMakie"
     println("Generating plots...")
-    fig = Figure()
+    fig = Figure(fontsize = 30)
     ax = Axis(fig[1, 1], aspect = DataAspect(), title="Magnetic field B")
 
     graph = arrows2d!(  ax,
@@ -197,11 +197,11 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
                         Bfield[1, :], Bfield[2, :]
                         , color = B
                         , lengthscale = 0.1
-                        , colormap = :rainbow,  # :CMRmap :viridis :redsblues :turbo :rainbow
+                        , colormap = :rainbow  # :CMRmap :viridis :redsblues :turbo :rainbow
                     )
 
     Colorbar(fig[1, 2], graph, label="B field")
-    
+
     # Display the figure (this will open an interactive window)
     wait(display(fig)) # This is required only if runing outside the repl
 
