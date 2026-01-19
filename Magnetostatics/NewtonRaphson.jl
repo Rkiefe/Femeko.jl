@@ -29,12 +29,12 @@ function main(meshSize=0, localSize=0, showGmsh=true, verbose=false)
     T::Float64 = 270.0
 
     # Applied field T
-    Bext::Vector{Float64} = [1.0, 
+    Bext::Vector{Float64} = [0.5, 
                              0.0, 
                              0.0]
 
     # Convergence criteria
-    maxDeviation::Float64 = 1e-8 # Tolerance in |H| (Tesla)
+    maxDeviation::Float64 = 1e-4 # Tolerance in |H| (Tesla)
     maxAtt::Int32 = 100 # Maximum number of iterations allowed
 
     # Load Gd
@@ -179,22 +179,16 @@ function main(meshSize=0, localSize=0, showGmsh=true, verbose=false)
         for k in 1:mesh.nt
             nds = @view mesh.t[:,k];
 
-            Hx::Float64 = 0
-            Hy::Float64 = 0
-            Hz::Float64 = 0
             # Sum the contributions
             for nd in nds
                 # obtain the element parameters
                 _,b,c,d = abcd(mesh.p,nds,nd)
 
-                Hx -= u[nd]*b
-                Hy -= u[nd]*c
-                Hz -= u[nd]*d
+                Hfield[1, k] -= u[nd]*b;
+                Hfield[2, k] -= u[nd]*c;
+                Hfield[2, k] -= u[nd]*d;
             end
             
-            Hfield[1, k] = Hx
-            Hfield[2, k] = Hy
-            Hfield[3, k] = Hz
         end
 
         # Magnetic field intensity
@@ -266,6 +260,53 @@ function main(meshSize=0, localSize=0, showGmsh=true, verbose=false)
     # Add a colorbar
     Colorbar(fig[1, 2], graph, label = "M (emu/g)")
 
+    wait(display(fig))
+
+
+    # -- Slice view of the vector field over a 2D grid --
+    # YZ plane
+    xq = 0.0
+    y = range(-1, 1, 10)
+    z = range(-1, 1, 10)
+
+    Hx = zeros(length(y), length(z))
+    Hy = zeros(length(y), length(z))
+    Hz = zeros(length(y), length(z))
+    Y = zeros(length(y), length(z))
+    Z = zeros(length(y), length(z))
+    for (i, yq) in enumerate(y)
+        for (j, zq) in enumerate(z)
+            
+            # Store grid coordinates for plotting
+            Y[i, j] = yq
+            Z[i, j] = zq
+                
+            # Interpolate the vector field
+            Hx[i, j] = interp3Dmesh(mesh, xq, yq, zq, Hfield[1, :])
+            Hy[i, j] = interp3Dmesh(mesh, xq, yq, zq, Hfield[2, :])
+            Hz[i, j] = interp3Dmesh(mesh, xq, yq, zq, Hfield[3, :])
+        end
+    end
+
+    # Plot slice view
+    println("Generating plots...")
+    fig = Figure()
+    ax = Axis3(fig[1, 1], aspect = :data)
+
+    graph = arrows3d!(  ax
+                        , zeros(length(y)*length(z)) .+ xq
+                        , Y[:]
+                        , Z[:]
+                        , mu0*Hx[:]
+                        , mu0*Hy[:]
+                        , mu0*Hz[:]
+                        # , color = 
+                        , lengthscale = 0.1
+                        # , colormap = :CMRmap,  # :CMRmap :viridis :redsblues :turbo :rainbow
+                      )
+
+    # Add a colorbar
+    # Colorbar(fig[1, 2], graph)
     wait(display(fig))
 
 end # end of main
