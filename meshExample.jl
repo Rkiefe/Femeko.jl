@@ -4,6 +4,7 @@
 =#
 
 include("src/Femeko.jl")
+using GLMakie
 
 function userMade(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     #=
@@ -50,6 +51,40 @@ function userMade(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
         gmsh.fltk.run()
     end
     gmsh.finalize()
+
+    # Example of Femeko 3D mesh interpolation
+    r = rand(3) .- 0.5                          # 3D vector from -0.5 to 0.5
+    P = L[1]*r[1], L[2]*r[2], L[3]*r[3]         # Random coordinate inside L
+    k = findElement3D(mesh, P[1], P[2], P[3])   # Find the element k that contains the random coordinate P
+    nds = mesh.t[:, k]                          # nodes of the element found
+
+    # Define an example solution over the nodes
+    T = zeros(mesh.nv)
+    for nd in nds
+        T[nd] = mesh.p[1, nd]^2
+    end
+
+    # Interpolate the solution over the coordinate P
+    w = interp3Dmesh(mesh, r[1], r[2], r[3], T)
+    
+    # See the 3D interpolation
+    println("Generating plots...")
+    fig = Figure()
+    ax = Axis3(fig[1,1]
+              # , aspect=:data
+              )
+    
+    graph = scatter!(ax
+                    , [mesh.p[1, nds]; r[1]]
+                    , [mesh.p[2, nds]; r[2]]
+                    , [mesh.p[3, nds]; r[3]]
+                    , color = [T[nds]; w]
+                    )
+    
+    Colorbar(fig[1, 2], graph)
+
+    wait(display(fig))
+
 
 end
 

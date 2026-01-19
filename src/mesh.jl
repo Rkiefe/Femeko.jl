@@ -674,13 +674,13 @@ function interp2Dmesh(mesh::MESH, xq::Float64, yq::Float64, T::Vector{Float64})
     P2 = mesh.p[:, nds[2]]
     P3 = mesh.p[:, nds[3]]
 
-    # Set the Z value to the temperature
-    if length(T) == mesh.nv
+    # Set the Z value to the input values
+    if length(T) == mesh.nv # T is defined over the nodes of the mesh
         P1[3] = T[nds[1]]
         P2[3] = T[nds[2]]
         P3[3] = T[nds[3]]
     
-    else
+    else # T is expected to be defined over the elements of the mesh
         P1[3] = T[tag]
         P2[3] = T[tag]
         P3[3] = T[tag]
@@ -697,7 +697,7 @@ function interp2Dmesh(mesh::MESH, xq::Float64, yq::Float64, T::Vector{Float64})
     zq = -(a*xq + b*yq + d)/c
 
     return zq
-end # Interpolate value over the mesh nodes
+end # Interpolate value over the mesh
 
 # Find the element (triangle) that contains the node (xq, yq, 0.0)
 function findElement3D(mesh::MESH, xq::Float64, yq::Float64, zq::Float64)
@@ -752,6 +752,59 @@ function findElement3D(mesh::MESH, xq::Float64, yq::Float64, zq::Float64)
 
     return tag
 end # Find the element that contains the coordinate P inside it
+
+# Interpolation over a scattered mesh of nodes
+function interp3Dmesh(mesh::MESH
+                    , xq::Float64, yq::Float64, zq::Float64 # Input coordinate query
+                    , T::Vector{Float64} # Value of the result over the mesh  
+                     )
+# Note: T can be on either the nodes or the elements
+
+    # Find the mesh element closest/containing the target node
+    tag = findElement3D(mesh, xq, yq, zq)
+
+    nds = @view mesh.t[:, tag]
+    P1 = [mesh.p[:, nds[1]]; 0.0] # x,y,z, W
+    P2 = [mesh.p[:, nds[2]]; 0.0] # ...
+    P3 = [mesh.p[:, nds[3]]; 0.0]
+    P4 = [mesh.p[:, nds[4]]; 0.0]
+
+    # Set the W value to the result
+    if length(T) == mesh.nv # T is defined over the nodes of the mesh
+        P1[4] = T[nds[1]]
+        P2[4] = T[nds[2]]
+        P3[4] = T[nds[3]]
+        P4[4] = T[nds[4]]
+
+    else # T is expected to be defined over the elements of the mesh
+        P1[4] = T[tag]
+        P2[4] = T[tag]
+        P3[4] = T[tag]
+        P4[4] = T[tag]
+    end
+
+    # Create a plane for interpolation
+    AB = P2-P1
+    AC = P3-P1
+    AD = P4-P1
+
+    M = [[P1 P2 P3 P4]' ones(4)] # 4 by 5 matrix, underdetermined
+
+    # Solution is 1D nullspace of M
+    NS = nullspace(M)
+    if size(NS, 2) < 1
+        @error "interp3Dmesh() , No nontrivial solution found for the hyperplane interpolation"
+    end
+
+    # Take the first basis vector as the normal to the hyperplane
+    n = NS[:, 1]  # ax + by + cz + dw + e = 0 <-> dot(n, [x,y,z,w]) + e = 0
+    n ./= norm(n)
+
+    # Get the interpolation of the solution on the mesh element
+    w = -(n[1]*xq + n[2]*yq + n[3]*zq + n[5])/n[4]
+    return w
+
+end # Interpolate value over the mesh
 
 # View the mesh using Makie
 function viewMesh(mesh::MESH)
