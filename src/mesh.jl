@@ -752,6 +752,8 @@ function interp3Dmesh(mesh::MESH
                     , T::Vector{Float64} # Value of the result over the mesh  
                      )
 # Note: T can be on either the nodes or the elements
+# Note on performance: This interpolation method 
+# is about 1000x faster than calculating the linear basis function of each node
 
     # Find the mesh element closest/containing the target node
     tag = findElement3D(mesh, xq, yq, zq)
