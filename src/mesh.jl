@@ -719,13 +719,6 @@ function findElement3D(mesh::MESH, xq::Float64, yq::Float64, zq::Float64)
         AD = D - A
         AP = [xq, yq, zq] - A
 
-        # Setup linear system for barycentric coordinates (v, u, w)
-        # P = A + v*AB + u*AC + w*AD
-        # Equivalent to solving: [AB AC AD] * [v; u; w] = AP
-
-        # We can solve using Cramer's rule (like in 2D) or matrix inverse
-        # Let M = [AB AC AD], then [v; u; w] = M^{-1} * AP
-    
         M = [AB AC AD] # 3x3 matrix
         detM = dot(AB, cross(AC, AD))
 
