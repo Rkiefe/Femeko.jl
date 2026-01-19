@@ -699,6 +699,59 @@ function interp2Dmesh(mesh::MESH, xq::Float64, yq::Float64, T::Vector{Float64})
     return zq
 end # Interpolate value over the mesh nodes
 
+# Find the element (triangle) that contains the node (xq, yq, 0.0)
+function findElement3D(mesh::MESH, xq::Float64, yq::Float64, zq::Float64)
+    # Check what tetrahedron has the point P inside it. Algorithm extended from 2D to 3D, based on
+    # https://blackpawn.com/texts/pointinpoly/#:~:text=//%20Compute%20vectors%20v0%20=%20C%20%2D,0)%20&&%20(u%20+%20v%20%3C%201)
+    
+    tag::Int32 = 0 # Tag of the element that contains P
+
+    for k in 1:mesh.nt
+        nds = @view mesh.t[:, k] # Nodes of the tetrahedron
+
+        A = mesh.p[:, nds[1]]
+        B = mesh.p[:, nds[2]]
+        C = mesh.p[:, nds[3]]
+        D = mesh.p[:, nds[4]]
+
+        AB = B - A
+        AC = C - A
+        AD = D - A
+        AP = [xq, yq, zq] - A
+
+        # Setup linear system for barycentric coordinates (v, u, w)
+        # P = A + v*AB + u*AC + w*AD
+        # Equivalent to solving: [AB AC AD] * [v; u; w] = AP
+
+        # We can solve using Cramer's rule (like in 2D) or matrix inverse
+        # Let M = [AB AC AD], then [v; u; w] = M^{-1} * AP
+    
+        M = [AB AC AD] # 3x3 matrix
+        detM = dot(AB, cross(AC, AD))
+
+        if abs(detM) < 1e-12 # Degenerate tetrahedron
+            @warn "findElement3D(), skipping degenerate tetrahedron"
+            continue
+        end
+
+        invDet = 1.0 / detM
+
+        # Barycentric coordinates
+        v = dot(cross(AC, AD), AP) * invDet
+        u = dot(cross(AP, AD), AB) * invDet  # Note: cross(AB, AP) would give negative
+        w = dot(cross(AB, AC), AP) * invDet
+
+        # Check if point is inside tetrahedron
+        # All barycentric coordinates should be >= 0 and sum <= 1
+        if v >= 0 && u >= 0 && w >= 0 && (v + u + w) <= 1 # Its inside
+           tag = k
+           break
+        end # Check if P is inside
+
+    end # Search each mesh element (triangle)
+
+    return tag
+end # Find the element that contains the coordinate P inside it
 
 # View the mesh using Makie
 function viewMesh(mesh::MESH)
