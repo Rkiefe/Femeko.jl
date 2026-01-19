@@ -259,32 +259,36 @@ function main(meshSize=0, localSize=0, showGmsh=true, verbose=false)
 
     # Add a colorbar
     Colorbar(fig[1, 2], graph, label = "M (emu/g)")
-
     wait(display(fig))
 
 
     # -- Slice view of the vector field over a 2D grid --
-    # YZ plane
-    xq = 0.0
-    y = range(-1, 1, 10)
-    z = range(-1, 1, 10)
+    println("Interpreting the result over the slice view plane...")
+    
+    # XZ plane
+    yq = 0.0
+    x = range(-0.5, 0.5, 20)
+    z = range(-0.5, 0.5, 20)
 
-    Hx = zeros(length(y), length(z))
-    Hy = zeros(length(y), length(z))
-    Hz = zeros(length(y), length(z))
-    Y = zeros(length(y), length(z))
-    Z = zeros(length(y), length(z))
-    for (i, yq) in enumerate(y)
+    Hx = zeros(length(x), length(z))
+    Hy = zeros(length(x), length(z))
+    Hz = zeros(length(x), length(z))
+    color = zeros(length(x), length(z)) # Norm of the H field in the slice plane
+    X = zeros(length(x), length(z))
+    Z = zeros(length(x), length(z))
+    for (i, xq) in enumerate(x)
         for (j, zq) in enumerate(z)
             
             # Store grid coordinates for plotting
-            Y[i, j] = yq
+            X[i, j] = xq
             Z[i, j] = zq
                 
             # Interpolate the vector field
             Hx[i, j] = interp3Dmesh(mesh, xq, yq, zq, Hfield[1, :])
             Hy[i, j] = interp3Dmesh(mesh, xq, yq, zq, Hfield[2, :])
             Hz[i, j] = interp3Dmesh(mesh, xq, yq, zq, Hfield[3, :])
+
+            color[i, j] = sqrt(Hx[i, j]^2 + Hy[i, j]^2 + Hz[i, j]^2)
         end
     end
 
@@ -294,14 +298,14 @@ function main(meshSize=0, localSize=0, showGmsh=true, verbose=false)
     ax = Axis3(fig[1, 1], aspect = :data)
 
     graph = arrows3d!(  ax
-                        , zeros(length(y)*length(z)) .+ xq
-                        , Y[:]
+                        , X[:]
+                        , zeros(length(x)*length(z)) .+ yq
                         , Z[:]
                         , mu0*Hx[:]
                         , mu0*Hy[:]
                         , mu0*Hz[:]
-                        # , color = 
-                        , lengthscale = 0.1
+                        , color = color[:]
+                        , lengthscale = 0.2
                         # , colormap = :CMRmap,  # :CMRmap :viridis :redsblues :turbo :rainbow
                       )
 
