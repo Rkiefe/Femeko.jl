@@ -145,7 +145,7 @@ function main(meshSize=0, localSize=0, showGmsh=true, verbose=false)
     # Newton-Raphson
     dmu::Vector{Float64} = zeros(mesh.nt)
     du::Vector{Float64} = zeros(mesh.nv+1)
-    while div > maxDeviation && att < maxAtt # maxAtt
+    @time while div > maxDeviation && att < maxAtt # maxAtt
 
         att += 1
         Hold .= H
@@ -266,7 +266,7 @@ function main(meshSize=0, localSize=0, showGmsh=true, verbose=false)
     println("Interpreting the result over the slice view plane...")
     
     # XoZ plane
-    X, Y, Z = plane([1,0,0], [0,0,1], [0,0,0], 1.0, 20)
+    X, Y, Z = plane([1,0,0], [0,1,0], [0,0,0], 1.0, 20)
 
     Hx = zeros(size(X))
     Hy = zeros(size(X))
@@ -276,14 +276,10 @@ function main(meshSize=0, localSize=0, showGmsh=true, verbose=false)
     @time for i in 1:size(X, 1)
         for j in 1:size(X, 2)
             
-            xq = X[i, j]
-            yq = Y[i, j]
-            zq = Z[i, j]
-                
             # Interpolate the vector field
-            Hx[i, j] = interp3Dmesh(mesh, xq, yq, zq, Hfield[1, :])
-            Hy[i, j] = interp3Dmesh(mesh, xq, yq, zq, Hfield[2, :])
-            Hz[i, j] = interp3Dmesh(mesh, xq, yq, zq, Hfield[3, :])
+            Hx[i, j] = interp3Dmesh(mesh, X[i, j], Y[i, j], Z[i, j], Hfield[1, :])
+            Hy[i, j] = interp3Dmesh(mesh, X[i, j], Y[i, j], Z[i, j], Hfield[2, :])
+            Hz[i, j] = interp3Dmesh(mesh, X[i, j], Y[i, j], Z[i, j], Hfield[3, :])
 
             color[i, j] = sqrt(Hx[i, j]^2 + Hy[i, j]^2 + Hz[i, j]^2)
         end
@@ -307,7 +303,7 @@ function main(meshSize=0, localSize=0, showGmsh=true, verbose=false)
                       )
 
     # Add a colorbar
-    # Colorbar(fig[1, 2], graph)
+    Colorbar(fig[1, 2], graph)
     wait(display(fig))
 
 end # end of main
