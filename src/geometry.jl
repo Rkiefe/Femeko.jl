@@ -232,7 +232,6 @@ function unifyModel(cells, box = -1) # cells (dim, tag); box (tag of bounding sh
     return shell_id, box
 end
 
-
 # Save variable to .txt
 function save2file(fileName,input)
     # Saves matrix to a .txt file
@@ -252,4 +251,34 @@ function memory(var, verbose::Bool=true)
     end
 
     return mem
+end
+
+# Define a plane by two vectors ; a point of origin and a radius
+function plane(pu, pv, origin = [0.0, 0.0, 0.0], radius::Float64 = 1.0, n::Integer = 10)
+
+    # Define a range along the first direction
+    span = range(-radius, radius, n)
+    x1 = origin[1]/2 .+ span.*pu[1]
+    y1 = origin[2]/2 .+ span.*pu[2]
+    z1 = origin[3]/2 .+ span.*pu[3]
+    
+    # Same for the second direction
+    x2 = origin[1]/2 .+ span.*pv[1]
+    y2 = origin[2]/2 .+ span.*pv[2]
+    z2 = origin[3]/2 .+ span.*pv[3]
+
+    # Define the grid based on the range along the two directions
+    X = zeros(n, n)
+    Y = zeros(n, n)
+    Z = zeros(n, n)
+    for i in 1:n
+        for j in 1:n
+            # Any point in the plane is defined as linear combination of pu and pv
+            X[i, j] = x1[i] + x2[j]
+            Y[i, j] = y1[i] + y2[j]
+            Z[i, j] = z1[i] + z2[j]
+        end
+    end
+
+    return X, Y, Z
 end
