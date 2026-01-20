@@ -265,23 +265,20 @@ function main(meshSize=0, localSize=0, showGmsh=true, verbose=false)
     # -- Slice view of the vector field over a 2D grid --
     println("Interpreting the result over the slice view plane...")
     
-    # XZ plane
-    yq = 0.0
-    x = range(-0.5, 0.5, 20)
-    z = range(-0.5, 0.5, 20)
+    # XoZ plane
+    X, Y, Z = plane([1,0,0], [0,0,1], [0,0,0], 1.0, 20)
 
-    Hx = zeros(length(x), length(z))
-    Hy = zeros(length(x), length(z))
-    Hz = zeros(length(x), length(z))
-    color = zeros(length(x), length(z)) # Norm of the H field in the slice plane
-    X = zeros(length(x), length(z))
-    Z = zeros(length(x), length(z))
-    for (i, xq) in enumerate(x)
-        for (j, zq) in enumerate(z)
+    Hx = zeros(size(X))
+    Hy = zeros(size(X))
+    Hz = zeros(size(X))
+    color = zeros(size(X)) # Norm of the H field in the slice plane
+    
+    @time for i in 1:size(X, 1)
+        for j in 1:size(X, 2)
             
-            # Store grid coordinates for plotting
-            X[i, j] = xq
-            Z[i, j] = zq
+            xq = X[i, j]
+            yq = Y[i, j]
+            zq = Z[i, j]
                 
             # Interpolate the vector field
             Hx[i, j] = interp3Dmesh(mesh, xq, yq, zq, Hfield[1, :])
@@ -299,14 +296,14 @@ function main(meshSize=0, localSize=0, showGmsh=true, verbose=false)
 
     graph = arrows3d!(  ax
                         , X[:]
-                        , zeros(length(x)*length(z)) .+ yq
+                        , Y[:]
                         , Z[:]
                         , mu0*Hx[:]
                         , mu0*Hy[:]
                         , mu0*Hz[:]
                         , color = color[:]
                         , lengthscale = 0.2
-                        # , colormap = :CMRmap,  # :CMRmap :viridis :redsblues :turbo :rainbow
+                        , colormap = :CMRmap,  # :CMRmap :viridis :redsblues :turbo :rainbow
                       )
 
     # Add a colorbar
@@ -314,6 +311,43 @@ function main(meshSize=0, localSize=0, showGmsh=true, verbose=false)
     wait(display(fig))
 
 end # end of main
+
+function plane(pu, pv, origin = [0.0, 0.0, 0.0], radius::Float64 = 1.0, n::Integer = 10)
+    # Defines a plane by two vectors ; a point of origin and a radius
+
+    # Define a range along the first direction
+    span = range(-radius, radius, n)
+    x1 = origin[1]/2 .+ span.*pu[1]
+    y1 = origin[2]/2 .+ span.*pu[2]
+    z1 = origin[3]/2 .+ span.*pu[3]
+    
+    # Same for the second direction
+    x2 = origin[1]/2 .+ span.*pv[1]
+    y2 = origin[2]/2 .+ span.*pv[2]
+    z2 = origin[3]/2 .+ span.*pv[3]
+
+    # Define the grid based on the range along the two directions
+    X = zeros(n, n)
+    Y = zeros(n, n)
+    Z = zeros(n, n)
+    for i in 1:n
+        for j in 1:n
+            # Any point in the plane is defined as linear combination of pu and pv
+            X[i, j] = x1[i] + x2[j]
+            Y[i, j] = y1[i] + y2[j]
+            Z[i, j] = z1[i] + z2[j]
+        end
+    end
+
+    # # Plot the plane
+    # fig = Figure()
+    # ax = Axis3(fig[1,1])
+    # scatter!(ax, X[:], Y[:], Z[:])
+    # wait(display(fig))
+
+    return X, Y, Z
+end
+
 
 meshSize  = 5.0
 localSize = 0.1
