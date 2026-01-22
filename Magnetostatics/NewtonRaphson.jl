@@ -259,7 +259,8 @@ function main(meshSize=0, localSize=0, showGmsh=true, verbose=false)
 
     # Add a colorbar
     Colorbar(fig[1, 2], graph, label = "M (emu/g)")
-    wait(display(fig))
+    # wait(display(fig))
+    display(GLMakie.Screen(), fig)
 
 
     # -- Slice view of the vector field over a 2D grid --
@@ -288,7 +289,7 @@ function main(meshSize=0, localSize=0, showGmsh=true, verbose=false)
     # Plot slice view
     println("Generating plots...")
     fig = Figure()
-    ax = Axis3(fig[1, 1], aspect = :data)
+    ax = Axis3(fig[1, 1], aspect = :data, title="Slice view")
 
     graph = arrows3d!(  ax
                         , X[:]
