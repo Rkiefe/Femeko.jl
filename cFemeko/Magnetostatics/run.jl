@@ -1,8 +1,9 @@
 #=
-    Magnetostatic field simulation of a magnetic susceptible material
-    under a uniform applied field
+    Solves the scalar potential for a linear magnetic material 
+    inside a uniform magnetic field  using the Conjugate Gradient method
 
-    All the FEM calculations are done in C++
+    First with C++ then with Julia, and plots both outputs side by side
+        C++ is about 5x faster
 =#
 
 include("../../src/Femeko.jl")
