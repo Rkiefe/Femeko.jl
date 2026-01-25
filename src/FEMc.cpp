@@ -98,7 +98,7 @@ Eigen::MatrixXd localStiffnessMatrix(
 
 } // Local stiffness matrix
 
-// Gloval stiffness matrix
+// Global stiffness matrix
 Eigen::SparseMatrix<double> stiffnessMatrix(
 	Eigen::Ref<Eigen::MatrixXd> p, 
 	Eigen::Ref<Eigen::MatrixXi> t, 
@@ -137,7 +137,7 @@ Eigen::VectorXd BoundaryIntegral(
 	Eigen::Ref<Eigen::MatrixXd> p, 
 	Eigen::Ref<Eigen::MatrixXi> surfaceT, 
 	Eigen::Ref<Eigen::MatrixXd> normal, 
-	std::vector<double>& F, 
+	double* F, 
 	int shell_id)
 {
 
