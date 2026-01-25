@@ -1,9 +1,10 @@
+# Ignore any file named
 test.jl
 
 # Dont update the magnetic materials folder
 Magnetostatics/Materials/
 
-# Dont upload testing files
+# Dont upload Testing direct.
 Magnetostatics/Testing/
 
 # Dont upload new CAD models
@@ -14,4 +15,8 @@ STEP_Models/
 Micromagnetics/M_H_curves
 Micromagnetics/FEM-BEM/M_H_curves
 
+# Dont update LLBe model in progress
 Micromagnetics/LLBe
+
+# Ignore any .so file
+*.so
