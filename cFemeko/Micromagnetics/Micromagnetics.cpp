@@ -109,6 +109,7 @@ public:
 
 		// Factorize LHS once
 		this->lu = LHS.partialPivLu(); // Compute and store the factorized LHS
+		// Maybe replace partialPivLu() with colPivHouseholderQr() , slower but more accurate
 
 	} // FEM BEM matrices and node volume / integral
 
