@@ -1,4 +1,4 @@
-<img width="960" height="344" alt="femeko_logo_v2" src="https://github.com/user-attachments/assets/2bb8ad52-ff73-4182-86b5-ddcad3cd55a4" />
+<img width="720" height="258" alt="femeko_logo_v2" src="https://github.com/user-attachments/assets/2bb8ad52-ff73-4182-86b5-ddcad3cd55a4" />
 
 # Femeko.jl
 
