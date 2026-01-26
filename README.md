@@ -109,8 +109,8 @@ Most examples plot the results using Makie.jl. It is recommended that you do
 
 Compiling C++ alternative implementations:
 - First update your clone of the repository to include eigen by going to the terminal and run `git submodule update --init --recursive` while in the Femeko.jl folder
-- Move to the `cFemeko/Magnetostatics/` folder and compile `julia_wrapper.cpp` with `g++ -O3 -fPIC -shared -o julia_wrapper.so julia_wrapper.cpp`
-- Note that additional flags are available such as `-fopenmp`
+- Move to the `cFemeko/Magnetostatics/` folder and compile `magnetostatics.cpp` with `g++ -O3 -fPIC -shared -o magnetostatics.so magnetostatics.cpp`
+- Adding this flag is recommended: `-fopenmp`
 
 ### Current C++ alternatives covered
 
