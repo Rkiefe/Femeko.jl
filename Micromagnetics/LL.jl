@@ -19,7 +19,7 @@ mutable struct LL
 	maxTorque::Float64  # Tolerance, solver stops when |dM/dt| < maxTorque
 	# maxSteps::Int 		# Maximum allowed number of time steps on the minimization
 
-	# Landau-Lifshitz-Bernoulli coefficients
+	# Landau-Lifshitz coefficients
 	alfa::Float64 # Damping term
 	precession::Bool # Consider the precession term ?
 
