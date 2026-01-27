@@ -44,10 +44,9 @@ public:
 	// Conjugate Gradient solver for the magnetostatic scalar potential
 	Eigen::ConjugateGradient<Eigen::SparseMatrix<double>> CG; 
 	
-	Eigen::MatrixXd Hd; // Demagnetizing field, 3 by nv
-	Eigen::MatrixXd Hexc; // Exchange field, 3 by nv
-
-
+	Eigen::MatrixXd Hd; 	// Demagnetizing field, 3 by nv
+	Eigen::MatrixXd Hexc; 	// Exchange field, 3 by nv
+	Eigen::MatrixXd Han; 	// Anisotropy field, 3 by nv
 
 
 	// Create the micromagnetics solver
@@ -85,6 +84,7 @@ public:
 		CG.compute(A);
 
 		// Compute the exchange stiffness matrix
+		std::cout << "Calculating the exchange stiffness matrix" << std::endl;
 		exchangeStiffness();
 
 		// Run the micromagnetics solver
@@ -104,7 +104,6 @@ public:
 	
 	} // Run the micromagnetic solver
 	
-
 	// Get the linear basis function over each node and element
 	void linearBasis(){
 		a = Eigen::MatrixXd::Zero(4, t.cols());
@@ -168,9 +167,6 @@ public:
 
 	// Get the demagnetizing field
 	void magnetostaticField(){
-
-		// Update the boundary conditions for the solver
-		std::cout << "Applying the boundary conditions" << std::endl;
 		
 		int nv = p.cols();
 		int nt = t.cols();
@@ -200,11 +196,9 @@ public:
 		} // Boundary conditions for the demagnetizing field
 
 		// Magnetostatic scalar potential
-		std::cout << "Solving the scalar potential" << std::endl;
 		Eigen::VectorXd u = CG.solve(RHS); // CG.info() output 0 if CG succeeds
 
 		// Calculate the demagnetizing field from the scalar potential
-		std::cout << "Updating the demagnetizing field" << std::endl;
 		Eigen::MatrixXd Hdk = Eigen::MatrixXd::Zero(3, nt);
 		for(int k = 0; k<nt; k++){
 			for(int i = 0; i<4; i++){
@@ -236,8 +230,9 @@ public:
 
 	} // Demagnetizing field from scalar potential
 
+	// Exchange Field (3 by nv) 
 	void exchangeField(){
-		double mu0 = pi*4e-7; // Vaccum magnetic permeability
+		double mu0 = pi*4e-7; // Vacuum magnetic permeability
 		Hexc = Eigen::MatrixXd::Zero(3, p.cols());
 		
 		for(int i = 0; i<3; i++){
@@ -247,9 +242,18 @@ public:
 		    temp = temp.array() / volumes.array();
 			Hexc.row(i) = (coef * temp).transpose();
 		}
-	
 	} // Exchange field over the mesh nodes
 
+	void anisotropyField(){
+		double mu0 = pi*4e-7; // Vacuum magnetic permeability
+		Han::Matrix{Float64} = zeros(3, self.mesh.nv)
+		for(int i = 0; i<InsideNodes.size(); i++){
+			int nd = InsideNodes(i);
+			// double Msqrd = dot(M[:, i], M[:, i])
+		    // Han[:, i] = mu0*2*self.Aan/Msqrd *dot(M[:, i], self.uan) .*self.uan
+		}
+
+	}
 
 };
 
