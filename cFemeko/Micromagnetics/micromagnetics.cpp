@@ -10,6 +10,7 @@ public:
 	Eigen::VectorXi InsideElements;
 	Eigen::VectorXi InsideNodes;
 	double* VE;
+	Eigen::VectorXd volumes; // Volume of elements surrounding each node (size = nv)
 
 	// FEM lienar basis function F = a + bx + cy + dz
 	Eigen::MatrixXd a, b, c, d;
@@ -17,14 +18,19 @@ public:
 	Eigen::SparseMatrix<double> AEXC; // Exchange field stiffness matrix
 
 	// Material properties
-	Eigen::MatrixXd M; // M field, 3 by nv
-	double Aexc = 0.0;
-	double Aan = 0.0;
+	double scale = 1e-9; 	// Scale of the material
+
+	Eigen::MatrixXd M; 		// M field, 3 by nv
+	double Ms = 1.0;		// Saturation magnetization (Tesla)
+
+	double Aexc = 0.0; 		// Exchange energy (J/m)
+
+	double Aan = 0.0; 		// Anisotropy energy (J/m3)
 	Eigen::Vector3d uan = {1.0, 0.0, 0.0};  // Easy axis
 
 	Eigen::Vector3d Hext = {0.0, 0.0, 0.0}; // Applied field (Tesla)
 
-	// Solver properties
+ 	// Solver properties
 	int maxSteps = 100000; 	 // Max number of time steps
 	double timeStep = 0.01;  // Time step in giro seconds
 	double maxTorque = 1e-5; // Max torque |dM/dt|
@@ -92,8 +98,9 @@ public:
 	// Run the micromagnetics solver
 	void run(){
 
-		// Update the demagnetizing field
+		// Update the magnetic fields
 		magnetostaticField();
+		exchangeField();
 	
 	} // Run the micromagnetic solver
 	
@@ -104,14 +111,20 @@ public:
 		b = Eigen::MatrixXd::Zero(4, t.cols());
 		c = Eigen::MatrixXd::Zero(4, t.cols());
 		d = Eigen::MatrixXd::Zero(4, t.cols());
-		for(int k = 0; k<t.cols(); k++){
+		volumes = Eigen::VectorXd::Zero(p.cols());
 
+		for(int k = 0; k<t.cols(); k++){
 			for(int i = 0; i<4; i++){
-				Eigen::Vector4d r = abcd(p, t.col(k), t(i, k));
+				
+				int nd = t(i, k); // Global mesh node label
+
+				Eigen::Vector4d r = abcd(p, t.col(k), nd);
 				a(i, k) = r(0);
 				b(i, k) = r(1);
 				c(i, k) = r(2);
 				d(i, k) = r(3);
+
+				volumes(nd) += VE[k];
 			}
 		} // Loop over the elements
 
@@ -147,7 +160,7 @@ public:
 		} // Loop over the elements
 
 		// Build global stiffness matrix from triplets
-		Eigen::SparseMatrix<double> AEXC(p.cols(), p.cols());
+		AEXC = Eigen::SparseMatrix<double>(p.cols(), p.cols());
 		AEXC.setFromTriplets(triplets.begin(), triplets.end());
 		// AEXC.makeCompressed();
 
@@ -206,11 +219,9 @@ public:
 
 		// Map the element-wise demag field to the mesh nodes
 		Hd = Eigen::MatrixXd::Zero(3, nv);
-		std::vector<double> volumes(nv, 0.0); 
 		for(int k = 0; k<nt; k++){
 			for(int i = 0; i<4; i++){
 				int nd = t(i, k);
-				volumes[nd] += VE[k];
 				Hd(0, nd) += Hdk(0, k)*VE[k];
 				Hd(1, nd) += Hdk(1, k)*VE[k];
 				Hd(2, nd) += Hdk(2, k)*VE[k];
@@ -218,26 +229,26 @@ public:
 		}
 
 		for(int nd = 0; nd<nv; nd++){
-			Hd(0, nd) /= volumes[nd];
-			Hd(1, nd) /= volumes[nd];
-			Hd(2, nd) /= volumes[nd];
+			Hd(0, nd) /= volumes(nd);
+			Hd(1, nd) /= volumes(nd);
+			Hd(2, nd) /= volumes(nd);
 		} // Average over the nodes
 
 	} // Demagnetizing field from scalar potential
 
 	void exchangeField(){
-// 	function exchangeField(self::LL, M::Matrix{Float64}, AEXC, Volumes::Vector{Float64})
-// 		# AEXC -> Stiffness matrix of the exchange field
-// 		# Aexc -> Exchange constant
-// 		mu0::Float64 = pi*4e-7 # Vaccum magnetic permeability
-// 		Hexc::Matrix{Float64} = zeros(3, self.mesh.nv)
-// 		for i in 1:3
-// 		    Hexc[i, :] = -2*mu0*self.Aexc* AEXC*M[i, :]./(0.25*self.Ms^2 *self.scale^2 *Volumes)
-// 		end 
-
-// 		return Hexc
-// 	end # Exchange field (T)
-	}
+		double mu0 = pi*4e-7; // Vaccum magnetic permeability
+		Hexc = Eigen::MatrixXd::Zero(3, p.cols());
+		
+		for(int i = 0; i<3; i++){
+			double coef = -2*mu0*Aexc/(0.25 * Ms*Ms *scale*scale);
+		    
+		    Eigen::VectorXd temp = AEXC * M.row(i).transpose();
+		    temp = temp.array() / volumes.array();
+			Hexc.row(i) = (coef * temp).transpose();
+		}
+	
+	} // Exchange field over the mesh nodes
 
 
 };
