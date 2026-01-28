@@ -19,6 +19,8 @@ LL::LL(Eigen::Ref<Eigen::MatrixXd> p_input,
 		4) Pre-computes the conjugate gradient solver for that stiffness matrix
 	*/
 
+	std::cout << "Found an out of bounds access when the mesh has local refinement. Do not run at this stage." << std::endl;
+
 	// Get the linear basis function of each element and node
 	std::cout << "Calculating the linear basis function over each element and node" << std::endl;
 	linearBasis();
@@ -44,11 +46,19 @@ LL::LL(Eigen::Ref<Eigen::MatrixXd> p_input,
 void LL::run(){
 
 	// Get each magnetic field contribution
+	std::cout << "Running the magnetic field contributions" << std::endl;
+	
+	std::cout << "Running the demag field" << std::endl;
 	magnetostaticField();
+
+	std::cout << "Running the exchange field" << std::endl;
 	exchangeField();
+
+	std::cout << "Running the anisotropy field" << std::endl;
 	anisotropyField();
 
 	// Update the effective field
+	std::cout << "Updating the total field" << std::endl;
 	updateEffectiveField(); // Updated 'H' matrix
 
 	// Prepare a copy of the magnetization field of current iteration
@@ -170,13 +180,21 @@ void LL::linearBasis(){
 // Get the stiffness matrix of the exchange field
 void LL::exchangeStiffness(){
 
+	std::cout << "Building the local exchange stiffness matrix" << std::endl;
+
 	// Create the local stiffness matrix
 	Eigen::MatrixXd Ak = Eigen::MatrixXd::Zero(16, t.cols());
 	for(int ik = 0; ik<InsideElements.size(); ik++){
 		int k = InsideElements(ik);
+
+		std::cout << k << " | " << t.cols() << std::endl;
+
+
 		Eigen::Matrix4d aux = VE[k]*(b.col(k)*b.col(k).transpose() + c.col(k)*c.col(k).transpose() + d.col(k)*d.col(k).transpose());
 		Ak.col(k) = Eigen::Map<Eigen::VectorXd>(aux.data(), 16);
 	} // Local exchange stiffness matrix
+
+	std::cout << "Building the triplets" << std::endl;
 
 	// Temporary storage for triplets (row, col, value)
 	std::vector<Eigen::Triplet<double>> triplets;
@@ -195,6 +213,8 @@ void LL::exchangeStiffness(){
 		    }
 		}
 	} // Loop over the elements
+
+	std::cout << "Assembling the sparse exchange stiffness matrix" << std::endl;
 
 	// Build global stiffness matrix from triplets
 	AEXC = Eigen::SparseMatrix<double>(p.cols(), p.cols());
