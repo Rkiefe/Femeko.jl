@@ -35,11 +35,11 @@ public:
 	// 		-- Outputs --
 	Eigen::MatrixXd M_time = Eigen::MatrixXd::Zero(3, maxSteps); // <M>x,y,z over time
 
-	Eigen::Vector3d Hext = {0.0, 0.0, 0.0}; // Applied field (Tesla)
+	Eigen::Vector3d Hext = {1.0, 0.0, 0.0}; // Applied field (Tesla)
 	Eigen::MatrixXd Hd; 	// Demagnetizing field, 3 by nv
 	Eigen::MatrixXd Hexc; 	// Exchange field, 3 by nv
 	Eigen::MatrixXd Han; 	// Anisotropy field, 3 by nv
-	Eigen::MatrixXd M; 		// M field, 3 by nv
+	Eigen::Map<Eigen::MatrixXd> M; 		// M field, 3 by nv
 	Eigen::MatrixXd H; 		// Effective field, 3 by nv (sum of all H fields)
 
 	// Create the micromagnetics solver
@@ -48,7 +48,7 @@ public:
 	   Eigen::Ref<Eigen::VectorXi> InsideElements_input,
 	   Eigen::Ref<Eigen::VectorXi> InsideNodes_input,
 	   double* VE_ptr,
-	   Eigen::Ref<Eigen::MatrixXd> M_input);
+	   Eigen::Map<Eigen::MatrixXd> M_input);
 
 	// Destructor
 	~LL();

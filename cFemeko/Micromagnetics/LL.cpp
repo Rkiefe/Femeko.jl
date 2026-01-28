@@ -6,7 +6,7 @@ LL::LL(Eigen::Ref<Eigen::MatrixXd> p_input,
 	   Eigen::Ref<Eigen::VectorXi> InsideElements_input,
 	   Eigen::Ref<Eigen::VectorXi> InsideNodes_input,
 	   double* VE_ptr,
-	   Eigen::Ref<Eigen::MatrixXd> M_input)
+	   Eigen::Map<Eigen::MatrixXd> M_input)
 	 : p(p_input), t(t_input), 
 	   InsideElements(InsideElements_input), 
 	   InsideNodes(InsideNodes_input), 
@@ -66,13 +66,12 @@ void LL::run(){
 
 	std::cout << "Running Landau-Lifshitz simulation" << std::endl;
 
-	int frame = -1;
+	int frame = 0;
 	double torque = 1e2; // Max of |dM/dt|
 
 	// while(frame < 1){ // For testing
 	while(torque > maxTorque && frame < maxSteps){
 
-		frame++;	  // Update iteration step
 		torque = 0.0; // Reset maximum torque
 
 		// Evolve the magnetization of each node
@@ -116,6 +115,8 @@ void LL::run(){
 		if(verbose){
 			std::cout << frame << "/" << maxSteps << " |dM/dt| = " << torque << std::endl;	
 		} 
+
+		frame++;	  // Update iteration step
 
 	} // Time step loop
 

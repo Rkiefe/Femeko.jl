@@ -1,5 +1,7 @@
 include("../../src/Femeko.jl")
 
+using GLMakie
+
 function main(meshSize::Float64 = 0.0
 			, localSize::Float64 = 0.0
 			, showGmsh::Bool = false)
@@ -32,6 +34,28 @@ function main(meshSize::Float64 = 0.0
 	InsideElements::Vector{Int32} = mesh.InsideElements .- 1
 	InsideNodes::Vector{Int32} = mesh.InsideNodes .- 1
 
+	# Output plot
+	println("Generating plots...")
+	fig = Figure()
+	ax = Axis3(fig[1, 1], aspect = :data, title="Initial M")
+	graph = arrows3d!(  ax
+	                    , mesh.p[1, mesh.InsideNodes]
+	                    , mesh.p[2, mesh.InsideNodes]
+	                    , mesh.p[3, mesh.InsideNodes]
+	                    , M[1, mesh.InsideNodes]
+	                    , M[2, mesh.InsideNodes]
+	                    , M[3, mesh.InsideNodes]
+	                    , color = M[3, mesh.InsideNodes]
+	                    , lengthscale = 0.1
+	                    , colormap = :CMRmap,  # :CMRmap :viridis :redsblues :turbo :rainbow
+	                  )
+
+	# Colorbar(fig[1, 2], graph, label = "M (emu/g)") # Add a colorbar
+	display(fig)
+	# wait(display(fig))
+	# display(GLMakie.Screen(), fig)
+
+
 	# Send mesh data to the C++ micromagnetic solver
 	@ccall "./micromagnetics.so".LandauLifshitz(
 		  mesh.p::Ptr{Float64}
@@ -43,6 +67,24 @@ function main(meshSize::Float64 = 0.0
 	    , mesh.nInside::Int32, mesh.nInsideNodes::Int32
     	, M::Ptr{Float64}
     	)::Cvoid
+
+
+	# Plot new magnetization
+	ax = Axis3(fig[1, 2], aspect = :data, title="Final M")
+	graph = arrows3d!(  ax
+	                    , mesh.p[1, mesh.InsideNodes]
+	                    , mesh.p[2, mesh.InsideNodes]
+	                    , mesh.p[3, mesh.InsideNodes]
+	                    , M[1, mesh.InsideNodes]
+	                    , M[2, mesh.InsideNodes]
+	                    , M[3, mesh.InsideNodes]
+	                    , color = M[3, mesh.InsideNodes]
+	                    , lengthscale = 0.1
+	                    , colormap = :CMRmap,  # :CMRmap :viridis :redsblues :turbo :rainbow
+	                  )
+
+	# Colorbar(fig[1, 2], graph, label = "M (emu/g)") # Add a colorbar
+	wait(fig.scene)
 
 end
 
