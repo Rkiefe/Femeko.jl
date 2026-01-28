@@ -19,8 +19,6 @@ LL::LL(Eigen::Ref<Eigen::MatrixXd> p_input,
 		4) Pre-computes the conjugate gradient solver for that stiffness matrix
 	*/
 
-	std::cout << "Found an out of bounds access when the mesh has local refinement. Do not run at this stage." << std::endl;
-
 	// Get the linear basis function of each element and node
 	std::cout << "Calculating the linear basis function over each element and node" << std::endl;
 	linearBasis();
@@ -34,7 +32,7 @@ LL::LL(Eigen::Ref<Eigen::MatrixXd> p_input,
 	CG.compute(A);
 
 	// Compute the exchange stiffness matrix
-	std::cout << "Calculating the exchange stiffness matrix" << std::endl;
+	std::cout << "Building the exchange stiffness matrix" << std::endl;
 	exchangeStiffness();
 
 	// Run the micromagnetics solver
@@ -46,20 +44,10 @@ LL::LL(Eigen::Ref<Eigen::MatrixXd> p_input,
 void LL::run(){
 
 	// Get each magnetic field contribution
-	std::cout << "Running the magnetic field contributions" << std::endl;
-	
-	std::cout << "Running the demag field" << std::endl;
 	magnetostaticField();
-
-	std::cout << "Running the exchange field" << std::endl;
 	exchangeField();
-
-	std::cout << "Running the anisotropy field" << std::endl;
 	anisotropyField();
-
-	// Update the effective field
-	std::cout << "Updating the total field" << std::endl;
-	updateEffectiveField(); // Updated 'H' matrix
+	updateEffectiveField(); // Updated 'H' effective field matrix
 
 	// Prepare a copy of the magnetization field of current iteration
 	Eigen::MatrixXd Mold = M; // Copy of M
@@ -149,7 +137,7 @@ void LL::run(){
         file3 << H << std::endl;
         file3.close();
     } // Save the H
-
+    
 } // Run the micromagnetic solver
 
 // FEM linear basis function of each node and element

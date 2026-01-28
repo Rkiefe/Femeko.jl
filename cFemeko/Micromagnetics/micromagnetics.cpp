@@ -15,7 +15,7 @@ extern "C"{
 
 		// Map the mesh info to Eigen
 		Eigen::Map<Eigen::MatrixXd> p(p_ptr, 3, nv);
-		Eigen::Map<Eigen::MatrixXi> t(t_ptr, 4, nv);
+		Eigen::Map<Eigen::MatrixXi> t(t_ptr, 4, nt);
 		Eigen::Map<Eigen::VectorXi> InsideElements(InsideElements_ptr, nInside);
 		Eigen::Map<Eigen::VectorXi> InsideNodes(InsideNodes_ptr, nInsideNodes);
 

@@ -1,6 +1,12 @@
+#= 
+	g++ -O3 -fPIC -shared -fopenmp -o micromagnetics.so micromagnetics.cpp
+=#
 include("../../src/Femeko.jl")
-
 using GLMakie
+
+meshSize = 2.0
+localSize = 0.5
+showGmsh = false
 
 function main(meshSize::Float64 = 0.0
 			, localSize::Float64 = 0.0
@@ -19,15 +25,22 @@ function main(meshSize::Float64 = 0.0
 	mesh = Mesh(cells, meshSize, localSize)
 	
 	# View mesh in Gmsh gui
-	showGmsh ? gmsh.fltk.run() : nothing
+	if showGmsh
+		gmsh.option.setNumber("Mesh.Clip", 1)
+		gmsh.option.setNumber("Mesh.VolumeFaces", 1)
+		gmsh.option.setNumber("General.ClipWholeElements", 1)
+		gmsh.fltk.run()
+	end
 	gmsh.finalize()
+
 
 	# Normalized 3D magnetization field
 	M = zeros(3, mesh.nv)
-	M[:, mesh.InsideNodes] .= rand(3, mesh.nInsideNodes) .- 0.5
-	for i in mesh.InsideNodes
-		M[:, i] ./= norm(M[:, i])
-	end
+	M[3, mesh.InsideNodes] .= 1.0
+	# M[:, mesh.InsideNodes] .= rand(3, mesh.nInsideNodes) .- 0.5
+	# for i in mesh.InsideNodes
+	# 	M[:, i] ./= norm(M[:, i])
+	# end
 
 	# Shift to 0 index for C++
 	t::Matrix{Int32} = mesh.t .- 1
@@ -88,7 +101,6 @@ function main(meshSize::Float64 = 0.0
 
 end
 
-main(0.0, 0.0, false)
+main(meshSize, localSize, showGmsh)
 
-# g++ -O3 -fPIC -shared -fopenmp -o micromagnetics.so micromagnetics.cpp
-# g++ -fPIC -shared -fopenmp -o micromagnetics.so micromagnetics.cpp
+
