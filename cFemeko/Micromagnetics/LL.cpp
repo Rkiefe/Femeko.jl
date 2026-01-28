@@ -120,7 +120,25 @@ void LL::run(){
 
 	} // Time step loop
 
-	std::cout << "Simulation finished" << std::endl;
+	std::cout << "Simulation finished. Saving..." << std::endl;
+
+	std::ofstream file("M_time.txt");
+    if (file.is_open()) {
+        file << M_time << std::endl;
+        file.close();
+    } // Save the M(time)
+
+    std::ofstream file2("Mfield.txt");
+    if (file2.is_open()) {
+        file2 << M << std::endl;
+        file2.close();
+    } // Save the M
+
+    std::ofstream file3("Hfield.txt");
+    if (file3.is_open()) {
+        file3 << H << std::endl;
+        file3.close();
+    } // Save the H
 
 } // Run the micromagnetic solver
 
@@ -351,7 +369,8 @@ Eigen::Vector3d LL::step(Eigen::Vector3d M,
 	return M2;
 }
 
-
-
 // Destructor
 LL::~LL(){std::cout << "Micromagnetics solver leaving scope \n";}
+
+
+
