@@ -49,7 +49,7 @@ void LL::run(){
 	anisotropyField();
 
 	// Update the effective field
-	updateEffectiveField(); // Updated 'H'
+	updateEffectiveField(); // Updated 'H' matrix
 
 	// Prepare a copy of the magnetization field of current iteration
 	Eigen::MatrixXd Mold = M; // Copy of M
@@ -66,11 +66,11 @@ void LL::run(){
 
 	std::cout << "Running Landau-Lifshitz simulation" << std::endl;
 
-	int frame = 0;
+	int frame = -1;
 	double torque = 1e2; // Max of |dM/dt|
 
-	while(frame < 1){ // For testing
-	// while(torque > maxTorque && frame < maxSteps){
+	// while(frame < 1){ // For testing
+	while(torque > maxTorque && frame < maxSteps){
 
 		frame++;	  // Update iteration step
 		torque = 0.0; // Reset maximum torque
@@ -78,21 +78,48 @@ void LL::run(){
 		// Evolve the magnetization of each node
 		for(int i = 0; i<InsideNodes.size(); i++){
 			int nd = InsideNodes(i); // Global node label
-			
+	
+			// New magnetization
 			Eigen::Vector3d M2 = step(M.col(nd), Mold.col(nd), H.col(nd), Hold.col(nd));
 
-			// Update the old magnetization value
-			Mold.col(nd) = M.col(nd);
+			Mold.col(nd) = M.col(nd); // Update the old magnetization value
+			M.col(nd) = M2; // Update the new magnetization value
 
-			// Update the new magnetization value
-			M.col(nd) = M2;
-			
+			// Store the old magnetic field H
+			Hold.col(nd) = H.col(nd);
+
+			// Update the magnetizaiton norm
+			Mnorm(nd) = M.col(nd).norm();
+
+			// Check the torque term dM/dt
+			Eigen::Vector3d M_nd, H_nd;
+			M_nd = M.col(nd); H_nd = H.col(nd);
+
+			Eigen::Vector3d dM_dt = M_nd.cross(H_nd) + alfa* M_nd.cross( M_nd.cross(H_nd) );
+			torque = std::max(torque, dM_dt.norm()); // Store the largest torque value of the mesh
+
+			// Store the average Mx,y,z of the mesh
+			M_time.col(frame) += M_nd;
+
 		} // Update M
 
+		// Average Mx,y,z of current time frame
+		M_time.col(frame) /= InsideNodes.size(); 
 
-	}
+		// Get each magnetic field contributions for the new magnetization field
+		magnetostaticField();
+		exchangeField();
+		anisotropyField();
 
+		updateEffectiveField(); // Update the effective field
 
+		if(verbose){
+			std::cout << frame << "/" << maxSteps << " |dM/dt| = " << torque << std::endl;	
+		} 
+
+	} // Time step loop
+
+	std::cout << "Simulation finished" << std::endl;
 
 } // Run the micromagnetic solver
 

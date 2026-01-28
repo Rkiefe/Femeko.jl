@@ -30,6 +30,7 @@ public:
 	double maxTorque = 1e-5; // Max torque |dM/dt|
 	double alfa = 1.0;
 	bool precession = true;  // Consider precession ? 
+	bool verbose = true; 	 // Show torque values of each simulation step
 
 	// 		-- Outputs --
 	Eigen::MatrixXd M_time = Eigen::MatrixXd::Zero(3, maxSteps); // <M>x,y,z over time
