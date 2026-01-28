@@ -43,9 +43,26 @@ LL::LL(Eigen::Ref<Eigen::MatrixXd> p_input,
 // Run the micromagnetic simulation
 void LL::run(){
 
-	// Update the magnetic fields
+	// Get each magnetic field contribution
 	magnetostaticField();
 	exchangeField();
+	anisotropyField();
+
+	// Update the effective field
+	updateEffectiveField(); // Updated 'H'
+
+	// Prepare a copy of the magnetization field of current iteration
+	Eigen::MatrixXd Mold = M; // Copy of M
+
+	// Preapre a copy of H
+	Eigen::MatrixXd Hold = H; // Copy of H
+
+	// Norm of the magnetization on each node
+	Eigen::VectorXd Mnorm = Eigen::VectorXd::Zero(p.cols());
+	for(int i = 0; i<InsideNodes.size(); i++){
+		int nd = InsideNodes(i);
+		Mnorm(nd) = M.col(nd).norm();
+	}
 
 } // Run the micromagnetic solver
 
@@ -192,14 +209,30 @@ void LL::exchangeField(){
 // Anisotropy field (3 by nv)
 void LL::anisotropyField(){
 	double mu0 = pi*4e-7; // Vacuum magnetic permeability
-	// Han::Matrix{Float64} = zeros(3, self.mesh.nv)
+	Han = Eigen::MatrixXd::Zero(3, p.cols());
 	for(int i = 0; i<InsideNodes.size(); i++){
-		int nd = InsideNodes(i);
-		// double Msqrd = dot(M[:, i], M[:, i])
-	    // Han[:, i] = mu0*2*self.Aan/Msqrd *dot(M[:, i], self.uan) .*self.uan
-	}
 
+		int nd = InsideNodes(i); // Global node label
+
+		double Msqrd = M(0, nd)*M(0, nd) + M(1, nd)*M(1, nd) + M(2, nd)*M(2, nd); // |M|^2
+	    double temp = mu0 * 2.0*Aan/Msqrd;
+	    temp *= M(0, nd)*uan(0) + M(1, nd)*uan(1) + M(2, nd)*uan(2); // M dot easy-axis
+	    
+	    Han.col(nd) = temp * uan; // Update the field on the mesh node 'nd'
+	} // Update the field on each mesh node
 } // Anisotropy field
+
+void LL::updateEffectiveField(){
+	
+	// Reset to all zeros
+	H = Eigen::MatrixXd::Zero(3, p.cols());
+	
+	H.colwise() += Hext; // Add the external field
+	H += Hd; 	// Add the demagnetizing field
+	H += Hexc; 	// Add the exchange field
+	H += Han;	// Add the anisotropy field
+
+}
 
 // Destructor
 LL::~LL(){std::cout << "Micromagnetics solver leaving scope \n";}

@@ -6,14 +6,14 @@ class LL
 public:
 
 	// Mesh data
-	Eigen::MatrixXd p;
-	Eigen::MatrixXi t;
-	Eigen::VectorXi InsideElements;
-	Eigen::VectorXi InsideNodes;
-	double* VE;
+	Eigen::MatrixXd p; // Node coordinates, 3 by nv
+	Eigen::MatrixXi t; // Element connectivity 3 by nt
+	Eigen::VectorXi InsideElements; // Array of element labels in magnetic volume
+	Eigen::VectorXi InsideNodes;    // Array of node labels in magnetic volume
+	double* VE; 					// Array of element volumes (size nt)
 	Eigen::VectorXd volumes; // Volume of elements surrounding each node (size = nv)
 
-	Eigen::MatrixXd a, b, c, d; 		// FEM lienar basis function F = a + bx + cy + dz
+	Eigen::MatrixXd a, b, c, d; 		// FEM linear basis function F = a + bx + cy + dz, 4 by nt
 	Eigen::SparseMatrix<double> AEXC; 	// Exchange field stiffness matrix
 	Eigen::ConjugateGradient<Eigen::SparseMatrix<double>> CG; // Conjugate Gradient solver for the magnetostatic scalar potential
 
@@ -39,6 +39,7 @@ public:
 	Eigen::MatrixXd Hexc; 	// Exchange field, 3 by nv
 	Eigen::MatrixXd Han; 	// Anisotropy field, 3 by nv
 	Eigen::MatrixXd M; 		// M field, 3 by nv
+	Eigen::MatrixXd H; 		// Effective field, 3 by nv (sum of all H fields)
 
 	// Create the micromagnetics solver
 	LL(Eigen::Ref<Eigen::MatrixXd> p_input, 
@@ -69,4 +70,6 @@ public:
 	// Get the Anisotropy field (3 by nv)
 	void anisotropyField();
 
+	// Creates a zero(3, nv) array and adds each magnetic field
+	void updateEffectiveField();
 };
