@@ -1,11 +1,15 @@
 #= 
-	g++ -O3 -fPIC -shared -fopenmp -o micromagnetics.so micromagnetics.cpp
+	Same as the Femeko.jl permalloy.jl, but with C++.
+	Make sure to update the LL.h header file with the correct values and compile with
+		g++ -O3 -fPIC -shared -fopenmp -o micromagnetics.so micromagnetics.cpp
 =#
+
 include("../../src/Femeko.jl")
 using GLMakie
+using DelimitedFiles
 
-meshSize = 2.0
-localSize = 0.5
+meshSize = 200.0
+localSize = 20.0
 showGmsh = false
 
 function main(meshSize::Float64 = 0.0
@@ -16,8 +20,8 @@ function main(meshSize::Float64 = 0.0
 
 	# Create 3D model
 	cells = []
-	addCuboid([0.0, 0.0, 0.0], [1.0, 1.0, 1.0], cells)
-	box = addSphere([0.0, 0.0, 0.0], 5.0)
+	addCuboid([0.0, 0.0, 0.0], [100.0, 100.0, 5.0], cells)
+	box = addSphere([0.0, 0.0, 0.0], 500.0)
 
 	_, box = unifyModel(cells, box) # unify volume
 
@@ -33,10 +37,14 @@ function main(meshSize::Float64 = 0.0
 	end
 	gmsh.finalize()
 
+	mu0::Float64 = pi*4e-7 			# Vacuum magnetic permeability
+    giro::Float64 = 2.210173e5 /mu0 # Gyromagnetic ratio (rad T-1 s-1)
+	timeStep = 0.01
+	nSteps = 70350
 
 	# Normalized 3D magnetization field
 	M = zeros(3, mesh.nv)
-	M[3, mesh.InsideNodes] .= 1.0
+	M[1, mesh.InsideNodes] .= 1.0807
 	# M[:, mesh.InsideNodes] .= rand(3, mesh.nInsideNodes) .- 0.5
 	# for i in mesh.InsideNodes
 	# 	M[:, i] ./= norm(M[:, i])
@@ -59,12 +67,12 @@ function main(meshSize::Float64 = 0.0
 	                    , M[2, mesh.InsideNodes]
 	                    , M[3, mesh.InsideNodes]
 	                    , color = M[3, mesh.InsideNodes]
-	                    , lengthscale = 0.1
+	                    , lengthscale = 10.0
 	                    , colormap = :CMRmap,  # :CMRmap :viridis :redsblues :turbo :rainbow
 	                  )
 
 	# Colorbar(fig[1, 2], graph, label = "M (emu/g)") # Add a colorbar
-	display(fig)
+	# display(fig)
 	# wait(display(fig))
 	# display(GLMakie.Screen(), fig)
 
@@ -83,6 +91,7 @@ function main(meshSize::Float64 = 0.0
 
 
 	# Plot new magnetization
+	println("Adding new M to the plot")
 	ax = Axis3(fig[1, 2], aspect = :data, title="Final M")
 	graph = arrows3d!(  ax
 	                    , mesh.p[1, mesh.InsideNodes]
@@ -92,12 +101,29 @@ function main(meshSize::Float64 = 0.0
 	                    , M[2, mesh.InsideNodes]
 	                    , M[3, mesh.InsideNodes]
 	                    , color = M[3, mesh.InsideNodes]
-	                    , lengthscale = 0.1
+	                    , lengthscale = 10.0
 	                    , colormap = :CMRmap,  # :CMRmap :viridis :redsblues :turbo :rainbow
 	                  )
+	# Colorbar(fig[1, 2], graph, label = "M (emu/g)") # Add a colorbar	
+	display(GLMakie.Screen(), fig)
+	# display(fig)
 
-	# Colorbar(fig[1, 2], graph, label = "M (emu/g)") # Add a colorbar
-	wait(fig.scene)
+
+
+	# Read the output
+	Mxyz = readdlm("M_time.txt")
+
+	println("Making a new window with M(t)")
+	fig = Figure()
+	ax = Axis(fig[1,1]) #, aspect =  DataAspect()
+	scatter!(ax, (timeStep*1e9/giro)*(0:nSteps-1), Mxyz[1, :], label="Mx")
+	scatter!(ax, (timeStep*1e9/giro)*(0:nSteps-1), Mxyz[2, :], label="My")
+	scatter!(ax, (timeStep*1e9/giro)*(0:nSteps-1), Mxyz[3, :], label="Mz")
+    axislegend(position=:rb)
+	
+	# display(GLMakie.Screen(), fig)
+	wait(display(fig))
+	# wait(fig.scene)
 
 end
 

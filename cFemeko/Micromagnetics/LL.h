@@ -19,24 +19,24 @@ public:
 	Eigen::ConjugateGradient<Eigen::SparseMatrix<double>> CG; // Conjugate Gradient solver for the magnetostatic scalar potential
 
 	// Material properties
-	double Ms = 1.0;		// Saturation magnetization (Tesla)
-	double Aexc = 0.0; 		// Exchange energy (J/m)
+	double Ms = 1.0807;		// Saturation magnetization (Tesla)
+	double Aexc = 12e-13; 		// Exchange energy (J/m)
 	double scale = 1e-9; 	// Scale of the material
 	double Aan = 0.0; 		// Anisotropy energy (J/m3)
 	Eigen::Vector3d uan = {1.0, 0.0, 0.0};  // Easy axis
 
  	// Solver properties
-	int maxSteps = 100000; 	 // Max number of time steps
+	int maxSteps = 70350; 	 // Max number of time steps
 	double timeStep = 0.01;  // Time step in giro seconds
 	double maxTorque = 1e-5; // Max torque |dM/dt|
-	double alfa = 1.0;
+	double alfa = 0.0925;
 	bool precession = true;  // Consider precession ? 
 	bool verbose = true; 	 // Show torque values of each simulation step
 
 	// 		-- Outputs --
 	Eigen::MatrixXd M_time = Eigen::MatrixXd::Zero(3, maxSteps); // <M>x,y,z over time
 
-	Eigen::Vector3d Hext = {1.0, 0.0, 0.0}; // Applied field (Tesla)
+	Eigen::Vector3d Hext = {0.0, 0.062832, 0.0}; // Applied field (Tesla)
 	Eigen::MatrixXd Hd; 	// Demagnetizing field, 3 by nv
 	Eigen::MatrixXd Hexc; 	// Exchange field, 3 by nv
 	Eigen::MatrixXd Han; 	// Anisotropy field, 3 by nv
