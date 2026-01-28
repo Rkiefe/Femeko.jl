@@ -64,6 +64,36 @@ void LL::run(){
 		Mnorm(nd) = M.col(nd).norm();
 	}
 
+	std::cout << "Running Landau-Lifshitz simulation" << std::endl;
+
+	int frame = 0;
+	double torque = 1e2; // Max of |dM/dt|
+
+	while(frame < 1){ // For testing
+	// while(torque > maxTorque && frame < maxSteps){
+
+		frame++;	  // Update iteration step
+		torque = 0.0; // Reset maximum torque
+
+		// Evolve the magnetization of each node
+		for(int i = 0; i<InsideNodes.size(); i++){
+			int nd = InsideNodes(i); // Global node label
+			
+			Eigen::Vector3d M2 = step(M.col(nd), Mold.col(nd), H.col(nd), Hold.col(nd));
+
+			// Update the old magnetization value
+			Mold.col(nd) = M.col(nd);
+
+			// Update the new magnetization value
+			M.col(nd) = M2;
+			
+		} // Update M
+
+
+	}
+
+
+
 } // Run the micromagnetic solver
 
 // FEM linear basis function of each node and element
@@ -214,9 +244,8 @@ void LL::anisotropyField(){
 
 		int nd = InsideNodes(i); // Global node label
 
-		double Msqrd = M(0, nd)*M(0, nd) + M(1, nd)*M(1, nd) + M(2, nd)*M(2, nd); // |M|^2
-	    double temp = mu0 * 2.0*Aan/Msqrd;
-	    temp *= M(0, nd)*uan(0) + M(1, nd)*uan(1) + M(2, nd)*uan(2); // M dot easy-axis
+	    double temp = mu0 * 2.0*Aan/M.col(nd).norm();
+	    temp *= M.col(nd).dot(uan); // M dot easy-axis
 	    
 	    Han.col(nd) = temp * uan; // Update the field on the mesh node 'nd'
 	} // Update the field on each mesh node
@@ -233,6 +262,68 @@ void LL::updateEffectiveField(){
 	H += Han;	// Add the anisotropy field
 
 }
+
+// Update the direction of the magnetization
+Eigen::Vector3d LL::step(Eigen::Vector3d M,
+					 Eigen::Vector3d Mold,
+					 Eigen::Vector3d H,
+					 Eigen::Vector3d Hold){
+
+	double d = timeStep/2.0;
+
+	// M(n+1/2)
+	Eigen::Vector3d M12 = 3/2*M - 1/2*Mold;
+
+	// M(n+1)
+	Eigen::Vector3d M2 = {0.0, 0.0, 0.0};
+
+	// 1) Initial guess of the new magnetic field
+	Eigen::Vector3d H12 = 3/2 *H - 0.5 *Hold;
+
+	// Htild from Oriano et al 2008
+	Eigen::Vector3d Htild = alfa* M12.cross(H12) + H12;
+
+	// Repeat until M(n+1) doesn't change
+	Eigen::Vector3d aux = M; // Copy of M
+	double err = 1.0;
+	int att = 0;
+	while(err > 1e-6 && att < 1000){
+	    
+	    att += 1;
+
+	    // 2) M (n+1) from M(n) and H(n+1/2)
+	    Eigen::Matrix3d mat;
+	    mat << 1, d*Htild(2), -d*Htild(1),
+	           -d*Htild(2), 1, d*Htild(0),
+	           d*Htild(1), -d*Htild(0), 1;
+	    
+	    Eigen::Vector3d RHS = M - d* M.cross(Htild);
+
+	    M2 = mat.colPivHouseholderQr().solve(RHS); // M(n+1)
+
+	    // 3) M (n + 1/2)
+	    M12 = 0.5*(M + M2);
+
+	    // 4) Calculate H~ (n+1/2) from M(n+1/2)
+	    if(precession){
+	    	Htild = alfa* M12.cross(H12) + H12;	
+	    } else{
+	    	Htild =	alfa* M12.cross(H12);
+	    }
+	    
+	    // Max difference between new M(n+1) and old M(n+1)
+	    err = (M2-aux).norm();
+	    // std::cout << "M(n+1) iteration error: " << err << std::endl;
+
+	    // Update M(n+1) from last iteration
+	    aux = M2;
+
+	} // Get new magnetization value
+
+	return M2;
+}
+
+
 
 // Destructor
 LL::~LL(){std::cout << "Micromagnetics solver leaving scope \n";}

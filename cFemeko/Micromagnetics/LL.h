@@ -72,4 +72,10 @@ public:
 
 	// Creates a zero(3, nv) array and adds each magnetic field
 	void updateEffectiveField();
+
+	// Update the magnetization direction
+	Eigen::Vector3d step(Eigen::Vector3d M,
+						 Eigen::Vector3d Mold,
+						 Eigen::Vector3d H,
+						 Eigen::Vector3d Hold);
 };
