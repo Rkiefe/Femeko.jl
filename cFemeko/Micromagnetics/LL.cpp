@@ -136,6 +136,45 @@ void LL::linearBasis(){
 	} // Loop over the elements
 }
 
+// Exchange field stiffness matrix
+void LL::exchangeStiffness(){
+
+	// Local exchange stiffness matrix
+	Eigen::MatrixXd Ak = Eigen::MatrixXd::Zero(16, t.cols());
+	for(int ik = 0; ik<InsideElements.size(); ik++){
+
+		int k = InsideElements(ik); // Global element label
+
+		// Local matrix
+		Eigen::Matrix4d aux = VE[k]*(b.col(k) * b.col(k).transpose() + c.col(k) * c.col(k).transpose() + d.col(k) * d.col(k).transpose());
+		Ak.col(k) = Eigen::Map<Eigen::VectorXd>(aux.data(), 16);
+	
+	} // Local exchange stiffness matrix
+	
+	// Temporary storage for triplets (row, col, value)
+	std::vector<Eigen::Triplet<double>> triplets;
+	triplets.reserve(16 * t.cols());
+
+	// Update the global matrix
+	for(int k = 0; k<t.cols(); k++){
+	    int n = -1;
+	    for (int i = 0; i < 4; ++i) {
+	        for (int j = 0; j < 4; ++j) {
+	            n++;
+	            
+	            // Add contribution to global matrix
+	            triplets.emplace_back(t(i,k), t(j,k), Ak(n, k));
+	        }
+	    }
+	} // Loop over the elements
+
+	// Build global stiffness matrix from triplets
+	Eigen::SparseMatrix<double> AEXC(p.cols(), p.cols());
+	AEXC.setFromTriplets(triplets.begin(), triplets.end());
+
+} // Exchange stiffness matrix
+
+
 // Update the direction of the magnetization
 Eigen::Vector3d LL::step(Eigen::Vector3d M,
 					 Eigen::Vector3d Mold,

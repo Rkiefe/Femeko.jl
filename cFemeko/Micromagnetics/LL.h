@@ -20,6 +20,9 @@ public:
 	// Stiffness matrix of magnetostatic field
 	Eigen::SparseMatrix<double> A;
 
+	// Stiffness matrix of the exchange field
+	Eigen::SparseMatrix<double> AEXC;
+
 	// Material properties
 	double mu0 = pi*4e-7;	// Vacuum magnetic permeability
 	double Ms = mu0*860e3;	// Saturation magnetization (Tesla)
@@ -57,6 +60,9 @@ public:
 
 	// Compute the FEM basis coefficients
 	void linearBasis();
+
+	// Compute the stiffness matrix of the exchange field
+	void exchangeStiffness();
 
 	// Compute the total magnetic field H
 	void effectiveField();
