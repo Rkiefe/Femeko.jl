@@ -59,7 +59,7 @@ void LL::run(){
 	Eigen::MatrixXd Hold = H;
 	
 	int frame = 0;
-	int torque = 1.0;
+	double torque = 1.0;
 
 	while (frame < maxSteps){
 
@@ -71,6 +71,9 @@ void LL::run(){
 
 			int nd = InsideNodes(i); // Global node label
 
+			// Store the average magnetization
+			M_time.col(frame) += M.col(nd)* 1.0/p.cols();
+
 			// Update magnetization
 			Eigen::Vector3d M2 = step(M.col(nd), Mold.col(nd), 
 									  H.col(nd), Hold.col(nd));
@@ -79,7 +82,8 @@ void LL::run(){
 			M.col(nd) = M2;
 
 			// Check the torque |dM/dt|
-			// ...
+			Eigen::Vector3d dM_dt = getTorque(M.col(nd), H.col(nd));
+			torque = std::max(torque, dM_dt.norm());
 		}
 
 		// Store the old magnetic field
@@ -141,13 +145,13 @@ Eigen::Vector3d LL::step(Eigen::Vector3d M,
 	double d = timeStep/2.0;
 
 	// M(n+1/2)
-	Eigen::Vector3d M12 = 3/2*M - 1/2*Mold;
+	Eigen::Vector3d M12 = 1.5*M - 0.5*Mold;
 
 	// M(n+1)
 	Eigen::Vector3d M2 = {0.0, 0.0, 0.0};
 
 	// 1) Initial guess of the new magnetic field
-	Eigen::Vector3d H12 = 3/2 *H - 0.5 *Hold;
+	Eigen::Vector3d H12 = 1.5*H - 0.5*Hold;
 
 	// Htild from Oriano et al 2008
 	Eigen::Vector3d Htild = alfa* M12.cross(H12) + H12;
@@ -162,9 +166,9 @@ Eigen::Vector3d LL::step(Eigen::Vector3d M,
 
 	    // 2) M (n+1) from M(n) and H(n+1/2)
 	    Eigen::Matrix3d mat;
-	    mat << 1, d*Htild(2), -d*Htild(1),
-	           -d*Htild(2), 1, d*Htild(0),
-	           d*Htild(1), -d*Htild(0), 1;
+	    mat << 1.0, d*Htild(2), -d*Htild(1),
+	           -d*Htild(2), 1.0, d*Htild(0),
+	           d*Htild(1), -d*Htild(0), 1.0;
 	    
 	    Eigen::Vector3d RHS = M - d* M.cross(Htild);
 
@@ -217,9 +221,18 @@ void LL::exchangeField(){}
 
 void LL::anisotropyField(){}
 
-
-
-
-int main(){
-	std::cout << "Hello world!" << std::endl;
+Eigen::Vector3d LL::getTorque(Eigen::Vector3d m, 
+							  Eigen::Vector3d h){
+	
+	// Check the torque term dM/dt
+	Eigen::Vector3d dM_dt = m.cross(h) + alfa* m.cross( m.cross(h) );
+	return dM_dt;
 }
+
+LL::~LL(){
+	std::cout << "Micromagnetics solver leaving scope" << std::endl;
+}
+
+// int main(){
+// 	std::cout << "Hello world!" << std::endl;
+// }

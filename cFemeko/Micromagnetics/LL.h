@@ -76,6 +76,9 @@ public:
 					 		 Eigen::Vector3d H,
 					 		 Eigen::Vector3d Hold);
 
+	Eigen::Vector3d getTorque(Eigen::Vector3d m, 
+							  Eigen::Vector3d h);
+
 	// Run the micromagnetic simulation
 	void run();
 
