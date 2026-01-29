@@ -10,7 +10,7 @@
 #include <memory>
 
 // Include Finite Element package
-#include "../../src/BEMc.cpp"
+#include "../../../src/BEMc.cpp"
 
 
 class Micromagnetics{
