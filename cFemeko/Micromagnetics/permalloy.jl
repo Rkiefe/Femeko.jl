@@ -1,10 +1,17 @@
 #=
 	See Femeko.jl/Micromagnetics/permalloy.jl
 	This passes the solver logic to a C++ implementation
+	
+	/!\ /!\ Compile micromagnetics.cpp with 
+		g++ -O3 -fPIC -shared -o micromagnetics.so micromagnetics.cpp
+	
+	or add multithreading with
+		g++ -O3 -fPIC -shared -fopenmp -o micromagnetics.so micromagnetics.cpp
 =#
 
 include("../../src/Femeko.jl") 	# Include Landau-Lifshitz solver
 using GLMakie 		# Include Makie for plots
+using DelimitedFiles
 
 meshSize = 200.0
 localSize = 20.0
@@ -25,7 +32,7 @@ function main( meshSize::Float64=0.0
 		# Aan = 0.0 		# Anisotropy constant J/m3
 		# uan = [1,0,0] 	# Easy axis
 		timeStep = 0.01 	# Time step (normalized by the gyromagnetic ratio)
-		nSteps = 7035
+		# nSteps = 7035
 		# totalTime = 70.35 	# Stop when time > total time (normalized by the gyromagnetic ratio)
 		# alfa = 0.1/Ms 	# damping
 		
@@ -76,6 +83,20 @@ function main( meshSize::Float64=0.0
 	    , M::Ptr{Float64}       # 
 	)::Cvoid
 
+	# Load result
+	Mxyz = readdlm("M_time.txt")
+	nSteps = size(Mxyz, 2)
+
+	# Plot the results
+	println("Generating plots...")
+	fig = Figure()
+	ax = Axis(fig[1,1])
+	scatter!(ax, 1:nSteps, Mxyz[1, :], label="Mx")
+	scatter!(ax, 1:nSteps, Mxyz[2, :], label="My")
+	scatter!(ax, 1:nSteps, Mxyz[3, :], label="Mz")
+
+    axislegend(position=:rb)
+    wait(display(fig))
 
 end
 

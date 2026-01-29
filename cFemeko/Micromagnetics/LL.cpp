@@ -42,7 +42,7 @@ LL::LL(Eigen::Ref<Eigen::MatrixXd> p_input,
 	Hexc = Eigen::MatrixXd::Zero(3, p.cols());
 
 	// Pre-set the output M(t)
-	M_time = Eigen::MatrixXd(3, maxSteps);
+	M_time = Eigen::MatrixXd::Zero(3, maxSteps);
 
 	// Run the micromagnetics solver
 	run();
@@ -62,6 +62,8 @@ void LL::run(){
 	double torque = 1.0;
 
 	while (frame < maxSteps){
+
+		torque = 0.0; // Reset the maximum torque
 
 		// Update the effective field
 		effectiveField();
@@ -169,7 +171,7 @@ void LL::exchangeStiffness(){
 	} // Loop over the elements
 
 	// Build global stiffness matrix from triplets
-	Eigen::SparseMatrix<double> AEXC(p.cols(), p.cols());
+	AEXC = Eigen::SparseMatrix<double>(p.cols(), p.cols());
 	AEXC.setFromTriplets(triplets.begin(), triplets.end());
 
 } // Exchange stiffness matrix
@@ -289,9 +291,9 @@ void LL::magnetostaticField(){
 	Eigen::MatrixXd Hdk = Eigen::MatrixXd::Zero(3, t.cols());
 	for(int k = 0; k<t.cols(); k++){
 		for(int i = 0; i<4; i++){
-			Hdk(0, k) -+ b(i, k)*u(t(i, k));
-			Hdk(1, k) -+ c(i, k)*u(t(i, k));
-			Hdk(2, k) -+ d(i, k)*u(t(i, k));
+			Hdk(0, k) -= b(i, k)*u(t(i, k));
+			Hdk(1, k) -= c(i, k)*u(t(i, k));
+			Hdk(2, k) -= d(i, k)*u(t(i, k));
 		}
 	} // Hd constant on each element
 
@@ -331,7 +333,7 @@ void LL::exchangeField(){
 
 void LL::anisotropyField(){
 	
-	Han = Eigen::MatrixXd::Zero(3, p.cols()); // Don't need to reset because it is overwritten
+	// Han = Eigen::MatrixXd::Zero(3, p.cols()); // Don't need to reset because it is overwritten
 	double coef = mu0*2.0*Aan;
 
 	for(int i = 0; i<InsideNodes.size(); i++){
@@ -354,6 +356,6 @@ LL::~LL(){
 	std::cout << "Micromagnetics solver leaving scope" << std::endl;
 }
 
-int main(){
-	std::cout << "Hello world!" << std::endl;
-}
+// int main(){
+// 	std::cout << "Hello world!" << std::endl;
+// }
