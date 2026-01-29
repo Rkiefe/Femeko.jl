@@ -215,7 +215,64 @@ void LL::effectiveField(){
 	}
 }
 
-void LL::magnetostaticField(){}
+void LL::magnetostaticField(){
+// Calculates the scalar potential u
+// then the magnetic field, constant on each element
+// and then maps the field to the nodes by the box method 
+
+	// Load vector
+	Eigen::VectorXd RHS = Eigen::VectorXd::Zero(p.cols());
+	for(int ik = 0; ik<InsideElements.size(); ik++){
+
+		int k = InsideElements(ik); // Global element label
+		
+		// Average magnetization over the element nodes
+		Eigen::Vector3d m_avg = {0.0, 0.0, 0.0};
+		for(int i = 0; i<4; i++){
+			int nd = t(i, k); // Global node label
+			m_avg(0) += M(0, nd)/4.0; // <Mx>
+			m_avg(1) += M(1, nd)/4.0; // <My>
+			m_avg(2) += M(2, nd)/4.0; // <Mz>
+		} // <M>_k
+
+		// Update the load vector
+		for(int i = 0; i<4; i++){
+			int nd = t(i, k); // Global node label
+			RHS(nd) += VE[k]*( b(i, k)*m_avg(0) + c(i, k)*m_avg(1) + d(i, k)*m_avg(2) );
+		}
+
+	} // Loop over the elements in the magnetic domain  
+	
+	// Solve the linear system
+	Eigen::VectorXd u = CG.solve(RHS); // Scalar potential
+
+	// Demagnetizing field constant on each element
+	Eigen::MatrixXd Hdk = Eigen::MatrixXd::Zero(3, t.cols());
+	for(int k = 0; k<t.cols(); k++){
+		for(int i = 0; i<4; i++){
+			Hdk(0, k) -+ b(i, k)*u(t(i, k));
+			Hdk(1, k) -+ c(i, k)*u(t(i, k));
+			Hdk(2, k) -+ d(i, k)*u(t(i, k));
+		}
+	} // Hd constant on each element
+
+	// Map the magnetic field to the nodes
+	Hd = Eigen::MatrixXd::Zero(3, p.cols());
+	for(int k = 0; k<t.cols(); k++){
+		for(int i = 0; i<4; i++){
+			int nd = t(i, k);
+			Hd(0, nd) += VE[k]*Hdk(0, k);
+			Hd(1, nd) += VE[k]*Hdk(1, k);
+			Hd(2, nd) += VE[k]*Hdk(2, k);
+		}
+	} // Multiply Hd_k by the volume of k
+	for(int nd = 0; nd < p.cols(); nd++){
+		Hd(0, nd) /= volumes(nd);
+		Hd(1, nd) /= volumes(nd);
+		Hd(2, nd) /= volumes(nd);
+	} // Divide by the total volume of 'k' containing 'nd' (box method)
+
+} // Demagnetizing field on the nodes of the mesh
 
 void LL::exchangeField(){}
 
@@ -233,6 +290,6 @@ LL::~LL(){
 	std::cout << "Micromagnetics solver leaving scope" << std::endl;
 }
 
-// int main(){
-// 	std::cout << "Hello world!" << std::endl;
-// }
+int main(){
+	std::cout << "Hello world!" << std::endl;
+}
