@@ -74,58 +74,92 @@ Eigen::VectorXd lagrange(
 
 // Dense, element-wise stiffness matrix
 Eigen::MatrixXd localStiffnessMatrix(
-	Eigen::Ref<Eigen::MatrixXd> p, 
-	Eigen::Ref<Eigen::MatrixXi> t, 
-	double* VE, double* mu)
+    Eigen::Ref<Eigen::MatrixXd> p, 
+    Eigen::Ref<Eigen::MatrixXi> t, 
+    double* VE)
 {
-	
-	// Create the local stiffness matrix
-	Eigen::MatrixXd Ak = Eigen::MatrixXd::Zero(16,t.cols());
+    
+    // Create the local stiffness matrix
+    Eigen::MatrixXd Ak = Eigen::MatrixXd::Zero(16,t.cols());
 
-	// #pragma omp parallel for
-	for(int k = 0; k<t.cols(); k++){
-		Eigen::Vector4d b,c,d;
-		for(int i = 0; i<4; i++){
-			Eigen::Vector4d r = abcd(p,t.col(k),t(i,k));
-			b(i) = r[1];
-			c(i) = r[2];
-			d(i) = r[3]; 
-		}
-		Eigen::Matrix4d aux = VE[k]*mu[k]*(b*b.transpose() + c*c.transpose() + d*d.transpose());
-		Ak.col(k) = Eigen::Map<Eigen::VectorXd>(aux.data(), 16);
-	}
-	return Ak;
+    // #pragma omp parallel for
+    for(int k = 0; k<t.cols(); k++){
+        Eigen::Vector4d b,c,d;
+        for(int i = 0; i<4; i++){
+            Eigen::Vector4d r = abcd(p,t.col(k),t(i,k));
+            b(i) = r[1];
+            c(i) = r[2];
+            d(i) = r[3]; 
+        }
+        Eigen::Matrix4d aux = VE[k]*(b*b.transpose() + c*c.transpose() + d*d.transpose());
+        Ak.col(k) = Eigen::Map<Eigen::VectorXd>(aux.data(), 16);
+    }
+    return Ak;
 
 } // Local stiffness matrix
 
-// Global stiffness matrix
+// Global stiffness matrix (with permeability)
 Eigen::SparseMatrix<double> stiffnessMatrix(
-	Eigen::Ref<Eigen::MatrixXd> p, 
-	Eigen::Ref<Eigen::MatrixXi> t, 
-	double* VE, double* mu)
+    Eigen::Ref<Eigen::MatrixXd> p, 
+    Eigen::Ref<Eigen::MatrixXi> t, 
+    double* VE, double* mu)
 {
-	// First calculate the local stiffness matrix
-	Eigen::MatrixXd Ak = localStiffnessMatrix(p, t, VE, mu);
-	
-	// Temporary storage for triplets (row, col, value)
-	std::vector<Eigen::Triplet<double>> triplets;
-	triplets.reserve(16 * t.cols());
+    // First calculate the local stiffness matrix
+    Eigen::MatrixXd Ak = localStiffnessMatrix(p, t, VE);
+    
+    // Temporary storage for triplets (row, col, value)
+    std::vector<Eigen::Triplet<double>> triplets;
+    triplets.reserve(16 * t.cols());
 
-	// Update the global matrix
-	for(int k = 0; k<t.cols(); k++){
-		int n = -1;
-		for (int i = 0; i < 4; ++i) {
-		    for (int j = 0; j < 4; ++j) {
-		        n++;
-		        
-		        // Add contribution to global matrix
-		        triplets.emplace_back(t(i,k), t(j,k), Ak(n, k));
-		    }
-		}
-	} // Loop over the elements
+    // Update the global matrix
+    for(int k = 0; k<t.cols(); k++){
+        int n = -1;
+        for (int i = 0; i < 4; ++i) {
+            for (int j = 0; j < 4; ++j) {
+                n++;
+                
+                // Add contribution to global matrix
+                triplets.emplace_back(t(i,k), t(j,k), Ak(n, k)*mu[k]);
+            }
+        }
+    } // Loop over the elements
 
-	// Build global stiffness matrix from triplets
-	Eigen::SparseMatrix<double> A(p.cols(), p.cols());
+    // Build global stiffness matrix from triplets
+    Eigen::SparseMatrix<double> A(p.cols(), p.cols());
+    A.setFromTriplets(triplets.begin(), triplets.end());
+    // A.makeCompressed();
+    
+    return A;
+} // Sparse, global stiffness matrix
+
+// Global stiffness matrix (without permeability)
+Eigen::SparseMatrix<double> stiffnessMatrix(
+    Eigen::Ref<Eigen::MatrixXd> p, 
+    Eigen::Ref<Eigen::MatrixXi> t, 
+    double* VE)
+{
+    // First calculate the local stiffness matrix
+    Eigen::MatrixXd Ak = localStiffnessMatrix(p, t, VE);
+    
+    // Temporary storage for triplets (row, col, value)
+    std::vector<Eigen::Triplet<double>> triplets;
+    triplets.reserve(16 * t.cols());
+
+    // Update the global matrix
+    for(int k = 0; k<t.cols(); k++){
+        int n = -1;
+        for (int i = 0; i < 4; ++i) {
+            for (int j = 0; j < 4; ++j) {
+                n++;
+                
+                // Add contribution to global matrix
+                triplets.emplace_back(t(i,k), t(j,k), Ak(n, k));
+            }
+        }
+    } // Loop over the elements
+
+    // Build global stiffness matrix from triplets
+    Eigen::SparseMatrix<double> A(p.cols(), p.cols());
     A.setFromTriplets(triplets.begin(), triplets.end());
     // A.makeCompressed();
     
