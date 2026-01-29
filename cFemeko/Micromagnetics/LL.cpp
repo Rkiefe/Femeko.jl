@@ -31,9 +31,9 @@ LL::LL(Eigen::Ref<Eigen::MatrixXd> p_input,
 	std::cout << "Applying the linear solver pre-computation" << std::endl;
 	CG.compute(A);
 
-	// // Compute the exchange stiffness matrix
-	// std::cout << "Building the exchange stiffness matrix" << std::endl;
-	// exchangeStiffness();
+	// Compute the exchange stiffness matrix
+	std::cout << "Building the exchange stiffness matrix" << std::endl;
+	exchangeStiffness();
 
 	// Pre-set the magnetic fields to all zeros
 	H = Eigen::MatrixXd::Zero(3, p.cols());
@@ -313,7 +313,22 @@ void LL::magnetostaticField(){
 
 } // Demagnetizing field on the nodes of the mesh
 
-void LL::exchangeField(){}
+void LL::exchangeField(){
+
+	// Exchange field
+	// Hexc = Eigen::MatrixXd::Zero(3, p.cols()); // Don't need to reset because it is over written
+	double coef = -2.0*mu0/(0.25 * Ms*Ms * scale*scale);
+	for(int i = 0; i<3; i++){ // x,y,z 
+		
+		Eigen::VectorXd temp =  coef * Aexc*M.row(i);
+		
+		for(int nd = 0; nd<p.cols(); nd++){
+			Hexc(i, nd) = temp(nd)/volumes(nd); // Overwrite the exchange field
+		} // Loop over each node
+
+	} // Loop over x,y,z 
+
+} // Exchange field
 
 void LL::anisotropyField(){}
 
