@@ -315,7 +315,6 @@ void LL::magnetostaticField(){
 
 void LL::exchangeField(){
 
-	// Exchange field
 	// Hexc = Eigen::MatrixXd::Zero(3, p.cols()); // Don't need to reset because it is over written
 	double coef = -2.0*mu0/(0.25 * Ms*Ms * scale*scale);
 	for(int i = 0; i<3; i++){ // x,y,z 
@@ -330,7 +329,18 @@ void LL::exchangeField(){
 
 } // Exchange field
 
-void LL::anisotropyField(){}
+void LL::anisotropyField(){
+	
+	Han = Eigen::MatrixXd::Zero(3, p.cols()); // Don't need to reset because it is overwritten
+	double coef = mu0*2.0*Aan;
+
+	for(int i = 0; i<InsideNodes.size(); i++){
+		int nd = InsideNodes(i);
+		double Msqrd = M.col(nd).dot(M.col(nd));
+		Han.col(nd) = coef/Msqrd * (M.col(nd).dot(uan)) * uan;
+	}
+
+} // Anisotropy field
 
 Eigen::Vector3d LL::getTorque(Eigen::Vector3d m, 
 							  Eigen::Vector3d h){
