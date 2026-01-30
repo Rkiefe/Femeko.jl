@@ -1,4 +1,5 @@
 # C++ version of Femeko.jl Landau-Lifshitz micromagnetics solver
+Expect about 2x the performance with C++.
 
 ## How to use
 - Edit the LL.h to set the solver parameters such as magnetic saturation and number of iteration steps, etc.
