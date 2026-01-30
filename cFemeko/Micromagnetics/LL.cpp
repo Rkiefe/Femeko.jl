@@ -60,89 +60,80 @@ LL::LL(Eigen::Ref<Eigen::MatrixXd> p_input,
 
 void LL::run(){
 
-	// ---- Testing the demag field ----
-	magnetostaticField();
 	
 	// Update the effective field H
-	// effectiveField();
+	effectiveField();
 
 	// Compute each component of H
-	// magnetostaticField();
-	// exchangeField();
-	// anisotropyField();
+	magnetostaticField();
+	exchangeField();
+	anisotropyField();
 
-	// // Store a copy of the input magnetization and field
-	// Eigen::MatrixXd Mold = M;
-	// Eigen::MatrixXd Hold = Eigen::MatrixXd::Zero(3, p.cols());
+	// Store a copy of the input magnetization and field
+	Eigen::MatrixXd Mold = M;
+	Eigen::MatrixXd Hold = H; // Eigen::MatrixXd::Zero(3, p.cols());
 	
-	// int frame = 0;
-	// double torque = 1.0;
+	int frame = 0;
+	double torque = 1.0;
 
-	// while (frame < maxSteps){
+	while (frame < maxSteps){
 
-	// 	torque = 0.0; // Reset the maximum torque
+		torque = 0.0; // Reset the maximum torque
 
-	// 	// Update the effective field
-	// 	// effectiveField();
+		// Update the effective field
+		// effectiveField();
 
-	// 	// Update the magnetization direction
-	// 	for(int i = 0; i<InsideNodes.size(); i++){
+		// Update the magnetization direction
+		for(int i = 0; i<InsideNodes.size(); i++){
 
-	// 		int nd = InsideNodes(i); // Global node label
+			int nd = InsideNodes(i); // Global node label
 
-	// 		// Store the average magnetization
-	// 		M_time.col(frame) += M.col(nd) *1.0/InsideNodes.size();
+			// Store the average magnetization
+			M_time.col(frame) += M.col(nd) *1.0/InsideNodes.size();
 
-	// 		// Get the effective field on current node
-	// 		H.col(nd) = Hext + Hd.col(nd) + Hexc.col(nd) + Han.col(nd);
+			// Get the effective field on current node
+			H.col(nd) = Hext + Hd.col(nd) + Hexc.col(nd) + Han.col(nd);
 
-	// 		// Update magnetization
-	// 		Eigen::Vector3d M2 = step(M.col(nd), Mold.col(nd), 
-	// 								  H.col(nd), Hold.col(nd));
+			// Update magnetization
+			Eigen::Vector3d M2 = step(M.col(nd), Mold.col(nd), 
+									  H.col(nd), Hold.col(nd));
 
-	// 		Mold.col(nd) = M.col(nd);
-	// 		M.col(nd) = M2;
+			Mold.col(nd) = M.col(nd);
+			M.col(nd) = M2;
 
-	// 		// Store the old magnetic field
-	// 		Hold.col(nd) = H.col(nd);
+			// Store the old magnetic field
+			Hold.col(nd) = H.col(nd);
 
-	// 		// Check the torque |dM/dt|
-	// 		Eigen::Vector3d dM_dt = getTorque(M.col(nd), H.col(nd));
-	// 		torque = std::max(torque, dM_dt.norm());
-	// 	}
+			// Check the torque |dM/dt|
+			Eigen::Vector3d dM_dt = getTorque(M.col(nd), H.col(nd));
+			torque = std::max(torque, dM_dt.norm());
+		}
 
-	// 	// Store the old magnetic field
-	// 	// Hold = H;
+		// Store the old magnetic field
+		// Hold = H;
 
-	// 	// Compute each component of H for new M
-	// 	magnetostaticField();
-	// 	exchangeField();
-	// 	anisotropyField();
+		// Compute each component of H for new M
+		magnetostaticField();
+		exchangeField();
+		anisotropyField();
 
-	// 	// Show the maximum torque value
-	// 	if(verbose)
-	// 	{
-	// 		std::cout << frame << "/" << maxSteps;
-	// 		std::cout << " |dM/dt| = " << torque << std::endl;
-	// 	}
+		// Show the maximum torque value
+		if(verbose)
+		{
+			std::cout << frame << "/" << maxSteps;
+			std::cout << " |dM/dt| = " << torque << std::endl;
+		}
 
-	// 	frame++;
+		frame++;
 	
-	// } // Time step
+	} // Time step
 
 	// Save outputs to file
-	std::ofstream file("Hd.txt");
+	std::ofstream file("M_time.txt");
 	if (file.is_open()) {
-	    file << Hd << std::endl;
+	    file << M_time << std::endl;
 	    file.close();
 	}
-
-
-	// std::ofstream file("M_time.txt");
-	// if (file.is_open()) {
-	//     file << M_time << std::endl;
-	//     file.close();
-	// }
 
 }
 
