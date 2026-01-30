@@ -5,93 +5,9 @@
     A box full of liquid, where the lid drags the fluid, making a swirl
 =#
 
-include("../src/Femeko.jl")
-
+# include("../src/Femeko.jl")
+include("fluids2D.jl")
 using GLMakie
-
-# Run the matrix assemblies and solve the system for pressure and velocity
-function fluid2D(mesh::MESH, velocity::Vector{Float64}, mu::Vector{Float64}, inFlow, walls)
-
-    # Gmsh orders the nodes arbitrarily
-    # So I have to re-label the vertices and the midpoints
-    vertexID::Vector{Int32}, nVertices::Int32 = sortMeshNodes2D(mesh)
-
-    println("Building stiffness matrix")
-
-    # Global Stiffness matrix
-    A = spzeros(mesh.nv, mesh.nv)
-
-    # Local Stiffness matrix
-    Ak::Matrix{Float64} = quadraticLocalStiffnessMatrix2D(mesh, mu)
-
-    # Update sparse global matrix
-    n = 0
-    for i in 1:6
-        for j in 1:6
-            n += 1
-            A += sparse(vertexID[mesh.t[i,:]],      # Convert original node ID to sorted node ID
-                        vertexID[mesh.t[j,:]],      # Convert original node ID to sorted node ID
-                        Ak[n,:], mesh.nv, mesh.nv)
-        end
-    end
-
-    println("Building divergence matrix")
-
-    # Pressure matrix
-    B1::Matrix{Float64}, B2::Matrix{Float64} = divergenceMatrix2D(mesh, 
-                                                                  vertexID, 
-                                                                  nVertices)
-    # Full matrix
-    LHS =  [A spzeros(mesh.nv, mesh.nv) B1'; 
-            spzeros(mesh.nv, mesh.nv) A B2';
-            B1 B2 spzeros(nVertices, nVertices)]
-
-    # Boundary conditions
-
-    # Fluid intake
-    inFlowNodes::Vector{Int32}, _, _ = gmsh.model.mesh.getNodes(1, inFlow)
-
-    # No-slip boundary conditions
-    wallNodes::Vector{Int32} = Int32[]
-    for id in walls
-        nodes::Vector{Int32}, _, _ = gmsh.model.mesh.getNodes(1, id)
-        append!(wallNodes, nodes)
-    end
-
-    # Nodes with boundary conditions
-    fixed = [
-             vertexID[inFlowNodes]; 
-             vertexID[wallNodes];
-             mesh.nv .+ vertexID[inFlowNodes];
-             mesh.nv .+ vertexID[wallNodes];
-            ]
-
-    free = setdiff(1:(2*mesh.nv + nVertices), fixed)
-
-    gD::Vector{Float64} = zeros(2*mesh.nv + nVertices)
-    gD[vertexID[inFlowNodes]] .= velocity[1]
-    gD[mesh.nv .+ vertexID[inFlowNodes]] .= velocity[2]
-
-    RHS = -LHS[free,fixed]*gD[fixed]
-
-    println("Solving matrix equation")
-
-    # Velocity and pressure (u and p)
-    UP::Vector{Float64} = zeros(2*mesh.nv + nVertices)
-    UP[fixed] .= gD[fixed]
-    UP[free] = LHS[free,free]\RHS    
-    
-    # Velocity
-    u::Matrix{Float64} = zeros(mesh.nv, 2)
-    u[:, 1] .= UP[1:mesh.nv]
-    u[:, 2] .= UP[mesh.nv+1:2*mesh.nv]
-
-    # Pressure
-    p::Vector{Float64} = UP[2*mesh.nv.+(1:nVertices)]
-
-    return u, p, vertexID, nVertices
-end
-
 
 function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
