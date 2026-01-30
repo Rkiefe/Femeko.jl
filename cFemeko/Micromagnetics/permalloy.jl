@@ -10,6 +10,8 @@
 =#
 
 include("../../src/Femeko.jl") 	# Include Landau-Lifshitz solver
+using IterativeSolvers
+
 using GLMakie 		# Include Makie for plots
 using DelimitedFiles
 
@@ -60,9 +62,90 @@ function main( meshSize::Float64=0.0
 	end
 	gmsh.finalize()
 
+	# Element centroids
+	centroids::Matrix{Float64} = zeros(3, mesh.nt) # Element centroids
+	for k in 1:mesh.nt
+	    nds = mesh.t[:, k]
+	    centroids[:, k] = mean(mesh.p[:, nds], 2)
+	end
+
+	print("Calculating the Lagrange shape elements... ")
+	b::Matrix{Float64} = zeros(4, mesh.nt)
+	c::Matrix{Float64} = zeros(4, mesh.nt)
+	d::Matrix{Float64} = zeros(4, mesh.nt)
+	for k in 1:mesh.nt
+		nds = @view mesh.t[:, k]
+		for i in 1:4
+			_, b[i, k], c[i, k], d[i, k] = abcd(mesh.p, nds, nds[i])
+		end
+	end
+	println("Done.")
+
 	# Initial magnetization
 	M::Matrix{Float64} = zeros(3, mesh.nv)
 	M[1, mesh.InsideNodes] .= Ms
+
+	# -- Solve the demag field with julia --
+
+	# Load vector 
+	RHS::Vector{Float64} = zeros(mesh.nv)
+	for k in mesh.InsideElements
+		nds = @view mesh.t[:, k]
+
+		# Mean magnetization on the element
+		f::Vector{Float64} = mean(M[:, nds], 2)
+		
+		# Update load vector
+		for i in 1:4
+			RHS[nds[i]] += mesh.VE[k]*dot([b[i, k], c[i, k], d[i, k]], f)
+		end
+
+	end # Load vector
+
+	# Global stiffness matrix
+	A = stiffnessMatrix(mesh)
+
+	# Magnetostatic potential
+	u = cg(A, RHS) # Conjugate gradient solver
+
+	# Demagnetizing field
+	Hd::Matrix{Float64} = zeros(3, mesh.nt)
+	for k in 1:mesh.nt
+		nds = @view mesh.t[:, k]
+		for i in 1:4
+			Hd[1, k] -= b[i, k]*u[nds[i]]
+			Hd[2, k] -= c[i, k]*u[nds[i]]
+			Hd[3, k] -= d[i, k]*u[nds[i]]
+		end
+	end
+	
+	H = zeros(mesh.nt)
+	for k in 1:mesh.nt
+		H[k] = norm(Hd[:, k])
+	end
+
+	# Plot the results
+	println("Generating plots...")
+    fig = Figure()
+    ax = Axis3(fig[1, 1], aspect = :data, title="Julia")
+
+    graph = arrows3d!(  ax
+                        , centroids[1, mesh.InsideElements]
+                        , centroids[2, mesh.InsideElements]
+                        , centroids[3, mesh.InsideElements]
+                        , Hd[1, mesh.InsideElements]
+                        , Hd[2, mesh.InsideElements]
+                        , Hd[3, mesh.InsideElements]
+                        , color = H[mesh.InsideElements]
+                        , lengthscale = 100.0
+                        , colormap = :CMRmap,  # :CMRmap :viridis :redsblues :turbo :rainbow
+                      )
+
+    # Add a colorbar
+    Colorbar(fig[2, 1], graph, vertical=false)
+    display(fig)
+
+	# -- Solve the demag field with C++ --
 
 	# Convert Julia 1 indexing to C++ 0 indexing
 	t::Matrix{Int32} = mesh.t .- 1
@@ -83,23 +166,31 @@ function main( meshSize::Float64=0.0
 	    , M::Ptr{Float64}       # 
 	)::Cvoid
 
-	# Load result
-	Mxyz = readdlm("M_time.txt") # T
-	Mxyz ./= mu0*1e3 # kA/m
+	# Add C++ results
+	Hd_cpp = readdlm("Hd.txt") # T
+	H_cpp = zeros(mesh.nt)
+	for k in 1:mesh.nt
+		H_cpp[k] = norm(Hd_cpp[:, k])
+	end
 
-	nSteps = size(Mxyz, 2)
+	println("Updating plot with C++ results...")
+    ax = Axis3(fig[1, 2], aspect = :data, title="C++ with Eigen")
 
-	# Plot the results
-	println("Generating plots...")
-	fig = Figure()
-	ax = Axis(fig[1,1])
-	
-	scatter!(ax, (timeStep*1e9/giro)*(0:nSteps-1), Mxyz[1, :], label="Mx")
-	scatter!(ax, (timeStep*1e9/giro)*(0:nSteps-1), Mxyz[2, :], label="My")
-	scatter!(ax, (timeStep*1e9/giro)*(0:nSteps-1), Mxyz[3, :], label="Mz")
+    graph = arrows3d!(  ax
+                        , centroids[1, mesh.InsideElements]
+                        , centroids[2, mesh.InsideElements]
+                        , centroids[3, mesh.InsideElements]
+                        , Hd_cpp[1, mesh.InsideElements]
+                        , Hd_cpp[2, mesh.InsideElements]
+                        , Hd_cpp[3, mesh.InsideElements]
+                        , color = H_cpp[mesh.InsideElements]
+                        , lengthscale = 100.0
+                        , colormap = :CMRmap,  # :CMRmap :viridis :redsblues :turbo :rainbow
+                      )
 
-    axislegend(position=:rb)
-    wait(display(fig))
+    # Add a colorbar
+    Colorbar(fig[2, 2], graph, vertical=false)
+    wait(fig.scene)
 
 end
 
