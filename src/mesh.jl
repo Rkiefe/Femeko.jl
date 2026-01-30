@@ -299,6 +299,14 @@ function Mesh2D(cells, meshSize=0.0, localSize=0.0, order::Int=1, saveMesh=false
 
     mesh.nt = size(mesh.t,2)
 
+    # Set a cell ID to each mesh element
+    mesh.elementID = zeros(mesh.nt)
+    for k in 1:mesh.nt
+        # element type , nodes of the element , dimension , id
+        _, _, _, id = gmsh.model.mesh.getElement(t_tags[k]) # Cell ID of this element
+        mesh.elementID[k] = id
+    end
+
     # Get node coordinates
     _,p,_ = gmsh.model.mesh.getNodes()
     mesh.p = reshape(p, 3, Int(size(p,1)/3))
