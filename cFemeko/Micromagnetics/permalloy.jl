@@ -84,16 +84,19 @@ function main( meshSize::Float64=0.0
 	)::Cvoid
 
 	# Load result
-	Mxyz = readdlm("M_time.txt")
+	Mxyz = readdlm("M_time.txt") # T
+	Mxyz ./= mu0*1e3 # kA/m
+
 	nSteps = size(Mxyz, 2)
 
 	# Plot the results
 	println("Generating plots...")
 	fig = Figure()
 	ax = Axis(fig[1,1])
-	scatter!(ax, 1:nSteps, Mxyz[1, :], label="Mx")
-	scatter!(ax, 1:nSteps, Mxyz[2, :], label="My")
-	scatter!(ax, 1:nSteps, Mxyz[3, :], label="Mz")
+	
+	scatter!(ax, (timeStep*1e9/giro)*(0:nSteps-1), Mxyz[1, :], label="Mx")
+	scatter!(ax, (timeStep*1e9/giro)*(0:nSteps-1), Mxyz[2, :], label="My")
+	scatter!(ax, (timeStep*1e9/giro)*(0:nSteps-1), Mxyz[3, :], label="Mz")
 
     axislegend(position=:rb)
     wait(display(fig))
