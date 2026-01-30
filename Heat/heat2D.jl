@@ -92,7 +92,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
         
         time += timeStep
 
-        # New temperature
+        # New temperature | backward Euler
         T = (M + timeStep*A)\(M*T)
 
         # Interpolate the result in a target coordinate
