@@ -23,6 +23,16 @@ LL::LL(Eigen::Ref<Eigen::MatrixXd> p_input,
 	std::cout << "Calculating the linear basis function over each element and node" << std::endl;
 	linearBasis();
 
+	// Compute the node volumes for the box method
+	volumes = Eigen::VectorXd::Zero(p.cols());
+	for(int ik = 0; ik<InsideElements.size(); ik++){
+		int k = InsideElements(ik); // Global node label
+		for(int i = 0; i<4; i++)
+		{
+			volumes(t(i, k)) += VE[k];
+		}
+	}
+
 	// Stiffness matrix
 	std::cout << "Building the sparse stiffness matrix" << std::endl;
 	A = stiffnessMatrix(p, t, VE);
@@ -51,43 +61,8 @@ LL::LL(Eigen::Ref<Eigen::MatrixXd> p_input,
 void LL::run(){
 
 	// ---- Testing the demag field ----
-
-	// Load vector
-	Eigen::VectorXd RHS = Eigen::VectorXd::Zero(p.cols());
-	for(int ik = 0; ik<InsideElements.size(); ik++){
-
-		int k = InsideElements(ik); // Global element label
-		
-		// Average magnetization over the element nodes
-		Eigen::Vector3d m_avg = {0.0, 0.0, 0.0};
-		for(int i = 0; i<4; i++){
-			int nd = t(i, k); // Global node label
-			m_avg(0) += M(0, nd)/4.0; // <Mx>
-			m_avg(1) += M(1, nd)/4.0; // <My>
-			m_avg(2) += M(2, nd)/4.0; // <Mz>
-		} // <M>_k
-
-		// Update the load vector
-		for(int i = 0; i<4; i++){
-			int nd = t(i, k); // Global node label
-			RHS(nd) += VE[k]*( b(i, k)*m_avg(0) + c(i, k)*m_avg(1) + d(i, k)*m_avg(2) );
-		}
-
-	} // Loop over the elements in the magnetic domain  
+	magnetostaticField();
 	
-	// Solve the linear system
-	Eigen::VectorXd u = CG.solve(RHS); // Scalar potential
-
-	// Demagnetizing field constant on each element
-	Eigen::MatrixXd Hdk = Eigen::MatrixXd::Zero(3, t.cols());
-	for(int k = 0; k<t.cols(); k++){
-		for(int i = 0; i<4; i++){
-			Hdk(0, k) -= b(i, k)*u(t(i, k));
-			Hdk(1, k) -= c(i, k)*u(t(i, k));
-			Hdk(2, k) -= d(i, k)*u(t(i, k));
-		}
-	} // Hd constant on each element
-
 	// Update the effective field H
 	// effectiveField();
 
@@ -158,7 +133,7 @@ void LL::run(){
 	// Save outputs to file
 	std::ofstream file("Hd.txt");
 	if (file.is_open()) {
-	    file << Hdk << std::endl;
+	    file << Hd << std::endl;
 	    file.close();
 	}
 
@@ -180,8 +155,6 @@ void LL::linearBasis(){
 	c = Eigen::MatrixXd::Zero(4, nt);
 	d = Eigen::MatrixXd::Zero(4, nt);
 
-	volumes = Eigen::VectorXd::Zero(nv);
-
 	for(int k = 0; k<nt; k++){
 		for(int i = 0; i<4; i++){
 			
@@ -192,8 +165,6 @@ void LL::linearBasis(){
 			b(i, k) = r(1);
 			c(i, k) = r(2);
 			d(i, k) = r(3);
-
-			volumes(nd) += VE[k];
 		}
 	} // Loop over the elements
 }

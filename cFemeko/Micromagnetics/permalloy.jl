@@ -81,6 +81,13 @@ function main( meshSize::Float64=0.0
 	end
 	println("Done.")
 
+	# Node volumes
+	Volumes::Vector{Float64} = zeros(mesh.nv)
+	for k in mesh.InsideElements
+		nds = @view mesh.t[:, k]
+		Volumes[nds] .+= mesh.VE[k]
+	end
+
 	# Initial magnetization
 	M::Matrix{Float64} = zeros(3, mesh.nv)
 	M[1, mesh.InsideNodes] .= Ms
@@ -118,10 +125,22 @@ function main( meshSize::Float64=0.0
 			Hd[3, k] -= d[i, k]*u[nds[i]]
 		end
 	end
+
+	# Map the demag field to the mesh nodes
+	Hd_nodes::Matrix{Float64} = zeros(3, mesh.nv)
 	
-	H = zeros(mesh.nt)
-	for k in 1:mesh.nt
-		H[k] = norm(Hd[:, k])
+	for k in mesh.InsideElements
+		nds = @view mesh.t[:, k]
+		Hd_nodes[:, nds] .+= mesh.VE[k]*Hd[:, k]
+	end
+
+	Hd_nodes[1, :] ./= Volumes
+	Hd_nodes[2, :] ./= Volumes 
+	Hd_nodes[3, :] ./= Volumes 
+	
+	H = zeros(mesh.nv)
+	for nd in 1:mesh.nv
+		H[nd] = norm(Hd_nodes[:, nd])
 	end
 
 	# Plot the results
@@ -130,13 +149,13 @@ function main( meshSize::Float64=0.0
     ax = Axis3(fig[1, 1], aspect = :data, title="Julia")
 
     graph = arrows3d!(  ax
-                        , centroids[1, mesh.InsideElements]
-                        , centroids[2, mesh.InsideElements]
-                        , centroids[3, mesh.InsideElements]
-                        , Hd[1, mesh.InsideElements]
-                        , Hd[2, mesh.InsideElements]
-                        , Hd[3, mesh.InsideElements]
-                        , color = H[mesh.InsideElements]
+                        , mesh.p[1, mesh.InsideNodes]
+                        , mesh.p[2, mesh.InsideNodes]
+                        , mesh.p[3, mesh.InsideNodes]
+                        , Hd_nodes[1, mesh.InsideNodes]
+                        , Hd_nodes[2, mesh.InsideNodes]
+                        , Hd_nodes[3, mesh.InsideNodes]
+                        , color = H[mesh.InsideNodes]
                         , lengthscale = 100.0
                         , colormap = :CMRmap,  # :CMRmap :viridis :redsblues :turbo :rainbow
                       )
@@ -168,22 +187,22 @@ function main( meshSize::Float64=0.0
 
 	# Add C++ results
 	Hd_cpp = readdlm("Hd.txt") # T
-	H_cpp = zeros(mesh.nt)
-	for k in 1:mesh.nt
-		H_cpp[k] = norm(Hd_cpp[:, k])
+	H_cpp = zeros(mesh.nv)
+	for nd in 1:mesh.nv
+		H_cpp[nd] = norm(Hd_cpp[:, nd])
 	end
 
 	println("Updating plot with C++ results...")
     ax = Axis3(fig[1, 2], aspect = :data, title="C++ with Eigen")
 
     graph = arrows3d!(  ax
-                        , centroids[1, mesh.InsideElements]
-                        , centroids[2, mesh.InsideElements]
-                        , centroids[3, mesh.InsideElements]
-                        , Hd_cpp[1, mesh.InsideElements]
-                        , Hd_cpp[2, mesh.InsideElements]
-                        , Hd_cpp[3, mesh.InsideElements]
-                        , color = H_cpp[mesh.InsideElements]
+                        , mesh.p[1, mesh.InsideNodes]
+                        , mesh.p[2, mesh.InsideNodes]
+                        , mesh.p[3, mesh.InsideNodes]
+                        , Hd_cpp[1, mesh.InsideNodes]
+                        , Hd_cpp[2, mesh.InsideNodes]
+                        , Hd_cpp[3, mesh.InsideNodes]
+                        , color = H_cpp[mesh.InsideNodes]
                         , lengthscale = 100.0
                         , colormap = :CMRmap,  # :CMRmap :viridis :redsblues :turbo :rainbow
                       )
