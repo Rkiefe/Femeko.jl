@@ -372,7 +372,7 @@ function stiffnessMatrix2D(mesh::MESH, mu::Vector{Float64}=ones(mesh.nt))
 end # 2D Global stiffness matrix
 
 # Local 2D quadratic stiffness matrix
-function quadraticLocalStiffnessMatrix2D(mesh::MESH, mu::Vector{Float64})
+function quadraticLocalStiffnessMatrix2D(mesh::MESH)
     # Local stiffness matrix
     Ak::Matrix{Float64} = zeros(36, mesh.nt) # 6 x 6
     temp::Matrix{Float64} = zeros(6,6)
@@ -398,7 +398,7 @@ function quadraticLocalStiffnessMatrix2D(mesh::MESH, mu::Vector{Float64})
                 end 
                 aux /= 6
 
-                temp[i,j] = mu[k]*aux*mesh.VE[k]
+                temp[i,j] = aux*mesh.VE[k]
                 temp[j,i] = temp[i,j] # It is symmetric
             end
         end
@@ -408,6 +408,13 @@ function quadraticLocalStiffnessMatrix2D(mesh::MESH, mu::Vector{Float64})
 
     return Ak
 end
+
+function quadraticStiffnessMatrix(mesh::MESH)
+
+    # Add code later
+
+end
+
 
 function quadraticLocalStiffnessMatrix(mesh::MESH
                                        , S # Quadratic basis functions for every node and element

@@ -25,16 +25,17 @@ function fluid2D(mesh::MESH, velocity::Vector{Float64}, mu::Vector{Float64}, inF
     A = spzeros(mesh.nv, mesh.nv)
 
     # Local Stiffness matrix
-    Ak::Matrix{Float64} = quadraticLocalStiffnessMatrix2D(mesh, mu)
+    Ak::Matrix{Float64} = quadraticLocalStiffnessMatrix2D(mesh)
 
     # Update sparse global matrix
     n = 0
     for i in 1:6
         for j in 1:6
             n += 1
-            A += sparse(vertexID[mesh.t[i,:]],      # Convert original node ID to sorted node ID
-                        vertexID[mesh.t[j,:]],      # Convert original node ID to sorted node ID
-                        Ak[n,:], mesh.nv, mesh.nv)
+            A += sparse(  vertexID[mesh.t[i,:]]      # Convert original node ID to sorted node ID
+                        , vertexID[mesh.t[j,:]]      # Convert original node ID to sorted node ID
+                        , Ak[n,:].*mu
+                        , mesh.nv, mesh.nv)
         end
     end
 
