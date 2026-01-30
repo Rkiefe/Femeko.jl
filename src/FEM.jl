@@ -556,62 +556,6 @@ function massMatrix2D(mesh::MESH)
     return M
 end
 
-function quadraticMassMatrix2D(mesh::MESH)
-
-    Mlocal::Matrix{Float64} = zeros(36, mesh.nt)
-    Mk::Matrix{Float64} = zeros(6, 6) 
-    for k in 1:mesh.nt
-        nds = @view mesh.t[:,k]
-        
-        for i in 1:6 # 2nd order triangle has 6 nodes
-            Si = quadraticBasis2D(mesh.p, nds, nds[i])
-            for j in i:6
-                Sj = quadraticBasis2D(mesh.p, nds, nds[j])
-                
-                # 6 node quadrature
-                aux::Float64 = 0.0
-                for n in 1:6
-                    x::Float64 = mesh.p[1, nds[n]]
-                    y::Float64 = mesh.p[2, nds[n]]
-                    
-                    phi  = Si[1] + Si[2]*x + Si[3]*y 
-                         + Si[4]*x^2 + Si[5]*x*y 
-                         + Si[6]*y^2
-                    
-                    phj  = Sj[1] + Sj[2]*x + Sj[3]*y 
-                         + Sj[4]*x^2 + Sj[5]*x*y 
-                         + Sj[6]*y^2
-                
-                    aux += phi*phj
-                end # 6 node quadrature
-                aux /= 6
-
-                Mk[i, j] = aux * mesh.VE[k]
-                Mk[j, i] = Mk[i, j] # Mass matrix is symmetric
-            
-            end # Loop of phi(j)
-        end # Loop of phi(i)
-        
-        Mlocal[:, k] = mesh.VE[k]*Mk[:];
-    end # Loop over k
-
-    # Sparse mass matrix
-    M = spzeros(mesh.nv, mesh.nv) # Global sparse mass matrix
-    n = 0
-    for i in 1:6
-        for j in 1:6
-            n += 1
-            M += sparse(  mesh.t[i, :]
-                        , mesh.t[j, :]
-                        , Mlocal[n, :]
-                        , mesh.nv, mesh.nv)
-        end
-    end
-
-    return M
-end
-
-
 # 2D Sparse divergence matrix
 function divergenceMatrix2D(mesh::MESH, vertexID::Vector{Int32}, nVertices::Int32)
     
