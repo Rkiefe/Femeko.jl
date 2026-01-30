@@ -115,7 +115,7 @@ Compiling C++ alternative implementations:
 ### Current C++ alternatives covered
 
 - Magnetostatics has a complete C++ alternative available.
-- Micromagnetics has a full implementation, but is missing some thorough testing.
+- Micromagnetics has a full implementation based on FEM and an older implementation based on FEM-BEM.
 
 ### Source code organization
 Femeko is organized as:
