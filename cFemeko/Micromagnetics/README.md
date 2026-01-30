@@ -1,12 +1,6 @@
-## Work in progress of a C++ version of the Landau-Lifshitz micromagnetics solver
+## C++ version of Femeko.jl Landau-Lifshitz micromagnetics solver
 
-### Validated
-- linearBasis()
-- magnetostaticField()
-
-
-### Missing validation
-- step()
-- exchangeField()
-- anisotropyField()
-- getTorque()
+### How to use
+- Edit the LL.h to set the solver parameters such as magnetic saturation and number of iteration steps, etc.
+- Compile with `g++ -O3 -fPIC -shared -fopenmp -o micromagnetics.so micromagnetics.cpp`
+- run the `permalloy.jl` to solve for the input parameters in .h and the input magnetization in .jl
