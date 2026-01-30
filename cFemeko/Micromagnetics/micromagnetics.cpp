@@ -22,9 +22,9 @@ extern "C"{
 		// Map the magnetization vector field
 		Eigen::Map<Eigen::MatrixXd> M(M_ptr, 3, nv);
 
-
 		// Create the micromagnetics solver object
 		LL solver(p, t, InsideElements, InsideNodes, VE, M);
+		solver.run(); // Run the simulation
 
 	} // Sends raw Julia pointers to a C++ object
 

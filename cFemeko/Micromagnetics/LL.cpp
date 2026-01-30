@@ -30,6 +30,8 @@ LL::LL(Eigen::Ref<Eigen::MatrixXd> p_input,
 	// Process the stiffness matrix with the linear solver
 	std::cout << "Applying the linear solver pre-computation" << std::endl;
 	CG.compute(A);
+	// CG.setTolerance(1e-10);
+	// CG.setMaxIterations(10000);
 
 	// Compute the exchange stiffness matrix
 	std::cout << "Building the exchange stiffness matrix" << std::endl;
@@ -44,70 +46,128 @@ LL::LL(Eigen::Ref<Eigen::MatrixXd> p_input,
 	// Pre-set the output M(t)
 	M_time = Eigen::MatrixXd::Zero(3, maxSteps);
 
-	// Run the micromagnetics solver
-	run();
-
 } // LL constructor
 
 void LL::run(){
 
+	// ---- Testing the demag field ----
+
+	// Load vector
+	Eigen::VectorXd RHS = Eigen::VectorXd::Zero(p.cols());
+	for(int ik = 0; ik<InsideElements.size(); ik++){
+
+		int k = InsideElements(ik); // Global element label
+		
+		// Average magnetization over the element nodes
+		Eigen::Vector3d m_avg = {0.0, 0.0, 0.0};
+		for(int i = 0; i<4; i++){
+			int nd = t(i, k); // Global node label
+			m_avg(0) += M(0, nd)/4.0; // <Mx>
+			m_avg(1) += M(1, nd)/4.0; // <My>
+			m_avg(2) += M(2, nd)/4.0; // <Mz>
+		} // <M>_k
+
+		// Update the load vector
+		for(int i = 0; i<4; i++){
+			int nd = t(i, k); // Global node label
+			RHS(nd) += VE[k]*( b(i, k)*m_avg(0) + c(i, k)*m_avg(1) + d(i, k)*m_avg(2) );
+		}
+
+	} // Loop over the elements in the magnetic domain  
+	
+	// Solve the linear system
+	Eigen::VectorXd u = CG.solve(RHS); // Scalar potential
+
+	// Demagnetizing field constant on each element
+	Eigen::MatrixXd Hdk = Eigen::MatrixXd::Zero(3, t.cols());
+	for(int k = 0; k<t.cols(); k++){
+		for(int i = 0; i<4; i++){
+			Hdk(0, k) -= b(i, k)*u(t(i, k));
+			Hdk(1, k) -= c(i, k)*u(t(i, k));
+			Hdk(2, k) -= d(i, k)*u(t(i, k));
+		}
+	} // Hd constant on each element
+
 	// Update the effective field H
-	effectiveField();
+	// effectiveField();
 
-	// Store a copy of the input magnetization and field
-	Eigen::MatrixXd Mold = M;
-	Eigen::MatrixXd Hold = H;
+	// Compute each component of H
+	// magnetostaticField();
+	// exchangeField();
+	// anisotropyField();
+
+	// // Store a copy of the input magnetization and field
+	// Eigen::MatrixXd Mold = M;
+	// Eigen::MatrixXd Hold = Eigen::MatrixXd::Zero(3, p.cols());
 	
-	int frame = 0;
-	double torque = 1.0;
+	// int frame = 0;
+	// double torque = 1.0;
 
-	while (frame < maxSteps){
+	// while (frame < maxSteps){
 
-		torque = 0.0; // Reset the maximum torque
+	// 	torque = 0.0; // Reset the maximum torque
 
-		// Update the effective field
-		effectiveField();
+	// 	// Update the effective field
+	// 	// effectiveField();
 
-		// Update the magnetization direction
-		for(int i = 0; i<InsideNodes.size(); i++){
+	// 	// Update the magnetization direction
+	// 	for(int i = 0; i<InsideNodes.size(); i++){
 
-			int nd = InsideNodes(i); // Global node label
+	// 		int nd = InsideNodes(i); // Global node label
 
-			// Store the average magnetization
-			M_time.col(frame) += M.col(nd) *1.0/InsideNodes.size();
+	// 		// Store the average magnetization
+	// 		M_time.col(frame) += M.col(nd) *1.0/InsideNodes.size();
 
-			// Update magnetization
-			Eigen::Vector3d M2 = step(M.col(nd), Mold.col(nd), 
-									  H.col(nd), Hold.col(nd));
+	// 		// Get the effective field on current node
+	// 		H.col(nd) = Hext + Hd.col(nd) + Hexc.col(nd) + Han.col(nd);
 
-			Mold.col(nd) = M.col(nd);
-			M.col(nd) = M2;
+	// 		// Update magnetization
+	// 		Eigen::Vector3d M2 = step(M.col(nd), Mold.col(nd), 
+	// 								  H.col(nd), Hold.col(nd));
 
-			// Check the torque |dM/dt|
-			Eigen::Vector3d dM_dt = getTorque(M.col(nd), H.col(nd));
-			torque = std::max(torque, dM_dt.norm());
-		}
+	// 		Mold.col(nd) = M.col(nd);
+	// 		M.col(nd) = M2;
 
-		// Store the old magnetic field
-		Hold = H;
+	// 		// Store the old magnetic field
+	// 		Hold.col(nd) = H.col(nd);
 
-		// Show the maximum torque value
-		if(verbose)
-		{
-			std::cout << frame << "/" << maxSteps;
-			std::cout << " |dM/dt| = " << torque << std::endl;
-		}
+	// 		// Check the torque |dM/dt|
+	// 		Eigen::Vector3d dM_dt = getTorque(M.col(nd), H.col(nd));
+	// 		torque = std::max(torque, dM_dt.norm());
+	// 	}
 
-		frame++;
+	// 	// Store the old magnetic field
+	// 	// Hold = H;
+
+	// 	// Compute each component of H for new M
+	// 	magnetostaticField();
+	// 	exchangeField();
+	// 	anisotropyField();
+
+	// 	// Show the maximum torque value
+	// 	if(verbose)
+	// 	{
+	// 		std::cout << frame << "/" << maxSteps;
+	// 		std::cout << " |dM/dt| = " << torque << std::endl;
+	// 	}
+
+	// 	frame++;
 	
-	} // Time step
+	// } // Time step
 
 	// Save outputs to file
-	std::ofstream file("M_time.txt");
+	std::ofstream file("Hd.txt");
 	if (file.is_open()) {
-	    file << M_time << std::endl;
+	    file << Hdk << std::endl;
 	    file.close();
 	}
+
+
+	// std::ofstream file("M_time.txt");
+	// if (file.is_open()) {
+	//     file << M_time << std::endl;
+	//     file.close();
+	// }
 
 }
 
@@ -211,11 +271,14 @@ Eigen::Vector3d LL::step(Eigen::Vector3d M,
 	           -d*Htild(2), 1.0, d*Htild(0),
 	           d*Htild(1), -d*Htild(0), 1.0;
 	    
-	    Eigen::Vector3d RHS = M - d* M.cross(Htild);
-
-	    // M2 = mat.colPivHouseholderQr().solve(RHS); // M(n+1)
-
+	    // Set the solver
 	    Eigen::ColPivHouseholderQR<Eigen::Matrix3d> dec(mat);
+	    // Eigen::FullPivLU<Eigen::Matrix3d> dec(mat);
+
+	    // Set the RHS
+	    Eigen::Vector3d RHS = M - d* M.cross(Htild);
+	    
+	    // Solve for M(n+1)
 	    M2 = dec.solve(RHS); // M(n+1)
 
 	    // 3) M (n + 1/2)
@@ -302,7 +365,10 @@ void LL::magnetostaticField(){
 
 	// Map the magnetic field to the nodes
 	Hd = Eigen::MatrixXd::Zero(3, p.cols());
-	for(int k = 0; k<t.cols(); k++){
+	
+	for(int ik = 0; ik<InsideElements.size(); ik++){
+		int k = InsideElements(ik); // Global element label
+
 		for(int i = 0; i<4; i++){
 			int nd = t(i, k);
 			Hd(0, nd) += VE[k]*Hdk(0, k);
@@ -310,6 +376,7 @@ void LL::magnetostaticField(){
 			Hd(2, nd) += VE[k]*Hdk(2, k);
 		}
 	} // Multiply Hd_k by the volume of k
+	
 	for(int nd = 0; nd < p.cols(); nd++){
 		Hd(0, nd) /= volumes(nd);
 		Hd(1, nd) /= volumes(nd);
@@ -321,10 +388,10 @@ void LL::magnetostaticField(){
 void LL::exchangeField(){
 
 	// Hexc = Eigen::MatrixXd::Zero(3, p.cols()); // Don't need to reset because it is over written
-	double coef = -2.0*mu0/(0.25 * Ms*Ms * scale*scale);
+	double coef = -2.0*(mu0*Aexc)/(0.25 * Ms*Ms * scale*scale);
 	for(int i = 0; i<3; i++){ // x,y,z 
 		
-		Eigen::VectorXd temp =  coef * Aexc*M.row(i);
+		Eigen::VectorXd temp =  coef * AEXC* M.row(i).transpose();
 		
 		for(int nd = 0; nd<p.cols(); nd++){
 			Hexc(i, nd) = temp(nd)/volumes(nd); // Overwrite the exchange field
