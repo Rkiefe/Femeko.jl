@@ -74,7 +74,7 @@ void LL::run(){
 			int nd = InsideNodes(i); // Global node label
 
 			// Store the average magnetization
-			M_time.col(frame) += M.col(nd)* 1.0/p.cols();
+			M_time.col(frame) += M.col(nd) *1.0/InsideNodes.size();
 
 			// Update magnetization
 			Eigen::Vector3d M2 = step(M.col(nd), Mold.col(nd), 
@@ -213,7 +213,10 @@ Eigen::Vector3d LL::step(Eigen::Vector3d M,
 	    
 	    Eigen::Vector3d RHS = M - d* M.cross(Htild);
 
-	    M2 = mat.colPivHouseholderQr().solve(RHS); // M(n+1)
+	    // M2 = mat.colPivHouseholderQr().solve(RHS); // M(n+1)
+
+	    Eigen::ColPivHouseholderQR<Eigen::Matrix3d> dec(mat);
+	    M2 = dec.solve(RHS); // M(n+1)
 
 	    // 3) M (n + 1/2)
 	    M12 = 0.5*(M + M2);
