@@ -6,106 +6,7 @@ using GLMakie
 # Mesh settings
 meshSize = 5.0
 localSize = 0.2
-showGmsh = true
-
-function quadraticMassMatrix2D(mesh::MESH)
-    # Proper 7-point Gaussian quadrature for triangles (degree of precision 5)
-    # Coordinates and weights for reference triangle (0,0), (1,0), (0,1)
-    quad_points = [
-        (1.0/3.0, 1.0/3.0),
-        (0.059715871789770, 0.470142064105115),
-        (0.470142064105115, 0.059715871789770),
-        (0.470142064105115, 0.470142064105115),
-        (0.797426985353087, 0.101286507323456),
-        (0.101286507323456, 0.797426985353087),
-        (0.101286507323456, 0.101286507323456)
-    ]
-    
-    quad_weights = [
-        0.225000000000000,
-        0.132394152788506,
-        0.132394152788506,
-        0.132394152788506,
-        0.125939180544827,
-        0.125939180544827,
-        0.125939180544827
-    ]
-    
-    # Reference triangle area is 0.5, so weights already sum to 0.5
-    
-    Mlocal = zeros(36, mesh.nt)
-    
-    for k in 1:mesh.nt
-        nds = @view mesh.t[:, k]
-        vertices = mesh.p[:, nds[1:3]]  # Triangle vertices
-        
-        # Jacobian for affine transformation from reference to physical triangle
-        # x = v1 + J11*ξ + J12*η
-        # y = v2 + J21*ξ + J22*η
-        J11 = vertices[1, 2] - vertices[1, 1]
-        J12 = vertices[1, 3] - vertices[1, 1]
-        J21 = vertices[2, 2] - vertices[2, 1]
-        J22 = vertices[2, 3] - vertices[2, 1]
-        
-        detJ = J11 * J22 - J12 * J21  # Determinant of Jacobian
-        abs_detJ = abs(detJ)
-        
-        # Precompute basis coefficients for all 6 nodes
-        basis_coeffs = Vector{Vector{Float64}}(undef, 6)
-        for i in 1:6
-            basis_coeffs[i] = quadraticBasis2D(mesh.p, nds, nds[i])
-        end
-        
-        # Initialize local mass matrix
-        Mk = zeros(6, 6)
-        
-        # Loop over quadrature points
-        for q in 1:length(quad_weights)
-            xi, eta = quad_points[q]
-            weight = quad_weights[q]
-            
-            # Transform from reference to physical coordinates
-            x = vertices[1, 1] + J11 * xi + J12 * eta
-            y = vertices[2, 1] + J21 * xi + J22 * eta
-            
-            # Evaluate all basis functions at this quadrature point
-            phi_vals = zeros(6)
-            for i in 1:6
-                S = basis_coeffs[i]
-                phi_vals[i] = S[1] + S[2]*x + S[3]*y + S[4]*x^2 + S[5]*x*y + S[6]*y^2
-            end
-            
-            # Accumulate to mass matrix
-            w = weight * abs_detJ
-            for i in 1:6
-                for j in i:6  # Only compute upper triangle
-                    Mk[i, j] += w * phi_vals[i] * phi_vals[j]
-                end
-            end
-        end
-        
-        # Fill lower triangle (symmetric)
-        for i in 1:6
-            for j in 1:(i-1)
-                Mk[i, j] = Mk[j, i]
-            end
-        end
-        
-        Mlocal[:, k] = vec(Mk)
-    end
-    
-    # Assemble global sparse mass matrix
-    M = spzeros(mesh.nv, mesh.nv)
-    n = 0
-    for i in 1:6
-        for j in 1:6
-            n += 1
-            M += sparse(mesh.t[i, :], mesh.t[j, :], Mlocal[n, :], mesh.nv, mesh.nv)
-        end
-    end
-    
-    return M
-end
+showGmsh = false
 
 mutable struct DATA
 
@@ -129,8 +30,8 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     gmsh.initialize()
 
     # Simulation settings
-    timeStep::Float64 = 1e-5
-    totalTime::Float64 = 1e-2
+    timeStep::Float64 = 1e-3
+    totalTime::Float64 = 1e-1
     maxSteps::Int32 = floor(totalTime/timeStep) + 1
 
     # List of materials
@@ -241,4 +142,4 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     wait(fig.scene)
 
 end
-# main(meshSize, localSize, showGmsh)
+main(meshSize, localSize, showGmsh)

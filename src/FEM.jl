@@ -608,6 +608,95 @@ function massMatrix2D(mesh::MESH)
     return M
 end
 
+function quadraticMassMatrix2D(mesh::MESH)
+    # 6-point Gaussian quadrature for triangles (exact precision)
+    # Coordinates and weights for reference triangle (0,0), (1,0), (0,1)
+    points::Matrix{Float64} = 
+        [
+            0.445948490915965 0.445948490915965;
+            0.445948490915965 0.108103018168070;
+            0.108103018168070 0.445948490915965;
+            0.091576213509771 0.091576213509771;
+            0.091576213509771 0.816847572980459;
+            0.816847572980459 0.091576213509771
+        ] # From Larson Book on the Finite element method (2013)
+    
+    weights::Vector{Float64} = 
+              [0.223381589678011,
+               0.223381589678011,
+               0.223381589678011,
+               0.109951743655322,
+               0.109951743655322,
+               0.109951743655322] # From Larson Book on the Finite element method (2013)
+    
+    Mlocal = zeros(36, mesh.nt)
+    for k in 1:mesh.nt
+        nds = @view mesh.t[:, k]
+        vertices = mesh.p[:, nds[1:3]]  # Triangle vertices
+        
+        # Jacobian for affine transformation from reference to physical triangle
+        J11 = vertices[1, 2] - vertices[1, 1]
+        J12 = vertices[1, 3] - vertices[1, 1]
+        J21 = vertices[2, 2] - vertices[2, 1]
+        J22 = vertices[2, 3] - vertices[2, 1]
+        
+        detJ = abs(J11 * J22 - J12 * J21)
+
+        # Precompute basis coefficients for all 6 nodes
+        S::Matrix{Float64} = zeros(6 ,6)  
+        for i in 1:6
+            S[:, i] = quadraticBasis2D(mesh.p, nds, nds[i])
+        end
+        
+        # Initialize local mass matrix
+        Mk = zeros(6, 6)
+        
+        # Loop over quadrature points
+        for q in 1:length(weights)
+            xi, eta = points[q, 1:2]
+            
+            # Transform from reference to physical coordinates
+            x = vertices[1, 1] + J11 * xi + J12 * eta
+            y = vertices[2, 1] + J21 * xi + J22 * eta
+            
+            # Evaluate all basis functions at this quadrature point
+            phi = zeros(6)
+            for i in 1:6
+                phi[i] = S[1, i] + S[2, i]*x + S[3, i]*y + S[4, i]*x^2 + S[5, i]*x*y + S[6, i]*y^2
+            end
+            
+            # Accumulate to mass matrix
+            w = weights[q] * detJ
+            for i in 1:6
+                for j in i:6  # Only compute upper triangle
+                    Mk[i, j] += w * phi[i] * phi[j]
+                end
+            end
+        end
+        
+        # Fill lower triangle (symmetric)
+        for i in 1:6
+            for j in 1:(i-1)
+                Mk[i, j] = Mk[j, i]
+            end
+        end
+        
+        Mlocal[:, k] = vec(Mk)
+    end
+    
+    # Assemble global sparse mass matrix
+    M = spzeros(mesh.nv, mesh.nv)
+    n = 0
+    for i in 1:6
+        for j in 1:6
+            n += 1
+            M += sparse(mesh.t[i, :], mesh.t[j, :], Mlocal[n, :], mesh.nv, mesh.nv)
+        end
+    end
+    
+    return M
+end
+
 # 2D Sparse divergence matrix
 function divergenceMatrix2D(mesh::MESH, vertexID::Vector{Int32}, nVertices::Int32)
     
