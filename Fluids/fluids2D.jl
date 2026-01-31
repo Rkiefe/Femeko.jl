@@ -86,9 +86,9 @@ function fluid2D(mesh::MESH, velocity::Vector{Float64}, mu::Vector{Float64}, inF
     UP[free] = LHS[free,free]\RHS    
     
     # Velocity
-    u::Matrix{Float64} = zeros(mesh.nv, 2)
-    u[:, 1] .= UP[1:mesh.nv]
-    u[:, 2] .= UP[mesh.nv+1:2*mesh.nv]
+    u::Matrix{Float64} = zeros(2, mesh.nv)
+    u[1, :] .= UP[1:mesh.nv]
+    u[2, :] .= UP[mesh.nv+1:2*mesh.nv]
 
     # Pressure
     p::Vector{Float64} = UP[2*mesh.nv.+(1:nVertices)]

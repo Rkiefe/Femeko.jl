@@ -65,7 +65,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
     velocityNorm::Vector{Float64} = zeros(mesh.nv)
     for i in 1:mesh.nv
-        velocityNorm[i] = sqrt(sum(u[i,:].^2))   
+        velocityNorm[i] = norm(u[:, i])
     end
 
     # ----- Plot results ------
@@ -84,7 +84,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
     # Add vector field
     Axis(fig[1, 1], aspect = DataAspect(), title="Velocity field")
-    velocity_plot = arrows2d!(x, y, u[:,1], u[:,2], 
+    velocity_plot = arrows2d!(x, y, u[1,:], u[2,:], 
                               lengthscale = 0.5,
                               color = velocityNorm,
                               colormap = :thermal)
