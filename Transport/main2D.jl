@@ -8,6 +8,61 @@ meshSize = 5.0
 localSize = 0.2
 showGmsh = true
 
+function quadraticMassMatrix2D(mesh::MESH)
+
+    Mlocal::Matrix{Float64} = zeros(36, mesh.nt)
+    Mk::Matrix{Float64} = zeros(6, 6) 
+    for k in 1:mesh.nt
+        nds = @view mesh.t[:,k]
+        
+        for i in 1:6 # 2nd order triangle has 6 nodes
+            Si = quadraticBasis2D(mesh.p, nds, nds[i])
+            for j in i:6
+                Sj = quadraticBasis2D(mesh.p, nds, nds[j])
+                
+                # 6 node quadrature
+                aux::Float64 = 0.0
+                for n in 1:6
+                    x::Float64 = mesh.p[1, nds[n]]
+                    y::Float64 = mesh.p[2, nds[n]]
+                    
+                    phi  = Si[1] + Si[2]*x + Si[3]*y 
+                         + Si[4]*x^2 + Si[5]*x*y 
+                         + Si[6]*y^2
+                    
+                    phj  = Sj[1] + Sj[2]*x + Sj[3]*y 
+                         + Sj[4]*x^2 + Sj[5]*x*y 
+                         + Sj[6]*y^2
+                
+                    aux += phi*phj
+                end # 6 node quadrature
+                aux /= 6
+
+                Mk[i, j] = aux*mesh.VE[k]
+                Mk[j, i] = Mk[i, j] # Mass matrix is symmetric
+            
+            end # Loop of phi(j)
+        end # Loop of phi(i)
+        
+        Mlocal[:, k] = Mk[:];
+    end # Loop over k
+
+    # Sparse mass matrix
+    M = spzeros(mesh.nv, mesh.nv) # Global sparse mass matrix
+    n = 0
+    for i in 1:6
+        for j in 1:6
+            n += 1
+            M += sparse(  mesh.t[i, :]
+                        , mesh.t[j, :]
+                        , Mlocal[n, :]
+                        , mesh.nv, mesh.nv)
+        end
+    end
+
+    return M
+end
+
 mutable struct DATA
 
     # Mass density (g/cm3)
@@ -26,12 +81,71 @@ mutable struct DATA
     DATA() = new(1.0, 1.0, 1.0, 1.0)
 end
 
+function quadraticConvectionMatrix2D(mesh::MESH, u::Matrix{Float64})
+
+    # Local convection matrix
+    Clocal::Matrix{Float64} = zeros(36, mesh.nt)
+    Ck::Matrix{Float64} = zeros(6, 6)
+    for k in 1:mesh.nt
+        nds = @view mesh.t[:,k]
+        
+        for i in 1:6 # 2nd order triangle has 6 nodes
+            Si = quadraticBasis2D(mesh.p, nds, nds[i])
+            for j in 1:6
+                Sj = quadraticBasis2D(mesh.p, nds, nds[j])
+                
+                # 6 node quadrature
+                aux::Float64 = 0.0
+                for n in 1:6
+                    x::Float64 = mesh.p[1, nds[n]]
+                    y::Float64 = mesh.p[2, nds[n]]
+
+                    phj  = Sj[1] + Sj[2]*x + Sj[3]*y 
+                         + Sj[4]*x^2 + Sj[5]*x*y 
+                         + Sj[6]*y^2
+                    
+                    dx::Float64 = Si[2] + 2*Si[4]*x + Si[5]*y
+                    dy::Float64 = Si[3] + 2*Si[6]*y + Si[5]*x 
+                
+                    aux += (dx*u[1, nds[n]] + dy*u[2, nds[n]])*phj
+
+                end # 6 node quadrature
+                aux /= 6
+
+                Ck[i, j] = aux * mesh.VE[k]
+
+            end # Loop of grad phi(i) dot u
+        end # Loop of phi(j)
+        
+        Clocal[:, k] = mesh.VE[k]*Ck[:];
+
+    end # Loop over k
+
+    # Sparse global convection matrix
+    C = spzeros(mesh.nv, mesh.nv)
+    n = 0
+    for i in 1:6
+        for j in 1:6
+            n += 1
+            C += sparse(  mesh.t[i, :]
+                        , mesh.t[j, :]
+                        , Clocal[n, :]
+                        , mesh.nv, mesh.nv)
+        end
+    end
+
+    return C
+end
+
 function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     gmsh.initialize()
 
     # Simulation settings
-    velocity::Vector{Float64} = [1.0, 0.0] # In-flow velocity
+    velocity::Vector{Float64} = [0.0, 0.0] # In-flow velocity
     viscosity::Float64 = 1.0
+    timeStep::Float64 = 1e-5
+    totalTime::Float64 = 1e-2
+    maxSteps::Int32 = floor(totalTime/timeStep) + 1
 
     # List of materials
     materialProperties = Dict("blank" => DATA(),
@@ -44,10 +158,11 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     cellLabels = [] # Tag of cell property
 
     # Add an obstacle
-    id = addDisk([-5,0,0], 1.0, cells)
+    # id = addDisk([0,0,0], 1.0, cells)
+    id = addRectangle([0,0,0], [1.0, 1.0], cells)
     push!(cellLabels, "blank")
     
-    box = addRectangle([0,0,0], [20, 5], cells) # Add tube
+    box = addRectangle([0,0,0], [8, 8], cells) # Add tube
     push!(cellLabels, "water")
 
     # Combine model to create a conforming mesh
@@ -69,6 +184,10 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
     # Walls
     walls::Vector{Int32} = [1, 4, 5]
+
+    # Initial temperature
+    T::Vector{Float64} = zeros(mesh.nv) .+ 10.0
+    T[mesh.InsideNodes] .= 1.0
 
     # Run Gmsh GUI
     if showGmsh
@@ -97,76 +216,97 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     end
 
     # Run fluid simulation
-    u::Matrix{Float64}, 
-    p::Vector{Float64}, 
+    u::Matrix{Float64}, # 2 by nv
+    p::Vector{Float64}, # size = nVertices
     vertexID::Vector{Int32},
-    nVertices::Int32 = fluid2D(mesh, 
-                               velocity,         # Intake fluid velocity
-                               mu,               # Viscosity
-                               inFlow, walls)    # Boundary IDs
+    nVertices::Int32,
+    vertices::Vector{Int32} = fluid2D(mesh, 
+                                      velocity, # Intake fluid velocity
+                                      mu,       # Viscosity
+                                      inFlow,
+                                      walls)    # Boundary IDs
 
     velocityNorm::Vector{Float64} = zeros(mesh.nv)
     for i in 1:mesh.nv
-        velocityNorm[i] = sqrt(sum(u[i,:].^2))   
+        velocityNorm[i] = norm(u[:, i])   
     end
 
+    # # Plot velocity field and pressure
+    # println("Generating plots...")
+    # fig = Figure()
+    # ax = Axis(fig[1, 1], aspect = DataAspect(), title="Velocity field")
+    # velocity_plot = arrows2d!(  ax
+    #                           , mesh.p[1, :]
+    #                           , mesh.p[2, :]
+    #                           , u[1, :]
+    #                           , u[2, :]
+    #                           , lengthscale = 0.5
+    #                           , color = velocityNorm
+    #                           , colormap = :thermal)
 
-    # Heat matrices
+    # Colorbar(  fig[1, 2], velocity_plot 
+    #          , label = "Fluid velocity field"
+    #          # , vertical = false
+    #          )
+
+    # ax2 = Axis(fig[2, 1], aspect = DataAspect(), title="Pressure")
+    # sc2 = scatter!( ax2 
+    #               , mesh.p[1, vertices] # xPressure
+    #               , mesh.p[2, vertices] # yPressure 
+    #               , color = p[vertices]
+    #               , colormap = :batlow
+    #               , markersize = 10
+    #               )
+    
+    # Colorbar(fig[2, 2], sc2
+    #          , label = "Pressure"
+    #          # , vertical = false
+    #          )
+    # # wait(display(fig))
+    # display(GLMakie.Screen(), fig)
+    # return
+
+
+    # Prepare the heat transfer simulation
     println("Calculating the 2nd order mass matrix")
     M = quadraticMassMatrix2D(mesh)
 
     println("Calculating the 2nd order stiffness matrix")
     A = quadraticStiffnessMatrix2D(mesh, epsi)
 
-    # return
-
-    # ----- Plot results ------
-
-    # Sort the coordinates
-    x::Vector{Float64} = zeros(mesh.nv)
-    x[vertexID[1:mesh.nv]] .= mesh.p[1,:]
-
-    y::Vector{Float64} = zeros(mesh.nv)
-    y[vertexID[1:mesh.nv]] .= mesh.p[2,:]
-
-    println("Generating plots")
-
-    # Plot results
-    fig = Figure()
-    Axis(fig[1, 1], aspect = DataAspect(), title="Velocity field")
-    velocity_plot = arrows2d!(x, y, u[:,1], u[:,2], 
-                              lengthscale = 0.5,
-                              color = velocityNorm,
-                              colormap = :thermal)
-
-    Colorbar(  fig[2, 1], velocity_plot 
-             , label = "Velocity"
-             , vertical = false
-             )
-
-    # Add Pressure plot
-    xPressure::Vector{Float64} = zeros(nVertices)
-    yPressure::Vector{Float64} = zeros(nVertices)
-
-    # Vertices
-    vertices::Vector{Int32} = unique(vec(mesh.t[1:3,:]))
-    xPressure[vertexID[vertices]] .= mesh.p[1,vertices]
-    yPressure[vertexID[vertices]] .= mesh.p[2,vertices]
-
-    ax2 = Axis(fig[1, 2], aspect = DataAspect(), title="Pressure")
-    sc2 = scatter!( ax2, 
-                    xPressure, yPressure 
-                  , color = p
-                  , colormap = :batlow
-                  , markersize = 10
-                  )
+    println("Calculating the 2nd order convection matrix")
+    C = quadraticConvectionMatrix2D(mesh, u)
     
-    Colorbar(fig[2, 2], sc2
-             , label = "Pressure"
-             , vertical = false
-             )
-    wait(display(fig))
+    # Plot the heat transfer in real-time
+    fig = Figure()
+    ax = Axis(fig[1, 1], aspect = DataAspect(), title="0.0 s")
+    graph = scatter!( ax
+                    , mesh.p[1, :]
+                    , mesh.p[2, :]
+                    , color = T 
+                    , colormap=:thermal 
+                    , colorrange = (minimum(T), maximum(T))
+                    # , markersize=5
+                    )
+    Colorbar(fig[1, 2], graph, label="T")
+    display(fig)
 
+    # Time iterations
+    LM = M + timeStep*(A+C) # Backward Euler
+    for frame in 1:maxSteps
+
+        # Get the new temperature
+        T = LM\(M*T)
+
+        # Update plot
+        # round(frame*timeStep*100.0)/100.0
+        ax.title = string(frame*timeStep)*" s"
+        graph.color = T
+
+        sleep(0.1)
+    end
+
+    wait(fig.scene)
 
 end
 main(meshSize, localSize, showGmsh)
