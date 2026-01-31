@@ -18,8 +18,8 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     
     # Add a 2D rectangle
     cells = []
-    addRectangle([0,0,0], [1, 1], cells)
-    # addDisk([0,0,0], 1, cells)
+    # addRectangle([0,0,0], [1, 1], cells)
+    addDisk([0,0,0], 1, cells)
 
     # Add a container
     # box = addRectangle([0,0,0], [2, 4])
@@ -56,9 +56,8 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     thermalCond[mesh.InsideElements] .= 2
 
     # Initial temperature
-    T::Vector{Float64} = zeros(mesh.nv)
-    T .= 0
-    T[mesh.InsideNodes] .= 10
+    T::Vector{Float64} = zeros(mesh.nv) .+ 10.0
+    T[mesh.InsideNodes] .= 1.0
 
     # Interpolate the result in this coordinate
     xq = 0.75
