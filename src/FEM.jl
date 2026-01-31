@@ -638,13 +638,13 @@ function quadraticMassMatrix2D(mesh::MESH)
                 end # 6 node quadrature
                 aux /= 6
 
-                Mk[i, j] = aux * mesh.VE[k]
+                Mk[i, j] = aux*mesh.VE[k]
                 Mk[j, i] = Mk[i, j] # Mass matrix is symmetric
             
             end # Loop of phi(j)
         end # Loop of phi(i)
         
-        Mlocal[:, k] = mesh.VE[k]*Mk[:];
+        Mlocal[:, k] = Mk[:];
     end # Loop over k
 
     # Sparse mass matrix
