@@ -60,26 +60,7 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     A = stiffnessMatrix(mesh, thermalCond)
 
     # Mass matrix
-    Mlocal::Matrix{Float64} = 1/20 * [2 1 1 1;
-                                      1 2 1 1;
-                                      1 1 2 1;
-                                      1 1 1 2]; # 3D local mass matrix
-
-    M = spzeros(mesh.nv,mesh.nv)
-    Mk::Matrix{Float64} = zeros(16, mesh.nt)
-    for k in 1:mesh.nt
-        nds = @view mesh.t[:,k]
-        Mk[:,k] = mesh.VE[k]*Mlocal[:];
-    end
-
-    # Update sparse global matrix
-    n = 0
-    for i in 1:4
-        for j in 1:4
-            n += 1
-            M += sparse(mesh.t[i,:],mesh.t[j,:],Mk[n,:],mesh.nv,mesh.nv)
-        end
-    end
+    M = massMatrix(mesh)
 
     fig = Figure()
     ax = Axis3(fig[1, 1], aspect = :data, title="Heat simulation")

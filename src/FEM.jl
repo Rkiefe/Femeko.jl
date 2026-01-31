@@ -555,6 +555,35 @@ function localDivergenceMatrix(mesh::MESH, S)
 
 end # Divergence matrix
 
+function massMatrix(mesh::MESH)
+    # Local mass matrix
+    Mlocal::Matrix{Float64} = 1/20 * [2 1 1 1;
+                                      1 2 1 1;
+                                      1 1 2 1;
+                                      1 1 1 2]; # 3D element-wise mass matrix
+
+    Mk::Matrix{Float64} = zeros(16, mesh.nt)
+    for k in 1:mesh.nt
+        nds = @view mesh.t[:,k]
+        Mk[:,k] = mesh.VE[k]*Mlocal[:];
+    end
+
+    # Create the sparse global matrix
+    M = spzeros(mesh.nv,mesh.nv)
+    n = 0
+    for i in 1:4
+        for j in 1:4
+            n += 1
+            M += sparse(  mesh.t[i, :]
+                        , mesh.t[j, :]
+                        , Mk[n, :]
+                        , mesh.nv, mesh.nv)
+        end
+    end
+
+    return M
+end
+
 function massMatrix2D(mesh::MESH)
     Mlocal::Matrix{Float64} = 1/12 *[2 1 1;
                                      1 2 1;
