@@ -810,3 +810,36 @@ end
 function isapproxsymmetric(A, tol=1e-10)
     return all(isapprox.(A - A', 0.0; rtol=tol))
 end
+
+# All 3 mid points of the triangle edges
+function midpoints(r::Matrix{Float64})
+    t::Matrix{Float64} = 0.5.*(r[:,[1,2,1]] + r[:,[2,3,3]])
+    return t
+end
+
+# Subdivides a triangle into 4 smaller triangles
+function subtriangle(p::Matrix{Float64})
+    #=
+        input: p[1:3,s_nds] -> xyz coordinates of surface triangle nodes
+         s_nds -> nodes of surface triangle (3)
+        
+        Subdivides a triangle into 4 and calculates the midpoints
+        of each edge of the small triangles
+
+        output: 15 xyz coordinates 
+    =#
+    r::Matrix{Float64} = zeros(3,15) # 15 nodes
+
+    # Large triangle | First 3 nodes
+    r[:,1:3] .= p
+
+    # Midpoints of large triangle
+    r[:,4:6] = midpoints(r[:,1:3])
+
+    # Mid points of each 4 small triangles
+    r[:,7:9] = midpoints(r[:,[1,4,6]])
+    r[:,10:12] = midpoints(r[:,[4,2,5]])
+    r[:,13:15] = midpoints(r[:,[5,3,6]])
+
+    return r
+end # 4 sub-triangles
