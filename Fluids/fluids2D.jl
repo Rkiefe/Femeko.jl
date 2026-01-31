@@ -93,6 +93,23 @@ function fluid2D(mesh::MESH, velocity::Vector{Float64}, mu::Vector{Float64}, inF
     # Pressure
     p::Vector{Float64} = UP[2*mesh.nv.+(1:nVertices)]
 
-    return u, p, vertexID, nVertices
+    # Remap the output to the original Gmsh node labels
+    println("Remapping the velocity and pressure field to the original node labels")
+    uOrdered::Matrix{Float64} = zeros(2, mesh.nv) 
+    for i in 1:mesh.nv
+        uOrdered[:, i] .= u[:, vertexID[i]]
+    end
+
+    # Get the 1st order mesh nodes (vertices)
+    vertices::Vector{Int32} = unique(vec(mesh.t[1:3,:]))
+
+    pOrdered::Vector{Float64} = zeros(mesh.nv)
+    for nd in vertices # Global node labels
+        i = vertexID[nd] # Local node label of current vertex
+        pOrdered[nd] = p[i]
+    end
+    println("Fluid simulation concluded")
+
+    return uOrdered, pOrdered, vertexID, nVertices, vertices
 end
 

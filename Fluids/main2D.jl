@@ -55,63 +55,52 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     # note: the missing wall is an outflow
 
     # Run fluid simulation
-    u::Matrix{Float64}, 
-    p::Vector{Float64}, 
+    u::Matrix{Float64}, # 2 by nv
+    p::Vector{Float64}, # size = nVertices
     vertexID::Vector{Int32},
-    nVertices::Int32 = fluid2D(mesh, 
-                               velocity,         # Intake fluid velocity
-                               mu,               # Viscosity
-                               inFlow, walls)    # Boundary IDs
+    nVertices::Int32,
+    vertices::Vector{Int32} = fluid2D(mesh, 
+                                      velocity, # Intake fluid velocity
+                                      mu,       # Viscosity
+                                      inFlow,
+                                      walls)    # Boundary IDs
 
     velocityNorm::Vector{Float64} = zeros(mesh.nv)
     for i in 1:mesh.nv
-        velocityNorm[i] = norm(u[:, i])
+        velocityNorm[i] = norm(u[:, i])   
     end
 
-    # ----- Plot results ------
-
-    # Sort the coordinates
-    x::Vector{Float64} = zeros(mesh.nv)
-    x[vertexID[1:mesh.nv]] .= mesh.p[1,:]
-
-    y::Vector{Float64} = zeros(mesh.nv)
-    y[vertexID[1:mesh.nv]] .= mesh.p[2,:]
-
-    println("Generating plots")
-
     # Plot results
+    println("Generating plots...")
     fig = Figure()
+    ax = Axis(fig[1, 1], aspect = DataAspect(), title="Velocity field")
+    velocity_plot = arrows2d!(  ax
+                              , mesh.p[1, :]
+                              , mesh.p[2, :]
+                              , u[1, :]
+                              , u[2, :]
+                              , lengthscale = 0.5
+                              , color = velocityNorm
+                              , colormap = :thermal)
 
-    # Add vector field
-    Axis(fig[1, 1], aspect = DataAspect(), title="Velocity field")
-    velocity_plot = arrows2d!(x, y, u[1,:], u[2,:], 
-                              lengthscale = 0.5,
-                              color = velocityNorm,
-                              colormap = :thermal)
-
-    Colorbar(fig[2, 1], velocity_plot, 
-             label = "Velocity", vertical = false)
-
-    # Add Pressure plot
-    xPressure::Vector{Float64} = zeros(nVertices)
-    yPressure::Vector{Float64} = zeros(nVertices)
-
-    # Vertices
-    vertices::Vector{Int32} = unique(vec(mesh.t[1:3,:]))
-    xPressure[vertexID[vertices]] .= mesh.p[1,vertices]
-    yPressure[vertexID[vertices]] .= mesh.p[2,vertices]
-
+    Colorbar(  fig[2, 1], velocity_plot 
+             , label = "Fluid velocity field"
+             , vertical = false
+             )
 
     ax2 = Axis(fig[1, 2], aspect = DataAspect(), title="Pressure")
-    sc2 = scatter!( ax2, 
-                    xPressure, yPressure, 
-                    color=p, 
-                    colormap=:batlow,
-                    markersize=10)
+    sc2 = scatter!( ax2 
+                  , mesh.p[1, vertices] # xPressure
+                  , mesh.p[2, vertices] # yPressure 
+                  , color = p[vertices]
+                  , colormap = :batlow
+                  , markersize = 10
+                  )
     
-    Colorbar(fig[2, 2], sc2,
-             label = "Pressure", vertical = false)
-
+    Colorbar(fig[2, 2], sc2
+             , label = "Pressure"
+             , vertical = false
+             )
     wait(display(fig))
 
 
