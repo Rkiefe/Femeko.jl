@@ -21,13 +21,11 @@ function fluid2D(mesh::MESH, velocity::Vector{Float64}, mu::Vector{Float64}, inF
 
     println("Building stiffness matrix")
 
-    # Global Stiffness matrix
-    A = spzeros(mesh.nv, mesh.nv)
-
     # Local Stiffness matrix
     Ak::Matrix{Float64} = quadraticLocalStiffnessMatrix2D(mesh)
 
-    # Update sparse global matrix
+    # Global Stiffness matrix
+    A = spzeros(mesh.nv, mesh.nv)
     n = 0
     for i in 1:6
         for j in 1:6
