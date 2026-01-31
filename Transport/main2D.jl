@@ -1,14 +1,5 @@
 
-
-
-
-
-
-# This code is not operational for now
-
-
-
-
+# Missing the outflow boundary condition
 
 #  Full 2D heat equation with convection to a passing fluid
 
@@ -18,66 +9,7 @@ using GLMakie
 # Mesh settings
 meshSize = 5.0
 localSize = 0.2
-showGmsh = true
-
-function quadraticMassMatrix2D(mesh::MESH)
-# f = S[1] + S[2]*x + S[3]*y + S[4]*x^2 + S[5]*x*y + S[6]*y^2
-
-    Mlocal::Matrix{Float64} = zeros(36, mesh.nt)
-    Mk::Matrix{Float64} = zeros(6, 6) 
-    for k in 1:mesh.nt
-        nds = @view mesh.t[:,k]
-
-        # Subdivide the main triangle to get 15 quadrature nodes
-        r::Matrix{Float64} = subtriangle(mesh.p[:, nds[1:3]])
-        
-        for i in 1:6 # 2nd order triangle has 6 nodes
-            Si = quadraticBasis2D(mesh.p, nds, nds[i])
-            for j in i:6
-                Sj = quadraticBasis2D(mesh.p, nds, nds[j])
-                
-                # 15 node quadrature
-                aux::Float64 = 0.0
-                for n in 1:15
-                    x::Float64 = r[1, n]
-                    y::Float64 = mesh.p[2, nds[n]]
-                    
-                    phi  = Si[1] + Si[2]*x + Si[3]*y 
-                         + Si[4]*x^2 + Si[5]*x*y 
-                         + Si[6]*y^2
-                    
-                    phj  = Sj[1] + Sj[2]*x + Sj[3]*y 
-                         + Sj[4]*x^2 + Sj[5]*x*y 
-                         + Sj[6]*y^2
-                
-                    aux += phi*phj
-                end # 6 node quadrature
-                aux /= 6
-
-                Mk[i, j] = aux*mesh.VE[k]
-                Mk[j, i] = Mk[i, j] # Mass matrix is symmetric
-            
-            end # Loop of phi(j)
-        end # Loop of phi(i)
-        
-        Mlocal[:, k] = Mk[:];
-    end # Loop over k
-
-    # Sparse mass matrix
-    M = spzeros(mesh.nv, mesh.nv) # Global sparse mass matrix
-    n = 0
-    for i in 1:6
-        for j in 1:6
-            n += 1
-            M += sparse(  mesh.t[i, :]
-                        , mesh.t[j, :]
-                        , Mlocal[n, :]
-                        , mesh.nv, mesh.nv)
-        end
-    end
-
-    return M
-end
+showGmsh = false
 
 function quadraticConvectionMatrix2D(mesh::MESH, u::Matrix{Float64})
 
@@ -157,10 +89,10 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     gmsh.initialize()
 
     # Simulation settings
-    velocity::Vector{Float64} = [0.0, 0.0] # In-flow velocity
+    velocity::Vector{Float64} = [1.0, 0.0] # In-flow velocity
     viscosity::Float64 = 1.0
-    timeStep::Float64 = 1e-5
-    totalTime::Float64 = 1e-2
+    timeStep::Float64 = 1e-3
+    totalTime::Float64 = 1.0
     maxSteps::Int32 = floor(totalTime/timeStep) + 1
 
     # List of materials
@@ -202,8 +134,8 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     walls::Vector{Int32} = [1, 4, 5]
 
     # Initial temperature
-    T::Vector{Float64} = zeros(mesh.nv) .+ 10.0
-    T[mesh.InsideNodes] .= 1.0
+    T::Vector{Float64} = zeros(mesh.nv) .+ 0.0
+    T[mesh.InsideNodes] .= 10.0
 
     # Run Gmsh GUI
     if showGmsh
@@ -319,7 +251,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
         ax.title = string(frame*timeStep)*" s"
         graph.color = T
 
-        sleep(0.1)
+        sleep(1.0/24.0)
     end
 
     wait(fig.scene)
