@@ -409,10 +409,26 @@ function quadraticLocalStiffnessMatrix2D(mesh::MESH)
     return Ak
 end
 
-function quadraticStiffnessMatrix(mesh::MESH)
+function quadraticStiffnessMatrix2D(  mesh::MESH
+                                    , mu::Vector{Float64} = ones(mesh.nt))
 
-    # Add code later
+    # Local stiffness matrix
+    Ak::Matrix{Float64} = quadraticLocalStiffnessMatrix2D(mesh)
 
+    # Build the sparse stiffness matrix
+    A = spzeros(mesh.nv, mesh.nv)    
+    n = 0
+    for i in 1:6
+        for j in 1:6
+            n += 1
+            A += sparse(  mesh.t[i, :]
+                        , mesh.t[j, :]
+                        , Ak[n, :] .* mu
+                        , mesh.nv, mesh.nv)
+        end
+    end
+
+    return A
 end
 
 
