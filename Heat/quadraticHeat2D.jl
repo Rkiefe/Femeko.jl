@@ -1,3 +1,16 @@
+
+
+
+
+# This code is not operational for now
+
+
+
+
+
+
+
+
 #  Heat equation with quadratic lagrange elements
 
 include("../Fluids/fluids2D.jl")
