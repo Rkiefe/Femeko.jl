@@ -10,6 +10,9 @@ showGmsh = true
 
 mutable struct DATA
 
+    # Mass density (g/cm3)
+    density::Float64
+
     # Thermal conductivity W/(m K)
     k::Float64
 
@@ -20,7 +23,7 @@ mutable struct DATA
     mu::Float64
 
     # Constructor
-    DATA() = new(1.0, 1.0, 1.0)
+    DATA() = new(1.0, 1.0, 1.0, 1.0)
 end
 
 function main(meshSize=0.0, localSize=0.0, showGmsh=false)
@@ -75,6 +78,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
  
     # Define the viscosity and the diffusivity on the domain
     mu::Vector{Float64} = zeros(mesh.nt)
+    epsi::Vector{Float64} = zeros(mesh.nt)
 
     for i in 1:length(cells)
 
@@ -87,7 +91,8 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
         elements = findall(x -> x==id, mesh.elementID)
 
         # Update viscosity value on this cell elements
-        mu[elements] .= materialProperties[key].mu        
+        mu[elements] .= materialProperties[key].mu
+        epsi[elements] .= materialProperties[key].k/(materialProperties[key].Cp * materialProperties[key].density)
 
     end
 
