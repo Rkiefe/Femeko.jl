@@ -9,24 +9,6 @@ meshSize = 5.0
 localSize = 0.2
 showGmsh = false
 
-mutable struct DATA
-
-    # Mass density (g/cm3)
-    density::Float64
-
-    # Thermal conductivity W/(m K)
-    k::Float64
-
-    # Specific heat J/(kg K)
-    Cp::Float64
-
-    # Fluid viscosity mPa s or kg/(m s)
-    mu::Float64
-
-    # Constructor
-    DATA() = new(1.0, 1.0, 1.0, 1.0)
-end
-
 function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     gmsh.initialize()
 
@@ -43,7 +25,6 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
     materialProperties["blank"].mu = 1e3
     materialProperties["blank"].Cp = 3.0
-
 
     # Create model
     cells = []      # Cell IDs (dim, tag)
@@ -70,6 +51,11 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     println("Number of surface elements ", mesh.ns)
     println("Mesh Order: ", mesh.order, "\n")
 
+    # Run Gmsh GUI
+    if showGmsh
+       gmsh.fltk.run()
+    end
+ 
     # Boundary ID
     inFlow::Int32 = 2  # (intake)
     outFlow::Int32 = 3 # (exhaust)
@@ -81,12 +67,6 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     T::Vector{Float64} = zeros(mesh.nv) .+ 0.0
     T[mesh.InsideNodes] .= 20.0
 
-    # Run Gmsh GUI
-    if showGmsh
-       gmsh.fltk.run()
-    end
-    gmsh.fltk.finalize()
- 
     # Define the viscosity and the diffusivity on the domain
     mu::Vector{Float64} = zeros(mesh.nt)
     epsi::Vector{Float64} = zeros(mesh.nt)
@@ -117,6 +97,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
                                       mu,       # Viscosity
                                       inFlow,
                                       walls)    # Boundary IDs
+    gmsh.fltk.finalize()
 
     velocityNorm::Vector{Float64} = zeros(mesh.nv)
     for i in 1:mesh.nv
