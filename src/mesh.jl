@@ -388,7 +388,7 @@ function Mesh2D(cells, meshSize=0.0, localSize=0.0, order::Int=1, saveMesh=false
         save2file("surfaceT.txt",mesh.surfaceT)
         save2file("InsideElements.txt",mesh.InsideElements)
         save2file("VE.txt",mesh.VE)
-        # save2file("AE.txt",mesh.AE)
+        save2file("AE.txt",mesh.AE)
         save2file("normal.txt",mesh.normal)
     end
 

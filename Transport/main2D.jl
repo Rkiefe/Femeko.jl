@@ -1,6 +1,4 @@
 
-# Missing the outflow boundary condition
-
 #  Full 2D heat equation with convection to a passing fluid
 
 include("../Fluids/fluids2D.jl")
@@ -33,7 +31,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     gmsh.initialize()
 
     # Simulation settings
-    velocity::Vector{Float64} = [1.0, 0.0] # In-flow velocity
+    velocity::Vector{Float64} = [3.0, 0.0] # Intake fluid velocity
     viscosity::Float64 = 1.0
     timeStep::Float64 = 1e-3
     totalTime::Float64 = 1.0
@@ -71,8 +69,9 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     println("Number of surface elements ", mesh.ns)
     println("Mesh Order: ", mesh.order, "\n")
 
-    # In Flow | Curve id: 2
-    inFlow::Int32 = 2
+    # Boundary ID
+    inFlow::Int32 = 2  # (intake)
+    outFlow::Int32 = 3 # (exhaust)
 
     # Walls
     walls::Vector{Int32} = [1, 4, 5]
@@ -107,16 +106,6 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
     end
 
-    # Define the diffusivity at the in-flow boundary as infinite to approximate Dirichlet boundary conditions
-    Tin::Vector{Float64} = zeros(mesh.ns)
-    for s in 1:mesh.ns
-        ID = mesh.surfaceT[4, s] # ID of the boundary of current edge
-        if ID != inFlow
-            continue
-        end
-        Tin[s] = 1e6
-    end
-
     # Run fluid simulation
     u::Matrix{Float64}, # 2 by nv
     p::Vector{Float64}, # size = nVertices
@@ -133,40 +122,63 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
         velocityNorm[i] = norm(u[:, i])   
     end
 
-    # # Plot velocity field and pressure
-    # println("Generating plots...")
-    # fig = Figure()
-    # ax = Axis(fig[1, 1], aspect = DataAspect(), title="Velocity field")
-    # velocity_plot = arrows2d!(  ax
-    #                           , mesh.p[1, :]
-    #                           , mesh.p[2, :]
-    #                           , u[1, :]
-    #                           , u[2, :]
-    #                           , lengthscale = 0.5
-    #                           , color = velocityNorm
-    #                           , colormap = :thermal)
+    # Plot velocity field and pressure
+    println("Generating plots...")
+    fig = Figure()
+    ax = Axis(fig[1, 1], aspect = DataAspect(), title="Velocity field")
+    velocity_plot = arrows2d!(  ax
+                              , mesh.p[1, :]
+                              , mesh.p[2, :]
+                              , u[1, :]
+                              , u[2, :]
+                              , lengthscale = 0.5
+                              , color = velocityNorm
+                              , colormap = :thermal)
 
-    # Colorbar(  fig[1, 2], velocity_plot 
-    #          , label = "Fluid velocity field"
-    #          # , vertical = false
-    #          )
+    Colorbar(  fig[1, 2], velocity_plot 
+             , label = "Fluid velocity field"
+             # , vertical = false
+             )
 
-    # ax2 = Axis(fig[2, 1], aspect = DataAspect(), title="Pressure")
-    # sc2 = scatter!( ax2 
-    #               , mesh.p[1, vertices] # xPressure
-    #               , mesh.p[2, vertices] # yPressure 
-    #               , color = p[vertices]
-    #               , colormap = :batlow
-    #               , markersize = 10
-    #               )
+    ax2 = Axis(fig[2, 1], aspect = DataAspect(), title="Pressure")
+    sc2 = scatter!( ax2 
+                  , mesh.p[1, vertices] # xPressure
+                  , mesh.p[2, vertices] # yPressure 
+                  , color = p[vertices]
+                  , colormap = :batlow
+                  , markersize = 10
+                  )
     
-    # Colorbar(fig[2, 2], sc2
-    #          , label = "Pressure"
-    #          # , vertical = false
-    #          )
-    # # wait(display(fig))
-    # display(GLMakie.Screen(), fig)
+    Colorbar(fig[2, 2], sc2
+             , label = "Pressure"
+             # , vertical = false
+             )
+    # wait(display(fig))
+    display(GLMakie.Screen(), fig)
     # return
+
+    # Define the boundary conditions at the intake and exhaust
+    boundaryConditions::Vector{Float64} = zeros(mesh.ns)
+    for s in 1:mesh.ns
+        
+        ID = mesh.surfaceT[4, s] # ID of the boundary of current edge
+        nds = @view mesh.surfaceT[:, s] # Nodes of current edge (and the boundary ID)
+        
+        if ID == inFlow
+
+            # Define the diffusivity at the in-flow boundary as infinite
+            # to approximate Dirichlet boundary conditions
+            boundaryConditions[s] = 1e6
+
+        elseif ID == outFlow 
+
+            # Use the velocity on the edge midpoint as the normal velocity
+            boundaryConditions[s] = dot(u[:, nds[3]], mesh.normal[:, s])
+
+        end
+
+
+    end # Boundary conditions
 
 
     # Prepare the heat transfer simulation
@@ -180,12 +192,10 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     C = @time quadraticConvectionMatrix2D(mesh, u)
 
     println("Calculating the surface integral matrix (1D quadratic mass matrix)")
-    R = @time quadraticMassMatrix1D(mesh, Tin) 
-    
-
-    return
+    R = @time quadraticMassMatrix1D(mesh, boundaryConditions) 
 
     # Plot the heat transfer in real-time
+    println("Creating a new Makie.jl window")
     fig = Figure()
     ax = Axis(fig[1, 1], aspect = DataAspect(), title="0.0 s")
     graph = scatter!( ax
@@ -199,8 +209,9 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     Colorbar(fig[1, 2], graph, label="T")
     display(fig)
 
+    println("Running heat transport simulation")
     # Time iterations
-    LM = M + timeStep*(A+C) # Backward Euler
+    LM = M + timeStep*(R+A-C) # Backward Euler
     for frame in 1:maxSteps
 
         # Get the new temperature
