@@ -31,10 +31,10 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     gmsh.initialize()
 
     # Simulation settings
-    velocity::Vector{Float64} = [3.0, 0.0] # Intake fluid velocity
+    velocity::Vector{Float64} = [10.0, 0.0] # Intake fluid velocity
     viscosity::Float64 = 1.0
-    timeStep::Float64 = 1e-3
-    totalTime::Float64 = 1.0
+    timeStep::Float64 = 1e-2
+    totalTime::Float64 = 2.0
     maxSteps::Int32 = floor(totalTime/timeStep) + 1
 
     # List of materials
@@ -42,17 +42,18 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
                               "water" => DATA())
 
     materialProperties["blank"].mu = 1e3
+    materialProperties["blank"].Cp = 3.0
+
 
     # Create model
     cells = []      # Cell IDs (dim, tag)
     cellLabels = [] # Tag of cell property
 
     # Add an obstacle
-    # id = addDisk([0,0,0], 1.0, cells)
-    id = addRectangle([0,0,0], [1.0, 1.0], cells)
+    id = addDisk([-2.5,0,0], 1.0, cells)
     push!(cellLabels, "blank")
     
-    box = addRectangle([0,0,0], [8, 8], cells) # Add tube
+    box = addRectangle([0,0,0], [10, 5], cells) # Add tube
     push!(cellLabels, "water")
 
     # Combine model to create a conforming mesh
@@ -78,7 +79,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
     # Initial temperature
     T::Vector{Float64} = zeros(mesh.nv) .+ 0.0
-    T[mesh.InsideNodes] .= 10.0
+    T[mesh.InsideNodes] .= 20.0
 
     # Run Gmsh GUI
     if showGmsh
@@ -131,7 +132,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
                               , mesh.p[2, :]
                               , u[1, :]
                               , u[2, :]
-                              , lengthscale = 0.5
+                              , lengthscale = 1/norm(velocity)
                               , color = velocityNorm
                               , colormap = :thermal)
 
@@ -158,6 +159,8 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     # return
 
     # Define the boundary conditions at the intake and exhaust
+    intakeBC::Vector{Float64} = zeros(mesh.ns)
+    exhaustBC::Vector{Float64} = zeros(mesh.ns)
     boundaryConditions::Vector{Float64} = zeros(mesh.ns)
     for s in 1:mesh.ns
         
@@ -167,12 +170,16 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
         if ID == inFlow
 
             # Define the diffusivity at the in-flow boundary as infinite
-            # to approximate Dirichlet boundary conditions
+            # to approximate Dirichlet boundary conditions with Robin b.c
+            intakeBC[s] = 1e6
+
             boundaryConditions[s] = 1e6
 
         elseif ID == outFlow 
 
             # Use the velocity on the edge midpoint as the normal velocity
+            exhaustBC[s] = dot(u[:, nds[3]], mesh.normal[:, s])
+
             boundaryConditions[s] = dot(u[:, nds[3]], mesh.normal[:, s])
 
         end
@@ -192,7 +199,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     C = @time quadraticConvectionMatrix2D(mesh, u)
 
     println("Calculating the surface integral matrix (1D quadratic mass matrix)")
-    R = @time quadraticMassMatrix1D(mesh, boundaryConditions) 
+    R = @time quadraticMassMatrix1D(mesh, intakeBC) 
 
     # Plot the heat transfer in real-time
     println("Creating a new Makie.jl window")
@@ -211,7 +218,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
     println("Running heat transport simulation")
     # Time iterations
-    LM = M + timeStep*(R+A-C) # Backward Euler
+    LM = M + timeStep*(A+R+C) # Backward Euler
     for frame in 1:maxSteps
 
         # Get the new temperature
@@ -222,7 +229,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
         ax.title = string(frame*timeStep)*" s"
         graph.color = T
 
-        sleep(1.0/24.0)
+        sleep(timeStep)
     end
 
     wait(fig.scene)
