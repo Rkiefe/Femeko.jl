@@ -31,7 +31,7 @@ function quadraticBasis(mesh::MESH, nds::AbstractVector, nd::Integer)
     yo = @view mesh.p[2, [nd; nodes]]
     zo = @view mesh.p[3, [nd; nodes]]
 
-    S = [ones(10) xo yo zo xo.^2 xo.*yo xo.*zo yo.^2 yo.*zo zo.^2]\ [1.0; zeros(9)]
+    S::Vector{Float64} = [ones(10) xo yo zo xo.^2 xo.*yo xo.*zo yo.^2 yo.*zo zo.^2]\ [1.0; zeros(9)]
 
     return S
 end
@@ -56,7 +56,7 @@ function stiffnessMatrix(mesh::MESH, f::Vector{Float64}=ones(mesh.nt))
 end # Sparse, global stiffness matrix
 
 # Local stiffnessmatrix in 100% Julia
-function localStiffnessMatrix(mesh::MESH,f::Vector{Float64}=ones(mesh.nt))
+function localStiffnessMatrix(mesh::MESH, f::Vector{Float64}=ones(mesh.nt))
     Ak::Matrix{Float64} = zeros(4*4,mesh.nt)
     b::Vector{Float64} = zeros(4)
     c::Vector{Float64} = zeros(4)
@@ -351,6 +351,25 @@ function quadraticLocalStiffnessMatrix(mesh::MESH
 
 end # Quadratic order, element-wise stiffness matrix
 
+function quadraticStiffnessMatrix(mesh::MESH, S, mu::Vector{Float64} = ones(mesh.nt))
+
+    # Local stiffness matrix
+    Ak = quadraticLocalStiffnessMatrix(mesh, S, mu)
+    
+    # Global stiffness matrix
+    A = spzeros(mesh.nv, mesh.nv)
+    n = 0
+    for i in 1:10
+        for j in 1:10
+            n += 1
+            A += sparse(mesh.t[i,:], mesh.t[j,:], Ak[n, :], mesh.nv, mesh.nv)
+        end
+    end
+
+    return A
+
+end
+
 # Local element-wise divergence matrix
 function localDivergenceMatrix(mesh::MESH, S)
     
@@ -448,7 +467,7 @@ function massMatrix(mesh::MESH)
     return M
 end
 
-function quadraticMassMatrix(mesh::MESH, F::Vector{Float64}=ones(mesh.nt))
+function quadraticMassMatrix(mesh::MESH, S, F::Vector{Float64}=ones(mesh.nt))
 
     @warn "Using untested quadraticMassMatrix()"
 
@@ -476,12 +495,6 @@ function quadraticMassMatrix(mesh::MESH, F::Vector{Float64}=ones(mesh.nt))
                    J12*(J21*J33 - J23*J31) + 
                    J13*(J21*J32 - J22*J31))
         
-        # Lagrange shape elements of each node on current element
-        S::Matrix{Float64} = zeros(10, 10)
-        for i in 1:10
-            S[:, i] = quadraticBasis(mesh, nds, nds[i])
-        end
-
         # Mass matrix on element k
         Mk::Matrix{Float64} = zeros(10, 10)
 
@@ -498,17 +511,17 @@ function quadraticMassMatrix(mesh::MESH, F::Vector{Float64}=ones(mesh.nt))
             # Evaluate all the basis functions on this quadrature point
             phi::Vector{Float64} = zeros(10)
             for i in 1:10
-                phi[i] =   S[1, i] + S[2, i]*x + S[3, i]*y + S[4, i]*z 
-                         + S[5, i]*x^2 + S[6, i]*x*y + S[7, i]*x*z
-                         + S[8, i]*y^2 + S[9, i]*y*z 
-                         + S[10, i]*z^2
+                phi[i] =   S[1, i, k] + S[2, i, k]*x + S[3, i, k]*y + S[4, i, k]*z 
+                         + S[5, i, k]*x^2 + S[6, i, k]*x*y + S[7, i, k]*x*z
+                         + S[8, i, k]*y^2 + S[9, i, k]*y*z 
+                         + S[10, i, k]*z^2
             end
 
             # Accumulate to the mass matrix
             w = weights[q] * detJ
             for i in 1:10
                 for j in i:10
-                    Mk[i, j] = w * phi[i] * phi[j]
+                    Mk[i, j] = w * phi[i] * phi[j] * F[k]
                     Mk[j, i] = Mk[i, j]
                 end
             end
