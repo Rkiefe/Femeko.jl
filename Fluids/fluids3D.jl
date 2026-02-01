@@ -198,6 +198,9 @@ function fluid3D( mesh::MESH
     end
     println("Fluid simulation concluded")
 
-    return uOrdered, pOrdered, vertices
+    return uOrdered, # Velocity field 3 by nv 
+           pOrdered, # Pressure nv (only defined in 'vertices')
+           vertices, # Global node labels of 1st order mesh nodes 
+           S         # Quadratic basis function on each node and element 10 x 10 x nt 
 end
 

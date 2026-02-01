@@ -1,5 +1,5 @@
 # 3D Viscous fluid simulation (pressure and velocity)
-
+include("fluids3D.jl")
 using GLMakie
 
 meshSize = 0.0
@@ -7,6 +7,7 @@ localSize = 0.0
 showGmsh = false
 
 function main(meshSize=0.0, localSize=0.0, showGmsh=false)
+    gmsh.initialize()
 
     # Setup
     viscosity = 1.0                   # Fluid viscosity
@@ -20,7 +21,6 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     outFlow = 3
 
     # Create 3D model
-    gmsh.initialize()
     cells = [] # Store the obstacles cell ID
     
     addSphere([0,-2.5,0], 0.5, cells)              # Add obstacle
@@ -50,7 +50,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     # mu[mesh.InsideElements] .= 1e3*viscosity
 
     # Run the fluid simulation
-    u, P, vertices = fluid3D( mesh, velocity, mu, inFlow, walls)
+    u, P, vertices, _ = fluid3D( mesh, velocity, mu, inFlow, walls)
     gmsh.finalize()
 
     # Norm of velocity (defined on global node IDs)
