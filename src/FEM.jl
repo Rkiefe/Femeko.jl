@@ -611,24 +611,9 @@ end
 function quadraticMassMatrix2D(mesh::MESH)
     # 6-point Gaussian quadrature for triangles (exact precision)
     # Coordinates and weights for reference triangle (0,0), (1,0), (0,1)
-    points::Matrix{Float64} = 
-        [
-            0.445948490915965 0.445948490915965;
-            0.445948490915965 0.108103018168070;
-            0.108103018168070 0.445948490915965;
-            0.091576213509771 0.091576213509771;
-            0.091576213509771 0.816847572980459;
-            0.816847572980459 0.091576213509771
-        ] # From Larson Book on the Finite element method (2013)
-    
-    weights::Vector{Float64} = 
-              [0.223381589678011,
-               0.223381589678011,
-               0.223381589678011,
-               0.109951743655322,
-               0.109951743655322,
-               0.109951743655322] # From Larson Book on the Finite element method (2013)
-    
+    weights::Vector{Float64}, 
+    points::Matrix{Float64} = Gausspoints(4)
+
     Mlocal = zeros(36, mesh.nt)
     for k in 1:mesh.nt
         nds = @view mesh.t[:, k]
@@ -670,14 +655,8 @@ function quadraticMassMatrix2D(mesh::MESH)
             for i in 1:6
                 for j in i:6  # Only compute upper triangle
                     Mk[i, j] += w * phi[i] * phi[j]
+                    Mk[j, i] = Mk[i, j] # Fill lower triangle (symmetric)
                 end
-            end
-        end
-        
-        # Fill lower triangle (symmetric)
-        for i in 1:6
-            for j in 1:(i-1)
-                Mk[i, j] = Mk[j, i]
             end
         end
         
@@ -932,3 +911,55 @@ function subtriangle(p::Matrix{Float64})
 
     return r
 end # 4 sub-triangles
+
+function Gausspoints(precision::Integer)
+# From Larson 2013 FEM book "Theory implementation and applications"
+# on 2D reference element quadrature points and weights
+
+# weights -> vector of weight values by point
+# points -> matrix n by 2 with the x,y coordinates of each quadrature point
+
+    if precision == 1
+
+        weights = [1.0]
+        points = [1.0/3.0 1.0/3.0]
+    
+    elseif precision == 2
+    
+        weights = [1.0/3.0 1.0/3.0 1.0/3.0]
+        points =  [1.0/6.0 1.0/6.0;
+                   2.0/3.0 1.0/6.0;
+                   1.0/6.0 2.0/3.0]
+    
+    elseif precision == 3
+    
+    weights = [-27.0/48.0 25.0/48.0 25.0/48.0 25.0/48.0]
+    points = [1.0/3.0 1.0/3.0;
+              0.2     0.2;
+              0.6     0.2;
+              0.2     0.6]
+    
+    elseif precision == 4
+
+    weights = [ 0.223381589678011
+                0.223381589678011
+                0.223381589678011
+                0.109951743655322
+                0.109951743655322
+                0.109951743655322]
+
+    points = [0.445948490915965 0.445948490915965;
+              0.445948490915965 0.108103018168070;
+              0.108103018168070 0.445948490915965;
+              0.091576213509771 0.091576213509771;
+              0.091576213509771 0.816847572980459;
+              0.816847572980459 0.091576213509771]
+
+    else
+        @error "Requested precision for Gaussian quadrature is not available. Limit is 4"
+        return nothing
+    end
+
+    return weights, points 
+
+end
