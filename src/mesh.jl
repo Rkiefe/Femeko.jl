@@ -326,7 +326,7 @@ function Mesh2D(cells, meshSize=0.0, localSize=0.0, order::Int=1, saveMesh=false
     edges = [edges; UInt.(zeros(1,size(edges,2)))]
     for i in 1:size(edges,2)
         # Get ID of the element of the current surface triangle
-        _,_,_, id = gmsh.model.mesh.getElement(edge_tags[i])
+        _,_,_, id = gmsh.model.mesh.getElement(edge_tags[i]) # Element type, nodeTags, dim, tag
         edges[end, i] = id; # Set the boundary edge id
     end
 
