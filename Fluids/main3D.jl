@@ -76,7 +76,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
                         , u[3, :]
                         , color = uNorm
                         , lengthscale = 1.0/maximum(uNorm)
-                        , colormap = :redsblues,  # :CMRmap :viridis :redsblues :turbo :rainbow
+                        , colormap = :thermal,  # :CMRmap :viridis :redsblues :turbo :rainbow
                       )
     Colorbar(fig[2, 1], graph, 
              label = "Velocity", vertical = false)
