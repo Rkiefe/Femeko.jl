@@ -407,7 +407,7 @@ function quadraticMassMatrix1D(mesh::MESH, h::Vector{Float64} = ones(mesh.ns))
 
         for i in 1:3
             for j in i:3 # Symmetry
-                M[nds[i], nds[j]] += mesh.AE[s]*Mk[i,j]
+                M[nds[i], nds[j]] += mesh.AE[s]*Mk[i,j]*h[s]
                 M[nds[j], nds[i]] = M[nds[i], nds[j]]  # Mass matrix is symmetric 
             end
         end
