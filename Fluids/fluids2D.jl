@@ -11,6 +11,25 @@
 
 include("../src/Femeko.jl")
 
+mutable struct DATA
+
+    # Mass density (g/cm3)
+    density::Float64
+
+    # Thermal conductivity W/(m K)
+    k::Float64
+
+    # Specific heat J/(kg K)
+    Cp::Float64
+
+    # Fluid viscosity mPa s or kg/(m s)
+    mu::Float64
+
+    # Constructor
+    DATA() = new(1.0, 1.0, 1.0, 1.0)
+end
+
+
 # Run the matrix assemblies and solve the system for pressure and velocity
 function fluid2D(mesh::MESH, velocity::Vector{Float64}, mu::Vector{Float64}, inFlow, walls)
 
