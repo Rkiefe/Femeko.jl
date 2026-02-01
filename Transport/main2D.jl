@@ -141,8 +141,6 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
     # Define the boundary conditions at the intake and exhaust
     intakeBC::Vector{Float64} = zeros(mesh.ns)
-    exhaustBC::Vector{Float64} = zeros(mesh.ns)
-    boundaryConditions::Vector{Float64} = zeros(mesh.ns)
     for s in 1:mesh.ns
         
         ID = mesh.surfaceT[4, s] # ID of the boundary of current edge
@@ -154,17 +152,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
             # to approximate Dirichlet boundary conditions with Robin b.c
             intakeBC[s] = 1e6
 
-            boundaryConditions[s] = 1e6
-
-        elseif ID == outFlow 
-
-            # Use the velocity on the edge midpoint as the normal velocity
-            exhaustBC[s] = dot(u[:, nds[3]], mesh.normal[:, s])
-
-            boundaryConditions[s] = dot(u[:, nds[3]], mesh.normal[:, s])
-
         end
-
 
     end # Boundary conditions
 

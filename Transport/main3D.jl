@@ -5,7 +5,11 @@ using GLMakie
 
 meshSize = 0.0
 localSize = 0.0
-showGmsh = true
+showGmsh = false
+
+function quadraticBoundaryMassMatrix(mesh::MESH, F::Vector{Float64} = ones(mesh.ns))
+
+end
 
 function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
@@ -55,6 +59,9 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
         gmsh.fltk.run()
     end
 
+    println(size(mesh.surfaceT))
+    return
+
     # Boundary surface IDs (Check in Gmsh GUI)
     inFlow = 4
     outFlow = 3
@@ -83,7 +90,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     end
 
     # Run the fluid simulation
-    u, P, vertices = fluid3D( mesh, velocity, mu, inFlow, walls)
+    u, P, vertices, S = fluid3D( mesh, velocity, mu, inFlow, walls)
     gmsh.finalize()
 
     # Norm of velocity (defined on global node IDs)
@@ -92,46 +99,80 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
         uNorm[i] = norm(u[:, i])
     end
 
-    # Plot result
-    println("Generating plots...")
-    fig = Figure()
-    ax = Axis3(fig[1,1], aspect=:data
-                , title="Velocity field"
-              )
+    # # Plot result
+    # println("Generating plots...")
+    # fig = Figure()
+    # ax = Axis3(fig[1,1], aspect=:data
+    #             , title="Velocity field"
+    #           )
 
-    # Velocity vector field
-    graph = arrows3d!(  ax
-                        , mesh.p[1, :]
-                        , mesh.p[2, :]
-                        , mesh.p[3, :]
-                        , u[1, :]
-                        , u[2, :]
-                        , u[3, :]
-                        , color = uNorm
-                        , lengthscale = 1.0/maximum(uNorm)
-                        , colormap = :redsblues,  # :CMRmap :viridis :redsblues :turbo :rainbow
-                      )
-    Colorbar(fig[2, 1], graph, 
-             label = "Velocity", vertical = false)
+    # # Velocity vector field
+    # graph = arrows3d!(  ax
+    #                     , mesh.p[1, :]
+    #                     , mesh.p[2, :]
+    #                     , mesh.p[3, :]
+    #                     , u[1, :]
+    #                     , u[2, :]
+    #                     , u[3, :]
+    #                     , color = uNorm
+    #                     , lengthscale = 1.0/maximum(uNorm)
+    #                     , colormap = :thermal  # :CMRmap :viridis :redsblues :turbo :rainbow
+    #                   )
 
-    # Pressure plot
-    ax2 = Axis3(fig[1,2], aspect=:data
-                , title="Velocity field"
-              )
+    # Colorbar(fig[2, 1], graph, 
+    #          label = "Velocity", vertical = false)
 
-    graph = scatter!(ax2
-                     , mesh.p[1, vertices] # x
-                     , mesh.p[2, vertices] # y
-                     , mesh.p[3, vertices] # z
-                     , color = P[vertices] # Pressure
-                     , markersize = 20
-                     , colormap = :CMRmap  # :CMRmap :viridis :redsblues :turbo :rainbow
-                    )
+    # # Pressure plot
+    # ax2 = Axis3(fig[1,2], aspect=:data
+    #             , title="Velocity field"
+    #           )
+
+    # graph = scatter!(ax2
+    #                  , mesh.p[1, vertices] # x
+    #                  , mesh.p[2, vertices] # y
+    #                  , mesh.p[3, vertices] # z
+    #                  , color = P[vertices] # Pressure
+    #                  , markersize = 20
+    #                  , colormap = :CMRmap  # :CMRmap :viridis :redsblues :turbo :rainbow
+    #                 )
     
-    Colorbar(fig[2, 2], graph, 
-             label = "Pressure", vertical = false)
+    # Colorbar(fig[2, 2], graph, 
+    #          label = "Pressure", vertical = false)
     
-    wait(display(fig))
+    # # display(GLMakie.Screen(), fig)
+    # display(fig)
+    # # wait(display(fig))
+
+    # Define the boundary conditions at the intake
+    intakeBC::Vector{Float64} = zeros(mesh.ns)
+    for s in 1:mesh.ns        
+        if inFlow == mesh.surfaceT[7, s] # ID of the boundary of current surface triangle (6 nodes + ID)
+            # Define the diffusivity at the in-flow boundary as infinite
+            # to approximate Dirichlet boundary conditions with Robin b.c
+            intakeBC[s] = 1e6
+        end
+    end # Boundary conditions
+
+    # Prepare the heat transfer simulation
+    println("Calculating the 2nd order mass matrix")
+    M = @time quadraticMassMatrix(mesh, S)
+
+    println("Calculating the 2nd order stiffness matrix")
+    A = @time quadraticStiffnessMatrix(mesh, S, epsi)
+
+    println("Calculating the 2nd order convection matrix")
+    C = @time quadraticConvectionMatrix(mesh, S, u)
+
+    # println("Calculating the surface integral matrix (1D quadratic mass matrix)")
+    # R = @time quadraticMassMatrix2D(mesh, intakeBC) 
+
+
+
+
+
+
+
+    # wait(fig.scene)
 
 end # main()
 

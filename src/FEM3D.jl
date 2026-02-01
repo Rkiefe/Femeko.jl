@@ -547,6 +547,101 @@ function quadraticMassMatrix(mesh::MESH, S, F::Vector{Float64}=ones(mesh.nt))
     return M
 end
 
+function quadraticConvectionMatrix(mesh::MESH, S, u::Matrix{Float64})
+    
+    weights, points = GaussQuadrature3D(3)
+
+    Clocal::Matrix{Float64} = zeros(100, mesh.nt) # Local matrix. 10x10 nodes per quadratic element
+    for k in 1:mesh.nt
+        nds = @view mesh.t[:, k]
+        vertices = mesh.p[:, nds[1:4]] # Tetrahedron coordinates
+
+        # Jacobian for affine transformation from reference to physical tetrahedron
+        J11 = vertices[1, 2] - vertices[1, 1]  # x2 - x1
+        J12 = vertices[1, 3] - vertices[1, 1]  # x3 - x1
+        J13 = vertices[1, 4] - vertices[1, 1]  # x4 - x1
+        J21 = vertices[2, 2] - vertices[2, 1]  # y2 - y1
+        J22 = vertices[2, 3] - vertices[2, 1]  # y3 - y1
+        J23 = vertices[2, 4] - vertices[2, 1]  # y4 - y1
+        J31 = vertices[3, 2] - vertices[3, 1]  # z2 - z1
+        J32 = vertices[3, 3] - vertices[3, 1]  # z3 - z1
+        J33 = vertices[3, 4] - vertices[3, 1]  # z4 - z1
+
+        # Determinant of Jacobian (volume scaling factor)
+        detJ = abs(J11*(J22*J33 - J23*J32) - 
+                   J12*(J21*J33 - J23*J31) + 
+                   J13*(J21*J32 - J22*J31))
+        
+        # Mass matrix on element k
+        Ck::Matrix{Float64} = zeros(10, 10)
+
+        # Loop over quadrature points
+        for q in 1:length(weights)
+            xi, eta, zeta = points[q, 1], points[q, 2], points[q, 3]
+            
+            # Transform to the reference element
+            x = vertices[1, 1] + J11*xi + J12*eta + J13*zeta
+            y = vertices[2, 1] + J21*xi + J22*eta + J23*zeta
+            z = vertices[3, 1] + J31*xi + J32*eta + J33*zeta
+
+            # Evaluate on the current quadrature point the
+                #  2nd order Lagrange shape function
+                #  The velocity field
+                #  The gradient of the 2nd order Lagrange shape function
+
+            phi::Vector{Float64} = zeros(10)        # Shape function 
+            ux, uy, uz = 0.0, 0.0, 0.0              # Velocity field
+            gradPhi::Matrix{Float64} = zeros(3, 10) # Gradient of shape function
+            
+            for i in 1:10 # All nodes of the element
+
+                # Basis function on the quadrature point
+                phi[i] =   S[1, i, k] + S[2, i, k]*x + S[3, i, k]*y + S[4, i, k]*z 
+                         + S[5, i, k]*x^2 + S[6, i, k]*x*y + S[7, i, k]*x*z
+                         + S[8, i, k]*y^2 + S[9, i, k]*y*z 
+                         + S[10, i, k]*z^2
+                
+                # Velocity on the quadrature point
+                ux += u[1, nds[i]]*phi[i]
+                uy += u[2, nds[i]]*phi[i]
+                uz += u[3, nds[i]]*phi[i]
+
+                # Gradient of basis function on quadrature point
+                gradPhi[1, i] = S[2, i, k] + 2*S[5, i, k] *x + S[6, i, k]*y + S[7, i, k]*z
+                gradPhi[2, i] = S[3, i, k] + 2*S[8, i, k] *y + S[6, i, k]*x + S[9, i, k]*z
+                gradPhi[3, i] = S[4, i, k] + 2*S[10, i, k]*z + S[7, i, k]*x + S[9, i, k]*y
+            
+            end # Loop over each node of the element
+            
+            # Accumulate to local matrix
+            w = weights[q] * detJ
+            for i in 1:10
+                grad_i = gradPhi[1, i] * ux + gradPhi[2, i] * uy + gradPhi[3, i] * uy
+                for j in 1:10
+                    Ck[i, j] += w * grad_i * phi[j]
+                end
+            end
+
+        end # Loop over quadrature points
+
+        Clocal[:, k] = vec(Ck)
+
+    end # Loop over the mesh elements
+
+    # Assmble the sparse global matrix
+    C = spzeros(mesh.nv, mesh.nv)
+    n = 0
+    for i in 1:10
+        for j in 1:10
+            n += 1
+            C += sparse(mesh.t[i,:], mesh.t[j,:], Clocal[n,:]
+                        , mesh.nv, mesh.nv)
+        end
+    end
+
+    return C
+end
+
 function GaussQuadrature3D(order::Integer)
     # Returns quadrature points and weights for reference tetrahedron
     # Vertices: v1 = (0,0,0), v2 = (1,0,0), v3 = (0,1,0), v4 = (0,0,1)

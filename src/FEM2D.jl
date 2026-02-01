@@ -296,10 +296,10 @@ function quadraticConvectionMatrix2D(mesh::MESH, u::Matrix{Float64})
                     Ck[i, j] += w * grad_i * phi[j]
                 end
             end
-        end
+        end # Loop over quadrature points
         
         Clocal[:, k] = vec(Ck)
-    end
+    end # Loop over the element labels
     
     # Sparse global convection matrix
     C = spzeros(mesh.nv, mesh.nv)
