@@ -447,3 +447,151 @@ function massMatrix(mesh::MESH)
 
     return M
 end
+
+function quadraticMassMatrix(mesh::MESH, F::Vector{Float64}=ones(mesh.nt))
+
+    @warn "Using untested quadraticMassMatrix()"
+
+    weights, points = GaussQuadrature3D(4)
+
+    Mlocal::Matrix{Float64} = zeros(100, mesh.nt) # Local matrix. 10x10 nodes per quadratic element
+    for k in 1:mesh.nt
+        nds = @view mesh.t[:, k]
+
+        vertices = mesh.p[:, nds[1:4]] # Tetrahedron coordinates
+
+        # Jacobian for affine transformation from reference to physical tetrahedron
+        J11 = vertices[1, 2] - vertices[1, 1]  # x2 - x1
+        J12 = vertices[1, 3] - vertices[1, 1]  # x3 - x1
+        J13 = vertices[1, 4] - vertices[1, 1]  # x4 - x1
+        J21 = vertices[2, 2] - vertices[2, 1]  # y2 - y1
+        J22 = vertices[2, 3] - vertices[2, 1]  # y3 - y1
+        J23 = vertices[2, 4] - vertices[2, 1]  # y4 - y1
+        J31 = vertices[3, 2] - vertices[3, 1]  # z2 - z1
+        J32 = vertices[3, 3] - vertices[3, 1]  # z3 - z1
+        J33 = vertices[3, 4] - vertices[3, 1]  # z4 - z1
+
+        # Determinant of Jacobian (volume scaling factor)
+        detJ = abs(J11*(J22*J33 - J23*J32) - 
+                   J12*(J21*J33 - J23*J31) + 
+                   J13*(J21*J32 - J22*J31))
+        
+        # Lagrange shape elements of each node on current element
+        S::Matrix{Float64} = zeros(10, 10)
+        for i in 1:10
+            S[:, i] = quadraticBasis(mesh, nds, nds[i])
+        end
+
+        # Mass matrix on element k
+        Mk::Matrix{Float64} = zeros(10, 10)
+
+        # Loop over quadrature points
+        for q in 1:length(weights)
+
+            xi, eta, zeta = points[q, 1], points[q, 2], points[q, 3]
+
+            # Transform to the reference element
+            x = vertices[1, 1] + J11*xi + J12*eta + J13*zeta
+            y = vertices[2, 1] + J21*xi + J22*eta + J23*zeta
+            z = vertices[3, 1] + J31*xi + J32*eta + J33*zeta
+
+            # Evaluate all the basis functions on this quadrature point
+            phi::Vector{Float64} = zeros(10)
+            for i in 1:10
+                phi[i] =   S[1, i] + S[2, i]*x + S[3, i]*y + S[4, i]*z 
+                         + S[5, i]*x^2 + S[6, i]*x*y + S[7, i]*x*z
+                         + S[8, i]*y^2 + S[9, i]*y*z 
+                         + S[10, i]*z^2
+            end
+
+            # Accumulate to the mass matrix
+            w = weights[q] * detJ
+            for i in 1:10
+                for j in i:10
+                    Mk[i, j] = w * phi[i] * phi[j]
+                    Mk[j, i] = Mk[i, j]
+                end
+            end
+
+        end # Quadrature
+
+        Mlocal[:, k] = vec(Mk)
+
+    end # Loop over the mesh elements
+
+
+    # Assmble the sparse global matrix
+    M = spzeros(mesh.nv, mesh.nv)
+    n = 0
+    for i in 1:10
+        for j in 1:10
+            n += 1
+            M += sparse(mesh.t[i,:], mesh.t[j,:], Mlocal[n,:]
+                        , mesh.nv, mesh.nv)
+        end
+    end
+
+    return M
+end
+
+function GaussQuadrature3D(order::Integer)
+    # Returns quadrature points and weights for reference tetrahedron
+    # Vertices: v1 = (0,0,0), v2 = (1,0,0), v3 = (0,1,0), v4 = (0,0,1)
+
+    @warn "Using untested function GaussQuadrature3D()"
+
+    if order == 1
+        weights = [1.0/6.0]
+        points = [0.25 0.25 0.25]
+        
+    elseif order == 2
+        a = (5.0 - sqrt(5.0)) / 20.0
+        b = (5.0 + 3.0*sqrt(5.0)) / 20.0
+        
+        weights = [1.0/24.0, 1.0/24.0, 1.0/24.0, 1.0/24.0]
+        points = [a a a;
+                  b a a;
+                  a b a;
+                  a a b]
+        
+    elseif order == 3
+        weights = [-2.0/15.0, 3.0/40.0, 3.0/40.0, 3.0/40.0, 3.0/40.0]
+        points = [0.25       0.25       0.25;
+                  1.0/6.0    1.0/6.0    1.0/6.0;
+                  1.0/6.0    1.0/6.0    0.5;
+                  1.0/6.0    0.5        1.0/6.0;
+                  0.5        1.0/6.0    1.0/6.0]
+        
+    elseif order == 4
+        alpha1 = 0.067342242210098
+        beta1 = 0.310885919263301
+        wA = 0.007067074794469
+        
+        # Group B (6 points)
+        alpha2 = 0.045503704125649
+        beta2 = 0.454496295874351
+        wB = 0.046998668971887
+        
+        # Group C (1 point)
+        wC = 0.101679668096333
+        
+        weights = [wA, wA, wA, wA, wB, wB, wB, wB, wB, wB, wC]
+        points = [alpha1 alpha1 alpha1;
+                  beta1  alpha1 alpha1;
+                  alpha1 beta1  alpha1;
+                  alpha1 alpha1 beta1;
+                  alpha2 alpha2 beta2;
+                  alpha2 beta2  alpha2;
+                  alpha2 beta2  beta2;
+                  beta2  alpha2 alpha2;
+                  beta2  alpha2 beta2;
+                  beta2  beta2  alpha2;
+                  0.25   0.25   0.25]
+
+    else
+        @error "Requested order for 3D Gaussian quadrature is not available. Limit is 4"
+        return nothing
+    end
+    
+    return weights, points
+end
