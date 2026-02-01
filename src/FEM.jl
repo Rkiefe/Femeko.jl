@@ -612,7 +612,7 @@ function quadraticMassMatrix2D(mesh::MESH)
     # 6-point Gaussian quadrature for triangles (exact precision)
     # Coordinates and weights for reference triangle (0,0), (1,0), (0,1)
     weights::Vector{Float64}, 
-    points::Matrix{Float64} = Gausspoints(4)
+    points::Matrix{Float64} = GaussQuadrature2D(4)
 
     Mlocal = zeros(36, mesh.nt)
     for k in 1:mesh.nt
@@ -912,12 +912,15 @@ function subtriangle(p::Matrix{Float64})
     return r
 end # 4 sub-triangles
 
-function Gausspoints(precision::Integer)
+function GaussQuadrature2D(precision::Integer)
 # From Larson 2013 FEM book "Theory implementation and applications"
 # on 2D reference element quadrature points and weights
 
 # weights -> vector of weight values by point
 # points -> matrix n by 2 with the x,y coordinates of each quadrature point
+
+weights::Vector{Float64} = zeros(precision)
+points::Matrix{Float64} = zeros(precision, 2)
 
     if precision == 1
 
@@ -926,14 +929,14 @@ function Gausspoints(precision::Integer)
     
     elseif precision == 2
     
-        weights = [1.0/3.0 1.0/3.0 1.0/3.0]
+        weights = [1.0/3.0, 1.0/3.0, 1.0/3.0]
         points =  [1.0/6.0 1.0/6.0;
                    2.0/3.0 1.0/6.0;
                    1.0/6.0 2.0/3.0]
     
     elseif precision == 3
     
-    weights = [-27.0/48.0 25.0/48.0 25.0/48.0 25.0/48.0]
+    weights = [-27.0/48.0, 25.0/48.0, 25.0/48.0, 25.0/48.0]
     points = [1.0/3.0 1.0/3.0;
               0.2     0.2;
               0.6     0.2;

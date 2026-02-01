@@ -11,46 +11,80 @@ meshSize = 5.0
 localSize = 0.2
 showGmsh = false
 
+
 function quadraticConvectionMatrix2D(mesh::MESH, u::Matrix{Float64})
 
+    # Quadratic shape function times its gradient -> Order 3 integrand
+    weights::Vector{Float64}, 
+    points::Matrix{Float64} = GaussQuadrature2D(3)
+
     # Local convection matrix
-    Clocal::Matrix{Float64} = zeros(36, mesh.nt)
-    Ck::Matrix{Float64} = zeros(6, 6)
+    Clocal = zeros(36, mesh.nt)
     for k in 1:mesh.nt
-        nds = @view mesh.t[:,k]
+        nds = @view mesh.t[:, k]
+        vertices = mesh.p[:, nds[1:3]]  # Triangle vertices
         
-        for i in 1:6 # 2nd order triangle has 6 nodes
-            Si = quadraticBasis2D(mesh.p, nds, nds[i])
-            for j in 1:6
-                Sj = quadraticBasis2D(mesh.p, nds, nds[j])
-                
-                # 6 node quadrature
-                aux::Float64 = 0.0
-                for n in 1:6
-                    x::Float64 = mesh.p[1, nds[n]]
-                    y::Float64 = mesh.p[2, nds[n]]
-
-                    phj  = Sj[1] + Sj[2]*x + Sj[3]*y 
-                         + Sj[4]*x^2 + Sj[5]*x*y 
-                         + Sj[6]*y^2
-                    
-                    dx::Float64 = Si[2] + 2*Si[4]*x + Si[5]*y
-                    dy::Float64 = Si[3] + 2*Si[6]*y + Si[5]*x 
-                
-                    aux += (dx*u[1, nds[n]] + dy*u[2, nds[n]])*phj
-
-                end # 6 node quadrature
-                aux /= 6
-
-                Ck[i, j] = aux * mesh.VE[k]
-
-            end # Loop of grad phi(i) dot u
-        end # Loop of phi(j)
+        # Jacobian for affine transformation from reference to physical triangle
+        J11 = vertices[1, 2] - vertices[1, 1]
+        J12 = vertices[1, 3] - vertices[1, 1]
+        J21 = vertices[2, 2] - vertices[2, 1]
+        J22 = vertices[2, 3] - vertices[2, 1]
         
-        Clocal[:, k] = mesh.VE[k]*Ck[:];
+        detJ = abs(J11 * J22 - J12 * J21)
 
-    end # Loop over k
+        # Precompute basis coefficients for all 6 nodes
+        S::Matrix{Float64} = zeros(6 ,6)  
+        for i in 1:6
+            S[:, i] = quadraticBasis2D(mesh.p, nds, nds[i])
+        end
+        
+        # Initialize element-wise matrix
+        Ck = zeros(6, 6)
 
+        # Loop over quadrature points
+        for q in 1:length(weights)
+            xi, eta = points[q, 1:2]
+            
+            # Transform from reference to physical coordinates
+            x = vertices[1, 1] + J11 * xi + J12 * eta
+            y = vertices[2, 1] + J21 * xi + J22 * eta
+            
+            # Evaluate on the current quadrature point the
+                #  2nd order Lagrange shape function
+                #  The velocity field
+                #  The gradient of the 2nd order Lagrange shape function
+            
+            phi::Vector{Float64} = zeros(6)         # Shape function 
+            ux::Float64 = 0.0; uy::Float64 = 0.0    # Velocity field
+            gradPhi::Matrix{Float64} = zeros(2, 6)  # Gradient of shape function
+            
+            for i in 1:6 # All nodes of the element
+            
+                # Basis function on the quadrature point
+                phi[i] = S[1, i] + S[2, i]*x + S[3, i]*y + S[4, i]*x^2 + S[5, i]*x*y + S[6, i]*y^2
+                
+                # Velocity on the quadrature point
+                ux += u[1, nds[i]]*phi[i]
+                uy += u[2, nds[i]]*phi[i]
+
+                # Gradient of basis function on quadrature point
+                gradPhi[1, i] = S[2, i] + 2*S[4, i]*x + S[5, i]*y
+                gradPhi[2, i] = S[3, i] + 2*S[6, i]*y + S[5, i]*x
+            end
+
+            # Accumulate to local matrix
+            w = weights[q] * detJ
+            for i in 1:6
+                grad_i = gradPhi[1, i] * ux + gradPhi[2, i] * uy
+                for j in 1:6
+                    Ck[i, j] += w * grad_i * phi[j]
+                end
+            end
+        end
+        
+        Clocal[:, k] = vec(Ck)
+    end
+    
     # Sparse global convection matrix
     C = spzeros(mesh.nv, mesh.nv)
     n = 0
@@ -225,6 +259,8 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     println("Calculating the 2nd order convection matrix")
     C = quadraticConvectionMatrix2D(mesh, u)
     
+    return
+
     # Plot the heat transfer in real-time
     fig = Figure()
     ax = Axis(fig[1, 1], aspect = DataAspect(), title="0.0 s")
