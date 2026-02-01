@@ -36,7 +36,6 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     if showGmsh
        gmsh.fltk.run()
     end
-    gmsh.fltk.finalize()
  
     # Define the viscosity on the domain
     mu::Vector{Float64} = zeros(mesh.nt) .+ viscosity
@@ -64,7 +63,9 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
                                       mu,       # Viscosity
                                       inFlow,
                                       walls)    # Boundary IDs
+    gmsh.fltk.finalize()
 
+    
     velocityNorm::Vector{Float64} = zeros(mesh.nv)
     for i in 1:mesh.nv
         velocityNorm[i] = norm(u[:, i])   
