@@ -17,6 +17,11 @@ include("../src/Femeko.jl")
 
 using GLMakie
 
+# Mesh settings and run
+meshSize = 30.0
+localSize = 1.0
+showGmsh = false
+
 function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     #=
         Makes a model with cubes and spheres and refines the mesh on the spheres
@@ -87,15 +92,18 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     mu[mesh.InsideElements] .= permeability
 
     # Boundary conditions
+    println("Defining boundary conditions")
     RHS::Vector{Float64} = BoundaryIntegral(mesh, mu0*Hext, shell_id)
 
     # Lagrange multiplier technique
     Lag::Vector{Float64} = lagrange(mesh)
 
     # Stiffness matrix
+    println("Building stiffness matrix")
     A = stiffnessMatrix(mesh, mu)
 
     # Magnetic scalar potential
+    println("Obtaining the magnetostatic scalar potential")
     u::Vector{Float64} = [A Lag;Lag' 0]\[-RHS;0]
     u = u[1:mesh.nv]
 
@@ -129,6 +137,7 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     M::Vector{Float64} = chi.*H[mesh.InsideElements]
 
     # Plot result | Uncomment "using GLMakie"
+    println("Generating plots...")
     fig = Figure()
     ax = Axis3(fig[1, 1], aspect = :data, title="Magnetic field H")
     scatterPlot = scatter!(ax, 
@@ -147,10 +156,6 @@ function main(meshSize=0,localSize=0,showGmsh=true,saveMesh=false)
     # save("H.png",fig)
 
 end # end of main
-
-meshSize = 30.0
-localSize = 1.0
-showGmsh = true
 
 main(meshSize, localSize, showGmsh)
 
