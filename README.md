@@ -21,14 +21,14 @@ The `mesh` struct holds the mesh information in a digested format, such as node 
 - Magnetostatics (non-linear magnetic materials under applied fields, permanent magnets, etc)
 - Heat equation (with implicit time stepping)
 - Viscous fluid (incompressible, static)
+- Heat transfer with convection to a passing fluid (2D)
 - Micromagnetics (both in time and steepest descent energy minimization)
 
-Femeko has implementations for both 3D and 2D in each physics package (except micromagnetics, only 3D).
+Femeko has implementations for both 3D and 2D in most physics packages.
 
 ## Femeko.jl aims to have the following, in the future
-- Full Heat equation (with convection to a passing fluid)
+- Full 3D Heat equation (with convection to a passing fluid)
 - Elastostatics (stress)
-- 3D viscous fluid dynamics (currently only available in 2D)
 
 ## Table of Contents
 - [Fully featured examples](#examples)
