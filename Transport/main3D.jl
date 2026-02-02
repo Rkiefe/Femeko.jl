@@ -9,13 +9,36 @@ showGmsh = false
 
 function quadraticBoundaryMassMatrix(mesh::MESH, F::Vector{Float64} = ones(mesh.ns))
 
+    # The surface triangles have 3 nodes and 3 mid-points (6 in total)
+    Mk = 2.0.*[ 
+        1/180  1/360  1/360 -1/45  -1/90  -1/90
+        1/360  1/180  1/360 -1/90  -1/45  -1/90
+        1/360  1/360  1/180 -1/90  -1/90  -1/45
+       -1/45  -1/90  -1/90   8/45   4/45   4/45
+       -1/90  -1/45  -1/90   4/45   8/45   4/45
+       -1/90  -1/90  -1/45   4/45   4/45   8/45
+    ]
+    
+    # Initialize sparse mass matrix
+    M = spzeros(mesh.nv, mesh.nv)
+    for s in 1:mesh.ns
+        nds = @view mesh.surfaceT[:, s]
+        for i in 1:6
+            for j in i:6  # Symmetric
+                M[nds[i], nds[j]] += mesh.AE[s] * Mk[i, j] * F[s]
+                M[nds[j], nds[i]] = M[nds[i], nds[j]]
+            end
+        end
+    end
+    
+    return M
 end
 
 function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
     # Setup
     viscosity = 1.0                   # Fluid viscosity
-    velocity::Vector{Float64} = [0.0, 1.0, 0.0] # Intake fluid velocity
+    velocity::Vector{Float64} = [0.0, 0.0, 0.0] # Intake fluid velocity
     timeStep::Float64 = 1e-2
     totalTime::Float64 = 2.0
     maxSteps::Int32 = floor(totalTime/timeStep) + 1
@@ -59,9 +82,6 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
         gmsh.fltk.run()
     end
 
-    println(size(mesh.surfaceT))
-    return
-
     # Boundary surface IDs (Check in Gmsh GUI)
     inFlow = 4
     outFlow = 3
@@ -99,49 +119,49 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
         uNorm[i] = norm(u[:, i])
     end
 
-    # # Plot result
-    # println("Generating plots...")
-    # fig = Figure()
-    # ax = Axis3(fig[1,1], aspect=:data
-    #             , title="Velocity field"
-    #           )
+    # Plot result
+    println("Generating plots...")
+    fig = Figure()
+    ax = Axis3(fig[1,1], aspect=:data
+                , title="Velocity field"
+              )
 
-    # # Velocity vector field
-    # graph = arrows3d!(  ax
-    #                     , mesh.p[1, :]
-    #                     , mesh.p[2, :]
-    #                     , mesh.p[3, :]
-    #                     , u[1, :]
-    #                     , u[2, :]
-    #                     , u[3, :]
-    #                     , color = uNorm
-    #                     , lengthscale = 1.0/maximum(uNorm)
-    #                     , colormap = :thermal  # :CMRmap :viridis :redsblues :turbo :rainbow
-    #                   )
+    # Velocity vector field
+    graph = arrows3d!(  ax
+                        , mesh.p[1, :]
+                        , mesh.p[2, :]
+                        , mesh.p[3, :]
+                        , u[1, :]
+                        , u[2, :]
+                        , u[3, :]
+                        , color = uNorm
+                        , lengthscale = 1.0/maximum(uNorm)
+                        , colormap = :thermal  # :CMRmap :viridis :redsblues :turbo :rainbow
+                      )
 
-    # Colorbar(fig[2, 1], graph, 
-    #          label = "Velocity", vertical = false)
+    Colorbar(fig[2, 1], graph, 
+             label = "Velocity", vertical = false)
 
-    # # Pressure plot
-    # ax2 = Axis3(fig[1,2], aspect=:data
-    #             , title="Velocity field"
-    #           )
+    # Pressure plot
+    ax2 = Axis3(fig[1,2], aspect=:data
+                , title="Velocity field"
+              )
 
-    # graph = scatter!(ax2
-    #                  , mesh.p[1, vertices] # x
-    #                  , mesh.p[2, vertices] # y
-    #                  , mesh.p[3, vertices] # z
-    #                  , color = P[vertices] # Pressure
-    #                  , markersize = 20
-    #                  , colormap = :CMRmap  # :CMRmap :viridis :redsblues :turbo :rainbow
-    #                 )
+    graph = scatter!(ax2
+                     , mesh.p[1, vertices] # x
+                     , mesh.p[2, vertices] # y
+                     , mesh.p[3, vertices] # z
+                     , color = P[vertices] # Pressure
+                     , markersize = 20
+                     , colormap = :CMRmap  # :CMRmap :viridis :redsblues :turbo :rainbow
+                    )
     
-    # Colorbar(fig[2, 2], graph, 
-    #          label = "Pressure", vertical = false)
+    Colorbar(fig[2, 2], graph, 
+             label = "Pressure", vertical = false)
     
-    # # display(GLMakie.Screen(), fig)
+    display(GLMakie.Screen(), fig)
     # display(fig)
-    # # wait(display(fig))
+    # wait(display(fig))
 
     # Define the boundary conditions at the intake
     intakeBC::Vector{Float64} = zeros(mesh.ns)
@@ -163,16 +183,77 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     println("Calculating the 2nd order convection matrix")
     C = @time quadraticConvectionMatrix(mesh, S, u)
 
-    # println("Calculating the surface integral matrix (1D quadratic mass matrix)")
-    # R = @time quadraticMassMatrix2D(mesh, intakeBC) 
+    println("Calculating the surface integral matrix (1D quadratic mass matrix)")
+    R = @time quadraticBoundaryMassMatrix(mesh, intakeBC) 
 
+    # Plot the heat transfer in real-time
+    println("Creating a new Makie.jl window")
+    fig = Figure()
+    ax3D = Axis3(fig[1, 1], aspect = :data, title="0.0 s")
+    graph3D = scatter!( ax3D
+                    , mesh.p[1, :]
+                    , mesh.p[2, :]
+                    , mesh.p[3, :]
+                    , color = T 
+                    , colormap=:thermal 
+                    , colorrange = (minimum(T), maximum(T))
+                    # , markersize=5
+                    )
 
+    Colorbar(fig[2, 1], graph3D, label="T", vertical=false)
 
+    # XoZ plane
+    X, Y, Z = plane([0,1,0], [0,0,1], [0,-2.5,0], 1.9, 20) # direction 1, direction 2, origin, radius, grid points
+    Tq = zeros(size(X))
+    for i in 1:size(X, 1)
+        for j in 1:size(X, 2)
+            Tq[i, j] = interp3Dmesh(mesh, X[i, j], Y[i, j], Z[i, j], T)
+        end
+    end
 
+    # Plot slice view
+    println("Adding slice view to the plot")
+    ax = Axis(fig[1, 2], aspect = DataAspect(), title="Slice view")
+    graph = scatter!(  ax
+                        , Y[:]
+                        , Z[:]
+                        , color = Tq[:]
+                        , colormap = :thermal  # :CMRmap :viridis :redsblues :turbo :rainbow
+                        , colorrange = (minimum(T), maximum(T))
+                        # , markersize = 5
+                      )
 
+    # Add a colorbar
+    Colorbar(fig[2, 2], graph, vertical=false)
+    display(fig)
 
+    println("Running heat transport simulation")
+    # Time iterations
+    LM = M + timeStep*(A+R+C) # Backward Euler
+    for frame in 1:maxSteps
 
-    # wait(fig.scene)
+        # Get the new temperature
+        T = LM\(M*T)
+
+        # Update plot
+        # round(frame*timeStep*100.0)/100.0
+        ax3D.title = string(frame*timeStep)*" s"
+        graph3D.color = T
+
+        # Create a slice view
+        Tq = zeros(size(X))
+        for i in 1:size(X, 1)
+            for j in 1:size(X, 2)
+                Tq[i, j] = interp3Dmesh(mesh, X[i, j], Y[i, j], Z[i, j], T)
+            end
+        end
+        graph.color = Tq[:]
+
+        sleep(1/24)
+    end
+
+    println("Simulation finished")
+    wait(fig.scene)
 
 end # main()
 
