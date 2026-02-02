@@ -472,78 +472,73 @@ function quadraticMassMatrix(mesh::MESH, S, F::Vector{Float64}=ones(mesh.nt))
     @warn "Using untested quadraticMassMatrix()"
 
     weights, points = GaussQuadrature3D(4)
-
-    Mlocal::Matrix{Float64} = zeros(100, mesh.nt) # Local matrix. 10x10 nodes per quadratic element
+        
+    # Local mass matrix
+    Mlocal = zeros(100, mesh.nt)
     for k in 1:mesh.nt
         nds = @view mesh.t[:, k]
-
-        vertices = mesh.p[:, nds[1:4]] # Tetrahedron coordinates
-
-        # Jacobian for affine transformation from reference to physical tetrahedron
-        J11 = vertices[1, 2] - vertices[1, 1]  # x2 - x1
-        J12 = vertices[1, 3] - vertices[1, 1]  # x3 - x1
-        J13 = vertices[1, 4] - vertices[1, 1]  # x4 - x1
-        J21 = vertices[2, 2] - vertices[2, 1]  # y2 - y1
-        J22 = vertices[2, 3] - vertices[2, 1]  # y3 - y1
-        J23 = vertices[2, 4] - vertices[2, 1]  # y4 - y1
-        J31 = vertices[3, 2] - vertices[3, 1]  # z2 - z1
-        J32 = vertices[3, 3] - vertices[3, 1]  # z3 - z1
-        J33 = vertices[3, 4] - vertices[3, 1]  # z4 - z1
-
-        # Determinant of Jacobian (volume scaling factor)
-        detJ = abs(J11*(J22*J33 - J23*J32) - 
-                   J12*(J21*J33 - J23*J31) + 
-                   J13*(J21*J32 - J22*J31))
+        vertices = mesh.p[:, nds[1:4]]  # Tetrahedron vertices
         
-        # Mass matrix on element k
-        Mk::Matrix{Float64} = zeros(10, 10)
-
-        # Loop over quadrature points
-        for q in 1:length(weights)
-
-            xi, eta, zeta = points[q, 1], points[q, 2], points[q, 3]
-
-            # Transform to the reference element
+        # Jacobian matrix for affine transformation
+        # J = [x2-x1, x3-x1, x4-x1; y2-y1, y3-y1, y4-y1; z2-z1, z3-z1, z4-z1]
+        J11 = vertices[1, 2] - vertices[1, 1]
+        J12 = vertices[1, 3] - vertices[1, 1]
+        J13 = vertices[1, 4] - vertices[1, 1]
+        J21 = vertices[2, 2] - vertices[2, 1]
+        J22 = vertices[2, 3] - vertices[2, 1]
+        J23 = vertices[2, 4] - vertices[2, 1]
+        J31 = vertices[3, 2] - vertices[3, 1]
+        J32 = vertices[3, 3] - vertices[3, 1]
+        J33 = vertices[3, 4] - vertices[3, 1]
+        
+        # Determinant of Jacobian (6*volume of tetrahedron)
+        detJ = J11*(J22*J33 - J23*J32) - J12*(J21*J33 - J23*J31) + J13*(J21*J32 - J22*J31)
+        detJ_abs = abs(detJ)
+        
+        # Element-wise matrix
+        Mk = zeros(10, 10)
+        for q in 1:length(weights) # Loop over quadrature points
+            xi, eta, zeta = points[q, :]
+            
+            # Transform from reference to physical coordinates
             x = vertices[1, 1] + J11*xi + J12*eta + J13*zeta
             y = vertices[2, 1] + J21*xi + J22*eta + J23*zeta
             z = vertices[3, 1] + J31*xi + J32*eta + J33*zeta
-
-            # Evaluate all the basis functions on this quadrature point
-            phi::Vector{Float64} = zeros(10)
+            
+            # Evaluate all basis functions at this quadrature point
+            phi = zeros(10)
             for i in 1:10
-                phi[i] =   S[1, i, k] + S[2, i, k]*x + S[3, i, k]*y + S[4, i, k]*z 
+                phi[i] = S[1, i, k] + S[2, i, k]*x + S[3, i, k]*y + S[4, i, k]*z 
                          + S[5, i, k]*x^2 + S[6, i, k]*x*y + S[7, i, k]*x*z
-                         + S[8, i, k]*y^2 + S[9, i, k]*y*z 
-                         + S[10, i, k]*z^2
+                         + S[8, i, k]*y^2 + S[9, i, k]*y*z + S[10, i, k]*z^2
             end
-
-            # Accumulate to the mass matrix
-            w = weights[q] * detJ
+            
+            # Accumulate to mass matrix
+            w = weights[q] * detJ_abs / 6.0  # Divide by 6 for tetrahedron volume
             for i in 1:10
                 for j in i:10
-                    Mk[i, j] = w * phi[i] * phi[j] * F[k]
-                    Mk[j, i] = Mk[i, j]
+                    Mk[i, j] += w * phi[i] * phi[j]
+                    Mk[j, i] = Mk[i, j] # Symmetric matrix
                 end
             end
 
         end # Quadrature
-
+        
+        # Store local mass matrix
         Mlocal[:, k] = vec(Mk)
-
-    end # Loop over the mesh elements
-
-
-    # Assmble the sparse global matrix
+    
+    end # Loop over elements
+    
+    # Assemble global sparse mass matrix
     M = spzeros(mesh.nv, mesh.nv)
     n = 0
     for i in 1:10
         for j in 1:10
             n += 1
-            M += sparse(mesh.t[i,:], mesh.t[j,:], Mlocal[n,:]
-                        , mesh.nv, mesh.nv)
+            M += sparse(mesh.t[i, :], mesh.t[j, :], Mlocal[n, :], mesh.nv, mesh.nv)
         end
     end
-
+    
     return M
 end
 
@@ -616,7 +611,7 @@ function quadraticConvectionMatrix(mesh::MESH, S, u::Matrix{Float64})
             # Accumulate to local matrix
             w = weights[q] * detJ
             for i in 1:10
-                grad_i = gradPhi[1, i] * ux + gradPhi[2, i] * uy + gradPhi[3, i] * uy
+                grad_i = gradPhi[1, i] * ux + gradPhi[2, i] * uy + gradPhi[3, i] * uz
                 for j in 1:10
                     Ck[i, j] += w * grad_i * phi[j]
                 end
@@ -642,62 +637,73 @@ function quadraticConvectionMatrix(mesh::MESH, S, u::Matrix{Float64})
     return C
 end
 
-function GaussQuadrature3D(order::Integer)
     # Returns quadrature points and weights for reference tetrahedron
     # Vertices: v1 = (0,0,0), v2 = (1,0,0), v3 = (0,1,0), v4 = (0,0,1)
 
-    @warn "Using untested function GaussQuadrature3D()"
+# 3D Tetrahedron Gaussian Quadrature
+function GaussQuadrature3D(precision::Integer)
+    # Returns quadrature points and weights for reference tetrahedron
+    # Reference tetrahedron vertices: (0,0,0), (1,0,0), (0,1,0), (0,0,1)
 
-    if order == 1
-        weights = [1.0/6.0]
+    @warn "Using untested function GaussQuadrature3D()"
+    
+    if precision == 1
+        # Degree 1, 1 point
+        weights = [1.0]
         points = [0.25 0.25 0.25]
         
-    elseif order == 2
-        a = (5.0 - sqrt(5.0)) / 20.0
-        b = (5.0 + 3.0*sqrt(5.0)) / 20.0
+    elseif precision == 2
+        # Degree 2, 4 points (Keast rule)
+        weights = [0.25, 0.25, 0.25, 0.25]
+        points = [
+            0.5854101966249685 0.1381966011250105 0.1381966011250105
+            0.1381966011250105 0.5854101966249685 0.1381966011250105
+            0.1381966011250105 0.1381966011250105 0.5854101966249685
+            0.1381966011250105 0.1381966011250105 0.1381966011250105
+        ]
         
-        weights = [1.0/24.0, 1.0/24.0, 1.0/24.0, 1.0/24.0]
-        points = [a a a;
-                  b a a;
-                  a b a;
-                  a a b]
+    elseif precision == 3
+        # Degree 3, 5 points (Keast rule)
+        weights = [-0.8, 0.45, 0.45, 0.45, 0.45]
+        points = [
+            0.25 0.25 0.25
+            0.5  1/6  1/6
+            1/6  0.5  1/6
+            1/6  1/6  0.5
+            1/6  1/6  1/6
+        ]
         
-    elseif order == 3
-        weights = [-2.0/15.0, 3.0/40.0, 3.0/40.0, 3.0/40.0, 3.0/40.0]
-        points = [0.25       0.25       0.25;
-                  1.0/6.0    1.0/6.0    1.0/6.0;
-                  1.0/6.0    1.0/6.0    0.5;
-                  1.0/6.0    0.5        1.0/6.0;
-                  0.5        1.0/6.0    1.0/6.0]
+    elseif precision == 4
+        # Degree 4, 11 points (Keast rule)
+        weights = [
+            -0.013155555555555555,
+            0.007622222222222222,
+            0.007622222222222222,
+            0.007622222222222222,
+            0.007622222222222222,
+            0.024888888888888888,
+            0.024888888888888888,
+            0.024888888888888888,
+            0.024888888888888888,
+            0.024888888888888888,
+            0.024888888888888888
+        ]
+        points = [
+            0.25 0.25 0.25
+            0.7857142857142857 0.07142857142857142 0.07142857142857142
+            0.07142857142857142 0.7857142857142857 0.07142857142857142
+            0.07142857142857142 0.07142857142857142 0.7857142857142857
+            0.07142857142857142 0.07142857142857142 0.07142857142857142
+            0.1005964238332008 0.3994035761667992 0.3994035761667992
+            0.3994035761667992 0.1005964238332008 0.3994035761667992
+            0.3994035761667992 0.3994035761667992 0.1005964238332008
+            0.1005964238332008 0.1005964238332008 0.3994035761667992
+            0.3994035761667992 0.1005964238332008 0.1005964238332008
+            0.1005964238332008 0.3994035761667992 0.1005964238332008
+        ]
         
-    elseif order == 4
-        alpha1 = 0.067342242210098
-        beta1 = 0.310885919263301
-        wA = 0.007067074794469
-        
-        # Group B (6 points)
-        alpha2 = 0.045503704125649
-        beta2 = 0.454496295874351
-        wB = 0.046998668971887
-        
-        # Group C (1 point)
-        wC = 0.101679668096333
-        
-        weights = [wA, wA, wA, wA, wB, wB, wB, wB, wB, wB, wC]
-        points = [alpha1 alpha1 alpha1;
-                  beta1  alpha1 alpha1;
-                  alpha1 beta1  alpha1;
-                  alpha1 alpha1 beta1;
-                  alpha2 alpha2 beta2;
-                  alpha2 beta2  alpha2;
-                  alpha2 beta2  beta2;
-                  beta2  alpha2 alpha2;
-                  beta2  alpha2 beta2;
-                  beta2  beta2  alpha2;
-                  0.25   0.25   0.25]
-
     else
-        @error "Requested order for 3D Gaussian quadrature is not available. Limit is 4"
+        @error "Requested precision for 3D tetrahedron Gaussian quadrature is not available. Limit is 4"
         return nothing
     end
     
