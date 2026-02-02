@@ -492,8 +492,9 @@ function quadraticMassMatrix(mesh::MESH, S, F::Vector{Float64}=ones(mesh.nt))
         J33 = vertices[3, 4] - vertices[3, 1]
         
         # Determinant of Jacobian (6*volume of tetrahedron)
-        detJ = J11*(J22*J33 - J23*J32) - J12*(J21*J33 - J23*J31) + J13*(J21*J32 - J22*J31)
-        detJ_abs = abs(detJ)
+        # detJ = abs(J11*(J22*J33 - J23*J32) - 
+        #            J12*(J21*J33 - J23*J31) + 
+        #            J13*(J21*J32 - J22*J31))
         
         # Element-wise matrix
         Mk = zeros(10, 10)
@@ -514,7 +515,7 @@ function quadraticMassMatrix(mesh::MESH, S, F::Vector{Float64}=ones(mesh.nt))
             end
             
             # Accumulate to mass matrix
-            w = weights[q] * detJ_abs / 6.0  # Divide by 6 for tetrahedron volume
+            w = weights[q] * mesh.VE[k] # detJ/6.0
             for i in 1:10
                 for j in i:10
                     Mk[i, j] += w * phi[i] * phi[j]
@@ -563,9 +564,9 @@ function quadraticConvectionMatrix(mesh::MESH, S, u::Matrix{Float64})
         J33 = vertices[3, 4] - vertices[3, 1]  # z4 - z1
 
         # Determinant of Jacobian (volume scaling factor)
-        detJ = abs(J11*(J22*J33 - J23*J32) - 
-                   J12*(J21*J33 - J23*J31) + 
-                   J13*(J21*J32 - J22*J31))
+        # detJ = abs(J11*(J22*J33 - J23*J32) - 
+        #            J12*(J21*J33 - J23*J31) + 
+        #            J13*(J21*J32 - J22*J31))
         
         # Mass matrix on element k
         Ck::Matrix{Float64} = zeros(10, 10)
@@ -609,7 +610,7 @@ function quadraticConvectionMatrix(mesh::MESH, S, u::Matrix{Float64})
             end # Loop over each node of the element
             
             # Accumulate to local matrix
-            w = weights[q] * detJ
+            w = weights[q] * mesh.VE[k] # detJ/6
             for i in 1:10
                 grad_i = gradPhi[1, i] * ux + gradPhi[2, i] * uy + gradPhi[3, i] * uz
                 for j in 1:10
@@ -687,7 +688,7 @@ function GaussQuadrature3D(precision::Integer)
             0.024888888888888888,
             0.024888888888888888,
             0.024888888888888888
-        ]
+        ] .* 6.0
         points = [
             0.25 0.25 0.25
             0.7857142857142857 0.07142857142857142 0.07142857142857142

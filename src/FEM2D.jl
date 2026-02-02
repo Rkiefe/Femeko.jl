@@ -177,7 +177,7 @@ function quadraticMassMatrix2D(mesh::MESH)
         J21 = vertices[2, 2] - vertices[2, 1]
         J22 = vertices[2, 3] - vertices[2, 1]
         
-        detJ = abs(J11 * J22 - J12 * J21)
+        # detJ = abs(J11 * J22 - J12 * J21) # = 2x the area of the triangle. Note: The reference triangle area = 0.5
 
         # Precompute basis coefficients for all 6 nodes
         S::Matrix{Float64} = zeros(6 ,6)  
@@ -203,7 +203,7 @@ function quadraticMassMatrix2D(mesh::MESH)
             end
             
             # Accumulate to mass matrix
-            w = weights[q] * detJ
+            w = weights[q] * mesh.VE[k] # detJ/2
             for i in 1:6
                 for j in i:6  # Only compute upper triangle
                     Mk[i, j] += w * phi[i] * phi[j]
@@ -246,7 +246,7 @@ function quadraticConvectionMatrix2D(mesh::MESH, u::Matrix{Float64})
         J21 = vertices[2, 2] - vertices[2, 1]
         J22 = vertices[2, 3] - vertices[2, 1]
         
-        detJ = abs(J11 * J22 - J12 * J21)
+        # detJ = abs(J11 * J22 - J12 * J21)  # = 2x the area of the triangle. Note: The reference triangle area = 0.5
 
         # Precompute basis coefficients for all 6 nodes
         S::Matrix{Float64} = zeros(6 ,6)  
@@ -289,7 +289,7 @@ function quadraticConvectionMatrix2D(mesh::MESH, u::Matrix{Float64})
             end
 
             # Accumulate to local matrix
-            w = weights[q] * detJ
+            w = weights[q] * mesh.VE[k] # detJ/2
             for i in 1:6
                 grad_i = gradPhi[1, i] * ux + gradPhi[2, i] * uy
                 for j in 1:6
