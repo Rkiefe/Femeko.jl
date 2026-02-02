@@ -36,6 +36,8 @@ end
 
 function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
+    @warn "This implementation is not fully confirmed to be working"
+
     # Setup
     viscosity = 1.0                   # Fluid viscosity
     velocity::Vector{Float64} = [0.0, 1.0, 0.0] # Intake fluid velocity
