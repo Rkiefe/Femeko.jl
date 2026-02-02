@@ -545,7 +545,7 @@ end
 
 function quadraticConvectionMatrix(mesh::MESH, S, u::Matrix{Float64})
     
-    weights, points = GaussQuadrature3D(3)
+    weights, points = GaussQuadrature3D(4)
 
     Clocal::Matrix{Float64} = zeros(100, mesh.nt) # Local matrix. 10x10 nodes per quadratic element
     for k in 1:mesh.nt
