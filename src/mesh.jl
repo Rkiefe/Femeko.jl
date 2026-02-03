@@ -61,24 +61,25 @@ end
 # 3D
 function Mesh(cells, meshSize=0.0, localSize=0.0, saveMesh::Bool=false, order=1)
     #=
-        Generates a 3d second-order tetrahedral mesh considering that the model is made of 
-        1 container and every other volume beyond the container is listed in the 'cells'
-
         Inputs
-            cells       -> geometries that are inside the container
-            meshSize    -> overall target mesh size
+            cells       -> target geometries for local refinement (localSize) 
+            meshSize    -> Maximum mesh element size
             localSize   -> Local mesh refinement
+    
+        note: you can use extendLocalRefinement(0) before Mesh() 
+        to keep the local refinement near the boundaries
     =#
 
     # Check if the model is 3D
     if !isempty(cells) && cells[1][1] < 3 # Dimension of the cell
-        mesh = Mesh2D(cells, meshSize, localSize, order, saveMesh)
-        return mesh
+
+        return Mesh2D(cells, meshSize, localSize, order, saveMesh)
+
     end # If no cell is provided, assume its 3D
 
     if order > 1
         gmsh.option.setNumber("Mesh.ElementOrder", 2)       # Set to quadratic
-        gmsh.option.setNumber("Mesh.SecondOrderLinear", 1)  # Dont conform at the boundary
+        gmsh.option.setNumber("Mesh.SecondOrderLinear", 1)  # Dont conform at the boundary (keeps elements regular)
     end
 
     # Make a mesh object
