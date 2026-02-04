@@ -224,7 +224,6 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false, verbose=true)
                   		)
 
 	Colorbar(fig[1, 2], graph, label="M (emu/g)")
-
 	wait(display(fig))
 end
 
