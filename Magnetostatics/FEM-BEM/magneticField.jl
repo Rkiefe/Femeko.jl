@@ -12,16 +12,21 @@ include("../../src/BEM.jl")
 include("../../src/magneticProperties.jl")
 
 using GLMakie
+# using IterativeSolvers
 
-function main(meshSize=0.0, showGmsh=false)
+meshSize = 1.0
+localSize = 0.0
+showGmsh = false
+
+function main(meshSize=0.0, localSize=0.0, showGmsh=false, verbose=true)
 	gmsh.initialize()
 
 	# Applied field | A/m
 	mu0::Float64 = pi*4e-7 			# Vaccum magnetic permeability
 
-	Hext::Vector{Float64} = [1.0, 
+	Hext::Vector{Float64} = [1.2, 
 							 0.0, 
-							 0.0]*1.2/mu0
+							 0.0]/mu0
 
 	# Temperature of the magnetic material | K
 	T::Float64 = 293.0
@@ -31,20 +36,22 @@ function main(meshSize=0.0, showGmsh=false)
 	maxDeviation::Float64 = 1e-7
 
 	# Create geometry
-	addCuboid([0,0,0], [1.0, 1.0, 1.0]) 	
-	# addSphere([0,0,0], 0.5)
+	cells = []
+	addCuboid([0,0,0], [1.0, 1.0, 1.0], cells) 	
+	# addSphere([0,0,0], 0.5, cells)
 
 	# Generate mesh
-	mesh::MESH = Mesh([], meshSize, 0.0)
+	localSize > 0.0 ? extendLocalRefinement() : nothing # keep local refinement on the boundary
+	mesh::MESH = Mesh(cells, meshSize, localSize)
 
-	println("\nNumber of elements ",size(mesh.t,2))
-    println("Number of surface elements ",size(mesh.surfaceT,2))
+	println("\nNumber of elements ", mesh.nt)
+    println("Number of surface elements ", mesh.ns)
 
 	# Run Gmsh GUI
     if showGmsh
-		# gmsh.option.setNumber("Mesh.Clip", 1)
-		# gmsh.option.setNumber("General.ClipWholeElements", 1)
-		# gmsh.option.setNumber("Mesh.VolumeFaces", 1)
+		gmsh.option.setNumber("Mesh.Clip", 1)
+		gmsh.option.setNumber("General.ClipWholeElements", 1)
+		gmsh.option.setNumber("Mesh.VolumeFaces", 1)
 	   	gmsh.fltk.run()
     end
 	gmsh.fltk.finalize()
@@ -76,6 +83,7 @@ function main(meshSize=0.0, showGmsh=false)
 	mu::Vector{Float64} = zeros(mesh.nt) .+ mu0
 
 	# BEM matrices
+	println("Building the BEM matrices and the FEM-BEM coupling")
 	@time begin 
 		C = Cmatrix(mesh)
 		D = Dmatrix(mesh)
@@ -86,6 +94,9 @@ function main(meshSize=0.0, showGmsh=false)
 		end
 	end
 
+	println("Building the element-wise stiffness matrix")
+	Ak = @time localStiffnessMatrix(mesh)
+
 	# Find the magnetic field
 	Hfield::Matrix{Float64} = zeros(3, mesh.nt)
 	H::Vector{Float64} = zeros(mesh.nt)
@@ -93,14 +104,26 @@ function main(meshSize=0.0, showGmsh=false)
 
 	div::Float64 = 1.0
 	att::Int32 = 0
+	println("Running the Fixed-Point iteration method")
 	@time while att < maxAtt && div > maxDeviation
 
 		att += 1
 		Hold .= H
 
-		# Stiffness matrix
-		A = denseStiffnessMatrix(mesh, mu)  # ij
-		LHS::Matrix{Float64} = [A B; C D]; # Final FEM-BEM matrix
+		# Update the stiffness matrix
+	    A::Matrix{Float64} = zeros(mesh.nv, mesh.nv)
+	    for k in 1:mesh.nt
+	    	nds = @view mesh.t[:, k]
+	    	n = 0
+	    	for i in 1:4
+	    		for j in 1:4
+	    			n += 1
+	    			A[nds[i], nds[j]] += Ak[n, k]*mu[k]
+	    		end
+    		end  
+	    end
+
+		LHS = [A B; C D]; # Final FEM-BEM matrix
 
 		# # !! From Bruckner 2012, the load is a surface integral
 		# RHS::Vector{Float64} = zeros(mesh.nv + mesh.ns)
@@ -122,6 +145,7 @@ function main(meshSize=0.0, showGmsh=false)
 
 		# Magnetic scalar potential
 		u = LHS\RHS
+		residue = norm(RHS - LHS*u)
 
 		# Magnetic vector field
 		# Hfield = zeros(3, mesh.nt) .+ Hext
@@ -158,7 +182,8 @@ function main(meshSize=0.0, showGmsh=false)
 
 		# Check deviation from previous result
 		div = mu0*maximum(abs.(H-Hold))
-		println(att, " | mu0 |H(n)-H(n-1)| = ", div)
+        verbose ? println(att, " | mu0 |H(n)-H(n-1)| = ", div, " , |y-Ax| = ", residue) : nothing
+
 	end
 
 	# Magnetization
@@ -187,26 +212,20 @@ function main(meshSize=0.0, showGmsh=false)
 	fig = Figure()
 	ax = Axis3(fig[1, 1], aspect = :data)
 
-	u::Vector{Float64} = Mfield[1,:]./M
-	v::Vector{Float64} = Mfield[2,:]./M
-	w::Vector{Float64} = Mfield[3,:]./M
-
 	graph = arrows3d!(	  centroids[1,:]
 				  		, centroids[2,:]
 				  		, centroids[3,:]
-				  		, u
-				  		, v
-				  		, w
+				  		, Mfield[1,:]
+				  		, Mfield[2,:]
+				  		, Mfield[3,:]
                   		, color = M./(density*1e3)
-                  		, lengthscale = 0.1
-                  		, colormap = :turbo
+                  		, lengthscale = 0.1/maximum(M)
+                  		, colormap = :CMRmap,  # :CMRmap :viridis :redsblues :turbo :rainbow
                   		)
 
-	Colorbar(fig[1, 2], graph, label = "M (emu/g)"
-	         #, vertical = false
-	         )
+	Colorbar(fig[1, 2], graph, label="M (emu/g)")
 
 	wait(display(fig))
 end
 
-main(0.0, false)
+main(meshSize, localSize, showGmsh)
