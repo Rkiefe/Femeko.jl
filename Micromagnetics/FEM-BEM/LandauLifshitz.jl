@@ -4,6 +4,7 @@
 =#
 
 # Include FEM functions
+include("../../src/Femeko.jl")
 include("../../src/BEM.jl")
 
 # For the thermal field
@@ -13,10 +14,10 @@ import Distributions as Dist
 # Demagntizing field with FEM/BEM
 function BEMdmag(mesh::MESH,m::Matrix{Float64},LHS::Matrix{Float64})
     
-    RHS::Vector{Float64} = zeros(mesh.nv + mesh.ne)
+    RHS::Vector{Float64} = zeros(mesh.nv + mesh.ns)
     
     # Boundary integral version of RHS
-    # for s in 1:mesh.ne
+    # for s in 1:mesh.ns
     #     nds = @view mesh.surfaceT[1:3,s]
     #     RHS[nds] .+= dot(mesh.normal[:,s],mean(m[:,nds],2))*mesh.AE[s]/3
     # end

@@ -6,14 +6,11 @@
         https://doi.org/10.1109/TMAG.2008.2001666
 =#
 
-# For plots
+include("LandauLifshitz.jl")
 using GLMakie
 
-include("../../src/gmsh_wrapper.jl")
-include("LandauLifshitz.jl")
-
-function main()
-    meshSize::Float64 = 0
+function main(meshSize=0.0)
+    gmsh.initialize()
 
     # Constants
     mu0::Float64 = pi*4e-7          # vacuum magnetic permeability
@@ -39,28 +36,21 @@ function main()
     maxAtt::Int32 = 15_000              # Maximum number of iterations in the solver
     
     # -- Create a geometry --
-    gmsh.initialize()
 
     # Magnetic body
     # addSphere([0,0,0],50)
     addCuboid([0,0,0],L)
 
     # Generate Mesh
-    mesh = Mesh([],meshSize,0,false)
+    mesh = Mesh([], meshSize, 0.0, false)
 
     # Finalize Gmsh and show mesh properties
     # gmsh.fltk.run()
     gmsh.finalize()
-        
-    # -----------------------
 
-    println("Number of elements ",size(mesh.t,2))
-    println("Number of Inside elements ",length(mesh.InsideElements))
-    println("Number of nodes ",size(mesh.p,2))
-    println("Number of Inside nodes ",length(mesh.InsideNodes))
-    println("Number of surface elements ",size(mesh.surfaceT,2))
-    # viewMesh(mesh)
-    # return
+    println("Number of elements ", mesh.nt)
+    println("Number of nodes ", mesh.nv)
+    println("Number of surface elements ", mesh.ns)
     
     # Volume of elements of each mesh node | Needed for the demagnetizing field
     Vn::Vector{Float64} = zeros(mesh.nv)
@@ -79,7 +69,7 @@ function main()
     C = Cmatrix(mesh)        # mj
     D = Dmatrix(mesh)        # mn
 
-    LHS::Matrix{Float64} = [-A B; C D]; # Final BEM matrix
+    LHS::Matrix{Float64} = [A B; C D]; # Final BEM matrix
 
     # Initial magnetization field
     m::Matrix{Float64} = zeros(3,mesh.nv)
@@ -112,5 +102,4 @@ function main()
 
     # save("M_time_permalloy.png",fig)
 end
-
 main()
