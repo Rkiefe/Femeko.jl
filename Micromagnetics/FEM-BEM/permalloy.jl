@@ -6,7 +6,7 @@
         https://doi.org/10.1109/TMAG.2008.2001666
 =#
 
-include("LandauLifshitz.jl")
+include("LL.jl")
 using GLMakie
 
 function main(meshSize=0.0)
@@ -69,7 +69,7 @@ function main(meshSize=0.0)
     C = Cmatrix(mesh)        # mj
     D = Dmatrix(mesh)        # mn
 
-    LHS::Matrix{Float64} = [A B; C D]; # Final BEM matrix
+    LHS::Matrix{Float64} = [A -B; C D]; # Final BEM matrix
 
     # Initial magnetization field
     m::Matrix{Float64} = zeros(3,mesh.nv)
