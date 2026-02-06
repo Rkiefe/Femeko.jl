@@ -170,9 +170,9 @@ function fluid3D( mesh::MESH
     UP[fixed] .= gD[fixed] # Dirichlet conditions
     
     # Solve for the velocity and pressure (u and p)
-    print("Solving matrix equation for the fluid velocity and pressure with the Conjugate Gradient method...")
-    # UP[free] = LHS[free, free]\RHS
-    UP[free] = cg(LHS[free, free], RHS)
+    print("Solving matrix equation for the fluid velocity and pressure...")
+    UP[free] = @time LHS[free, free]\RHS
+    # UP[free] = cg(LHS[free, free], RHS; verbose=true)
     println(" Done")
 
     # Velocity (defined on the local node IDs)
