@@ -118,6 +118,39 @@ function tangentialStiffnessMatrix(mesh::MESH, H_vec::Matrix{Float64}, dmu::Vect
     return At
 end # Newton iteration matrix
 
+# Updates the Newton-Raphson iteration with a line search
+# where the full step size is reduced to minimize the new residue
+function lineSearch(u, du, A, RHS, minStep::Float64=1e-4)
+    # Update the solution with a weight: u_new = u + alf*du
+    alf = 1.0 # Initial weight (full step)
+
+    # Residual before update of u
+    residual_old = norm(RHS - A*u) 
+
+    # New solution trial
+    u_trial = u + du
+    residue = norm(RHS - A*u_trial)
+    
+    # Reduce the step size until the new solution is more accurate than the old solution
+    while residue > residual_old && alf > minStep
+        alf *= 0.9 # Reduce the size of the weight by 10 %
+        
+        # New trial solution
+        u_trial = u + alf*du
+        residue = norm(RHS - A*u_trial)
+    end
+    
+    # Update the solution
+    if alf < minStep
+        # Don't update u otherwise it will increase the residue
+        println("Warning: N-R could not decrease the residue further")
+    else
+        u .= u_trial
+    end
+
+    return residue
+end # Adapt the N-R step size based on the residual
+
 # Local stiffness matrix with Nedelec shape elements
 function nedelecLocalStiffness(mesh::MESH)
 
@@ -263,39 +296,30 @@ function BoundaryIntegral(mesh::MESH,F::Vector{Float64},shell_id)
     return RHS
 end # Boundary conditions
 
-# Updates the Newton-Raphson iteration with a line search
-# where the full step size is reduced to minimize the new residue
-function lineSearch(u, du, A, RHS, minStep::Float64=1e-4)
-    # Update the solution with a weight: u_new = u + alf*du
-    alf = 1.0 # Initial weight (full step)
+# 2D P2 triangle mass matrix. Used for 3D surface integral
+function quadraticBoundaryMassMatrix(mesh::MESH, F::Vector{Float64} = ones(mesh.ns))
 
-    # Residual before update of u
-    residual_old = norm(RHS - A*u) 
-
-    # New solution trial
-    u_trial = u + du
-    residue = norm(RHS - A*u_trial)
+    # The surface triangles have 3 nodes and 3 mid-points (6 in total)
+    Mk = 1/180 *[ 6 -1 -1  0 -4  0;
+                 -1  6 -1  0  0 -4;
+                 -1 -1  6 -4  0  0;
+                  0  0 -4 32 16 16;
+                 -4  0  0 16 32 16;
+                  0 -4  0 16 16 32]
     
-    # Reduce the step size until the new solution is more accurate than the old solution
-    while residue > residual_old && alf > minStep
-        alf *= 0.9 # Reduce the size of the weight by 10 %
-        
-        # New trial solution
-        u_trial = u + alf*du
-        residue = norm(RHS - A*u_trial)
+    # Initialize sparse mass matrix
+    M = spzeros(mesh.nv, mesh.nv)
+    for s in 1:mesh.ns
+        nds = @view mesh.surfaceT[:, s]
+        for i in 1:6
+            for j in 1:6
+                M[nds[i], nds[j]] += mesh.AE[s] * Mk[i, j] * F[s]
+            end
+        end
     end
     
-    # Update the solution
-    if alf < minStep
-        # Don't update u otherwise it will increase the residue
-        println("Warning: N-R could not decrease the residue further")
-    else
-        u .= u_trial
-    end
-
-    return residue
-end # Adapt the N-R step size based on the residual
-
+    return M
+end
 
 function quadraticLocalStiffnessMatrix(mesh::MESH
                                        , S # Quadratic basis functions for every node and element
@@ -337,7 +361,7 @@ function quadraticLocalStiffnessMatrix(mesh::MESH
                 end 
                 aux /= 10
 
-                temp[i,j] = mesh.VE[k]*mu[k]*aux
+                temp[i,j] = aux * mu[k] * mesh.VE[k]
                 temp[j,i] = temp[i,j] # Stiffness matrix is symmetric
             end
         end # Local element wise stiffness matrix
@@ -469,8 +493,6 @@ end
 
 function quadraticMassMatrix(mesh::MESH, S, F::Vector{Float64}=ones(mesh.nt))
 
-    @warn "Using untested quadraticMassMatrix()"
-
     weights, points = GaussQuadrature3D(4)
         
     # Local mass matrix
@@ -490,11 +512,6 @@ function quadraticMassMatrix(mesh::MESH, S, F::Vector{Float64}=ones(mesh.nt))
         J31 = vertices[3, 2] - vertices[3, 1]
         J32 = vertices[3, 3] - vertices[3, 1]
         J33 = vertices[3, 4] - vertices[3, 1]
-        
-        # Determinant of Jacobian (6*volume of tetrahedron)
-        # detJ = abs(J11*(J22*J33 - J23*J32) - 
-        #            J12*(J21*J33 - J23*J31) + 
-        #            J13*(J21*J32 - J22*J31))
         
         # Element-wise matrix
         Mk = zeros(10, 10)
@@ -518,7 +535,7 @@ function quadraticMassMatrix(mesh::MESH, S, F::Vector{Float64}=ones(mesh.nt))
             w = weights[q] * mesh.VE[k] # detJ/6.0
             for i in 1:10
                 for j in i:10
-                    Mk[i, j] += w * phi[i] * phi[j]
+                    Mk[i, j] += w * phi[i] * phi[j] * F[k]
                     Mk[j, i] = Mk[i, j] # Symmetric matrix
                 end
             end
@@ -526,7 +543,7 @@ function quadraticMassMatrix(mesh::MESH, S, F::Vector{Float64}=ones(mesh.nt))
         end # Quadrature
         
         # Store local mass matrix
-        Mlocal[:, k] = vec(Mk)
+        Mlocal[:, k] = Mk[:]
     
     end # Loop over elements
     
@@ -543,9 +560,15 @@ function quadraticMassMatrix(mesh::MESH, S, F::Vector{Float64}=ones(mesh.nt))
     return M
 end
 
-function quadraticConvectionMatrix(mesh::MESH, S, u::Matrix{Float64})
+function quadraticConvectionMatrix(mesh::MESH, 
+                                   S, # Quadratic basis coeff. at each node and element (10 by 10 by mesh.nt)
+                                   u::Matrix{Float64}, # Velocity field (3 by mesh.nv)
+                                   F::Vector{Float64}=ones(mesh.nt))
     
     weights, points = GaussQuadrature3D(4)
+
+    phi::Vector{Float64} = zeros(10)        # Shape function of each node, evaluated at the quadrature points
+    gradPhi::Matrix{Float64} = zeros(3, 10) # Gradient of shape function, ...
 
     Clocal::Matrix{Float64} = zeros(100, mesh.nt) # Local matrix. 10x10 nodes per quadratic element
     for k in 1:mesh.nt
@@ -563,13 +586,10 @@ function quadraticConvectionMatrix(mesh::MESH, S, u::Matrix{Float64})
         J32 = vertices[3, 3] - vertices[3, 1]  # z3 - z1
         J33 = vertices[3, 4] - vertices[3, 1]  # z4 - z1
 
-        # Determinant of Jacobian (volume scaling factor)
-        # detJ = abs(J11*(J22*J33 - J23*J32) - 
-        #            J12*(J21*J33 - J23*J31) + 
-        #            J13*(J21*J32 - J22*J31))
-        
         # Mass matrix on element k
         Ck::Matrix{Float64} = zeros(10, 10)
+
+        u_avg = mean(u[:, nds[1:4]], 2) # Average velocity over the element k (P1)
 
         # Loop over quadrature points
         for q in 1:length(weights)
@@ -582,12 +602,7 @@ function quadraticConvectionMatrix(mesh::MESH, S, u::Matrix{Float64})
 
             # Evaluate on the current quadrature point the
                 #  2nd order Lagrange shape function
-                #  The velocity field
                 #  The gradient of the 2nd order Lagrange shape function
-
-            phi::Vector{Float64} = zeros(10)        # Shape function 
-            ux, uy, uz = 0.0, 0.0, 0.0              # Velocity field
-            gradPhi::Matrix{Float64} = zeros(3, 10) # Gradient of shape function
             
             for i in 1:10 # All nodes of the element
 
@@ -597,11 +612,6 @@ function quadraticConvectionMatrix(mesh::MESH, S, u::Matrix{Float64})
                          + S[8, i, k]*y^2 + S[9, i, k]*y*z 
                          + S[10, i, k]*z^2
                 
-                # Velocity on the quadrature point
-                ux += u[1, nds[i]]*phi[i]
-                uy += u[2, nds[i]]*phi[i]
-                uz += u[3, nds[i]]*phi[i]
-
                 # Gradient of basis function on quadrature point
                 gradPhi[1, i] = S[2, i, k] + 2*S[5, i, k] *x + S[6, i, k]*y + S[7, i, k]*z
                 gradPhi[2, i] = S[3, i, k] + 2*S[8, i, k] *y + S[6, i, k]*x + S[9, i, k]*z
@@ -611,17 +621,16 @@ function quadraticConvectionMatrix(mesh::MESH, S, u::Matrix{Float64})
             
             # Accumulate to local matrix
             w = weights[q] * mesh.VE[k] # detJ/6
-            for i in 1:10
-                grad_i = gradPhi[1, i] * ux + gradPhi[2, i] * uy + gradPhi[3, i] * uz
-                for j in 1:10
-                    Ck[i, j] += w * grad_i * phi[j]
+            for j in 1:10
+                grad_j = dot(u_avg, gradPhi[:, j])
+                for i in 1:10
+                    Ck[i, j] += w * grad_j * phi[i] * F[k]
                 end
             end
 
         end # Loop over quadrature points
 
-        Clocal[:, k] = vec(Ck)
-
+        Clocal[:, k] = Ck[:]
     end # Loop over the mesh elements
 
     # Assmble the sparse global matrix
@@ -638,16 +647,14 @@ function quadraticConvectionMatrix(mesh::MESH, S, u::Matrix{Float64})
     return C
 end
 
-    # Returns quadrature points and weights for reference tetrahedron
-    # Vertices: v1 = (0,0,0), v2 = (1,0,0), v3 = (0,1,0), v4 = (0,0,1)
+
 
 # 3D Tetrahedron Gaussian Quadrature
 function GaussQuadrature3D(precision::Integer)
     # Returns quadrature points and weights for reference tetrahedron
     # Reference tetrahedron vertices: (0,0,0), (1,0,0), (0,1,0), (0,0,1)
+    # sum(weights) = 1.0 so that you can use mesh.VE[k] directly
 
-    @warn "Using untested function GaussQuadrature3D()"
-    
     if precision == 1
         # Degree 1, 1 point
         weights = [1.0]
