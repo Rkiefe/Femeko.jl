@@ -1,6 +1,11 @@
 include("fluids2D.jl")
 
 using GLMakie
+
+meshSize = 2.5
+localSize = 0.25
+showGmsh = true
+
 function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
     # Simulation settings
@@ -17,7 +22,6 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
     # Add a container
     box = addRectangle([0,0,0], [20, 5])
-    # box = addDisk([0,0,0], 4)
 
     # Combine the geometries
     unifyModel(cells, box)
@@ -107,5 +111,4 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
 end
 
-showGmsh = true
-main(2.5, 0.25, showGmsh)
+main(meshSize, localSize, showGmsh)
