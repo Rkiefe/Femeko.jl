@@ -160,16 +160,6 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     # display(fig)
     # wait(display(fig))
 
-    # # Define the boundary conditions at the intake
-    # intakeBC::Vector{Float64} = zeros(mesh.ns)
-    # for s in 1:mesh.ns        
-    #     if inFlow == mesh.surfaceT[7, s] # ID of the boundary of current surface triangle (6 nodes + ID)
-    #         # Define the diffusivity at the in-flow boundary as infinite
-    #         # to approximate Dirichlet boundary conditions with Robin b.c
-    #         intakeBC[s] = 1e6
-    #     end
-    # end # Boundary conditions
-
     # Prepare the heat transfer simulation
     println("Computing the linear basis function on each node of each element")
     a::Matrix{Float64} = zeros(4, mesh.nt)

@@ -5,7 +5,7 @@ using GLMakie
 
 meshSize = 0.0
 localSize = 0.0
-showGmsh = false
+showGmsh = true
 
 function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
@@ -13,7 +13,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
     # Setup
     viscosity = 1.0                   # Fluid viscosity
-    velocity::Vector{Float64} = [0.0, 0.1, 0.0] # Intake fluid velocity
+    velocity::Vector{Float64} = [0.0, 1.0, 0.0] # Intake fluid velocity
     timeStep::Float64 = 1e-4
     totalTime::Float64 = 0.2
     maxSteps::Int32 = floor(totalTime/timeStep) + 1
@@ -31,7 +31,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
     cells = [] # Store the obstacles cell ID
     cellLabels = []
 
-    id = addSphere([0,0.0,0], 1.0, cells)              # Add obstacle
+    id = addSphere([0,-2.5,0], 1.0, cells)              # Add obstacle
     push!(cellLabels, "blank")
 
     box = addCylinder([0,-5,0], [0, 10, 0], 2.5, cells)  # Add tube
@@ -179,29 +179,29 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
     Colorbar(fig[2, 1], graph3D, label="T", vertical=false)
 
-    # # XoZ plane
-    # X, Y, Z = plane([0,1,0], [0,0,1], [0,-1.5,0], 1.0, 15) # direction 1, direction 2, origin, radius, grid points
-    # Tq = zeros(size(X))
-    # for i in 1:size(X, 1)
-    #     for j in 1:size(X, 2)
-    #         Tq[i, j] = interp3Dmesh(mesh, X[i, j], Y[i, j], Z[i, j], T)
-    #     end
-    # end
+    # XoZ plane
+    X, Y, Z = plane([0,1,0], [0,0,1], [0,-1.5,0], 1.0, 15) # direction 1, direction 2, origin, radius, grid points
+    Tq = zeros(size(X))
+    for i in 1:size(X, 1)
+        for j in 1:size(X, 2)
+            Tq[i, j] = interp3Dmesh(mesh, X[i, j], Y[i, j], Z[i, j], T)
+        end
+    end
 
-    # # Plot slice view
-    # println("Adding slice view to the plot")
-    # ax = Axis(fig[1, 2], aspect = DataAspect(), title="Slice view")
-    # graph = scatter!(  ax
-    #                  , Y[:]
-    #                  , Z[:]
-    #                  , color = Tq[:]
-    #                  , colormap = :rainbow  # :CMRmap :viridis :redsblues :turbo :rainbow :thermal
-    #                  , colorrange = (minimum(T), maximum(T))
-    #                     # , markersize = 5
-    #                   )
+    # Plot slice view
+    println("Adding slice view to the plot")
+    ax = Axis(fig[1, 2], aspect = DataAspect(), title="Slice view")
+    graph = scatter!(  ax
+                     , Y[:]
+                     , Z[:]
+                     , color = Tq[:]
+                     , colormap = :rainbow  # :CMRmap :viridis :redsblues :turbo :rainbow :thermal
+                     , colorrange = (minimum(T), maximum(T))
+                        # , markersize = 5
+                      )
 
-    # # Add a colorbar
-    # Colorbar(fig[2, 2], graph, vertical=false)
+    # Add a colorbar
+    Colorbar(fig[2, 2], graph, vertical=false)
     display(fig)
 
     println("Running heat transport simulation")
@@ -216,16 +216,16 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
         ax3D.title = string(frame*timeStep)*" s"
         graph3D.color = T
 
-        # # Create a slice view
-        # Tq = zeros(size(X))
-        # for i in 1:size(X, 1)
-        #     for j in 1:size(X, 2)
-        #         Tq[i, j] = interp3Dmesh(mesh, X[i, j], Y[i, j], Z[i, j], T)
-        #     end
-        # end
-        # graph.color = Tq[:]
+        # Create a slice view
+        Tq = zeros(size(X))
+        for i in 1:size(X, 1)
+            for j in 1:size(X, 2)
+                Tq[i, j] = interp3Dmesh(mesh, X[i, j], Y[i, j], Z[i, j], T)
+            end
+        end
+        graph.color = Tq[:]
 
-        sleep(1/60)
+        sleep(1/24)
     end
 
     println("Simulation finished")
