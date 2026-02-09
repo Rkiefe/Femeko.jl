@@ -678,21 +678,21 @@ function interp2Dmesh(mesh::MESH, xq::Float64, yq::Float64, T::Vector{Float64})
     # Find the mesh element closest/containing the target node
     tag = findElement2D(mesh, xq, yq)
 
-    nds = @view mesh.t[:, tag]
+    nds = @view mesh.t[1:3, tag]
     P1 = mesh.p[:, nds[1]]
     P2 = mesh.p[:, nds[2]]
     P3 = mesh.p[:, nds[3]]
 
     # Set the Z value to the input values
-    if length(T) == mesh.nv # T is defined over the nodes of the mesh
-        P1[3] = T[nds[1]]
-        P2[3] = T[nds[2]]
-        P3[3] = T[nds[3]]
-    
-    else # T is expected to be defined over the elements of the mesh
+    if length(T) == mesh.nt # T is expected to be defined over the elements of the mesh
         P1[3] = T[tag]
         P2[3] = T[tag]
         P3[3] = T[tag]
+    
+    else  # T is defined over the nodes of the mesh
+        P1[3] = T[nds[1]]
+        P2[3] = T[nds[2]]
+        P3[3] = T[nds[3]]
     end
 
     # Create a plane for interpolation
@@ -767,24 +767,25 @@ function interp3Dmesh(mesh::MESH
     # Find the mesh element closest/containing the target node
     tag = findElement3D(mesh, xq, yq, zq)
 
-    nds = @view mesh.t[:, tag]
+    nds = @view mesh.t[1:4, tag]
     P1 = [mesh.p[:, nds[1]]; 0.0] # x,y,z, W
     P2 = [mesh.p[:, nds[2]]; 0.0] # ...
     P3 = [mesh.p[:, nds[3]]; 0.0]
     P4 = [mesh.p[:, nds[4]]; 0.0]
 
     # Set the W value to the result
-    if length(T) == mesh.nv # T is defined over the nodes of the mesh
+    if length(T) == mesh.nt # T is expected to be defined over the elements of the mesh
+        P1[4] = T[tag]
+        P2[4] = T[tag]
+        P3[4] = T[tag]
+        P4[4] = T[tag]
+
+    else  # T is defined over the nodes of the mesh
         P1[4] = T[nds[1]]
         P2[4] = T[nds[2]]
         P3[4] = T[nds[3]]
         P4[4] = T[nds[4]]
 
-    else # T is expected to be defined over the elements of the mesh
-        P1[4] = T[tag]
-        P2[4] = T[tag]
-        P3[4] = T[tag]
-        P4[4] = T[tag]
     end
 
     # Create a plane for interpolation
