@@ -22,7 +22,7 @@ mutable struct DATA
     # Specific heat J/(kg K)
     Cp::Float64
 
-    # Fluid viscosity mPa s or kg/(m s)
+    # Fluid viscosity Pa s or kg/(m s)
     mu::Float64
 
     # Constructor
