@@ -183,10 +183,14 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
                     # , markersize=5
                     )
     Colorbar(fig[1, 2], graph, label="T")
-    display(fig)
+    # display(fig)
+    display(GLMakie.Screen(), fig)
+
+    ax2 = Axis(fig[1, 2])
 
     println("Running heat transport simulation")
     # Time iterations
+    Tq::Vector{Float64} = zeros(maxSteps)
     LM = M + timeStep*(A+R+C) # Backward Euler
     for frame in 1:maxSteps
 
@@ -198,10 +202,20 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
         ax.title = string(frame*timeStep)*" s"
         graph.color = T
 
+        # Interp the result at (0.0, 0.0)
+        Tq[frame] = interp2Dmesh(mesh, 0.0, 0.0, T)
+
         sleep(timeStep)
     end
+
+    # Plot the interpolated value of T
+    fig = Figure()
+    ax = Axis(fig[1,1], title="T evolution at (0, 0)")
+    scatter!(timeStep*(1:maxSteps), Tq)
+    display(fig)
 
     wait(fig.scene)
 
 end
+
 main(meshSize, localSize, showGmsh)
