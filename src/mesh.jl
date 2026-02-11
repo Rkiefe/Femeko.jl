@@ -109,7 +109,7 @@ function Mesh(cells, meshSize=0.0, localSize=0.0, saveMesh::Bool=false, order=1)
     # -- Optimize the mesh --
     # "" (default is empty), "NetGen", "HighOrder", 
     # "Relocate3D", "HighOrderElastic", "UntangleMeshGeometry"
-    if order < 1
+    if order < 2
         gmsh.model.mesh.optimize()
     else
         gmsh.model.mesh.optimize("HighOrder")   # Other wise the mesh MIGHT not be proper.
