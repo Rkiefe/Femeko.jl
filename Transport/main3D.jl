@@ -13,7 +13,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
 
     # Setup
     viscosity = 1.0                   # Fluid viscosity
-    velocity::Vector{Float64} = [0.0, 1.0, 0.0] # Intake fluid velocity
+    velocity::Vector{Float64} = [0.0, 10.0, 0.0] # Intake fluid velocity
     timeStep::Float64 = 1e-4
     totalTime::Float64 = 0.2
     maxSteps::Int32 = floor(totalTime/timeStep) + 1
@@ -172,7 +172,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
                     , mesh.p[2, :]
                     , mesh.p[3, :]
                     , color = T 
-                    , colormap = :rainbow 
+                    , colormap = :CMRmap 
                     , colorrange = (minimum(T), maximum(T))
                     # , markersize=5
                     )
@@ -195,7 +195,7 @@ function main(meshSize=0.0, localSize=0.0, showGmsh=false)
                      , Y[:]
                      , Z[:]
                      , color = Tq[:]
-                     , colormap = :rainbow  # :CMRmap :viridis :redsblues :turbo :rainbow :thermal
+                     , colormap = :CMRmap  # :CMRmap :viridis :redsblues :turbo :rainbow :thermal
                      , colorrange = (minimum(T), maximum(T))
                         # , markersize = 5
                       )
