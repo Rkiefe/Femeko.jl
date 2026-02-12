@@ -1,2 +1,5 @@
 # Does not include the sdk in the repo when running git add .
 gmsh-*
+
+# Does not include binaries
+*.out
