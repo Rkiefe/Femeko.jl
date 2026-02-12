@@ -44,6 +44,23 @@ int main()
 		p = Eigen::Map<Eigen::MatrixXd>(coord.data(), 3, nv);
 	}
 
+	// Get mesh connectivity:
+	Eigen::MatrixXi t;
+	{
+		std::vector<std::size_t> elementTags, elementNodeTags;
+		gmsh::model::mesh::getElementsByType(2, elementTags, elementNodeTags); // is type 2 for p1 triangles?
+
+		int nt = elementTags.size();
+		t = Eigen::MatrixXi::Zero(3, nt);
+		int n = 0;
+		for(int k = 0; k<nt; k++){ // For each element
+			for(int i = 0; i<3; i++){ // For each node
+				t(i, k) = elementNodeTags[n];
+				n++;
+			}
+		}
+	}
+	
 
 	println("Opening Gmsh GUI");
 	gmsh::fltk::run();
