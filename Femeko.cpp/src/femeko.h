@@ -11,4 +11,7 @@
 #include "../../extern/eigen/Eigen/Sparse"
 
 // Handles geometry creation by the occ kernel
-#include "geometry.cpp"
+#include "geometry.h"
+
+// Handles mesh generation
+#include "mesh.h"
