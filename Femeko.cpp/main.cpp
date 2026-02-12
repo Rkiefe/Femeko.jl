@@ -1,8 +1,5 @@
 // Read the readme.md for instructions on how to setup and compile
 
-#include <iostream>
-#include <vector>
-
 #include "src/femeko.cpp"
 
 int main()
@@ -37,11 +34,16 @@ int main()
 	println("Extracting mesh info into Femeko format...");
 
 	// Get the mesh nodes:
-	std::vector<std::size_t> nodes;
-	std::vector<double> coord, coordParam;
-	gmsh::model::mesh::getNodes(nodes, coord, coordParam);
+	Eigen::MatrixXd p;
+	{
+		std::vector<std::size_t> nodes;
+		std::vector<double> coord, coordParam;
+		gmsh::model::mesh::getNodes(nodes, coord, coordParam);
+		
+		int nv = nodes.size();
+		p = Eigen::Map<Eigen::MatrixXd>(coord.data(), 3, nv);
+	}
 
-	int nv = nodes.size();
 
 	println("Opening Gmsh GUI");
 	gmsh::fltk::run();
