@@ -15,7 +15,7 @@ int main()
 	gmsh::initialize();
 
 	// Hold the label of each cell added
-	std::vector<int> cells;
+	std::vector<std::pair<int, int>> cells;
 
 	{ // Add a rectangle
 		std::vector<double> position = {0.0, 0.0};
@@ -23,9 +23,21 @@ int main()
 		addRectangle(position, dimensions, cells);
 	}
 
-	{ // Add a disk
+	// Add a disk as bounding shell
+	int shellID;
+	{ 
 		std::vector<double> position = {0.0, 0.0};
-		addDisk(position, 0.25);
+		shellID = addDisk(position, 0.25);
+	}
+
+	{ // Fragment the geometry to make a conforming mesh
+	    std::vector<std::pair<int, int> > outDimTags;
+	    std::vector<std::vector<std::pair<int, int> > > outDimTagsMap;
+
+	    // Fragment all objects in cells vector
+	    gmsh::model::occ::fragment(cells, {{2, shellID}}, outDimTags, outDimTagsMap);
+	    gmsh::model::occ::synchronize();
+	    println("Fragmented geometry to create conforming mesh");
 	}
 
 	{ // Mesh
@@ -41,10 +53,10 @@ int main()
 	println("\nFinished generating the mesh and optimizing it.");
 	println("Extracting mesh info into Femeko format...");
 
+	// Create a femeko mesh struct
 	MESH2D mesh;
 
 	// Get the mesh nodes:
-	// Eigen::MatrixXd p;
 	{
 		std::vector<std::size_t> nodes;
 		std::vector<double> coord, coordParam;
@@ -55,7 +67,6 @@ int main()
 	} // Get mesh node coordinates (x,y,z) by nv
 
 	// Get mesh connectivity:
-	// Eigen::MatrixXi t;
 	{
 		std::vector<std::size_t> elementTags, elementNodeTags;
 		gmsh::model::mesh::getElementsByType(2, elementTags, elementNodeTags); // is type 2 for p1 triangles?
