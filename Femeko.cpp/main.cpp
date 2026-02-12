@@ -1,14 +1,5 @@
-/*
-	1st) get the gmsh sdk
-		wget http://gmsh.info/bin/Linux/gmsh-4.15.0-Linux64-sdk.tgz
-	
-	2nd) unzip
-		tar -xzf gmsh-4.15.0-Linux64-sdk.tgz
-	
-	3rd) COMPILE WITH
-		g++ main.cpp -o main.out -I gmsh-4.15.0-Linux64-sdk/include -L gmsh-4.15.0-Linux64-sdk/lib -l gmsh -Wl,-rpath,gmsh-4.15.0-Linux64-sdk/lib 
+// Read the readme.md for instructions on how to setup and compile
 
-*/
 #include <iostream>
 #include <vector>
 
