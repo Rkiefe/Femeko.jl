@@ -2,6 +2,14 @@
 
 #include "src/femeko.cpp"
 
+struct MESH2D
+{
+	int nv; // Number of nodes
+	int nt; // Number of elements
+	Eigen::MatrixXd p; // Mesh node coordinates | 3 by nv
+	Eigen::MatrixXi t; // Mesh node connectivity| 3 by nt
+};
+
 int main()
 {
 	gmsh::initialize();
@@ -33,33 +41,35 @@ int main()
 	println("\nFinished generating the mesh and optimizing it.");
 	println("Extracting mesh info into Femeko format...");
 
+	MESH2D mesh;
+
 	// Get the mesh nodes:
-	Eigen::MatrixXd p;
+	// Eigen::MatrixXd p;
 	{
 		std::vector<std::size_t> nodes;
 		std::vector<double> coord, coordParam;
 		gmsh::model::mesh::getNodes(nodes, coord, coordParam);
 		
 		int nv = nodes.size();
-		p = Eigen::Map<Eigen::MatrixXd>(coord.data(), 3, nv);
-	}
+		mesh.p = Eigen::Map<Eigen::MatrixXd>(coord.data(), 3, nv);
+	} // Get mesh node coordinates (x,y,z) by nv
 
 	// Get mesh connectivity:
-	Eigen::MatrixXi t;
+	// Eigen::MatrixXi t;
 	{
 		std::vector<std::size_t> elementTags, elementNodeTags;
 		gmsh::model::mesh::getElementsByType(2, elementTags, elementNodeTags); // is type 2 for p1 triangles?
 
 		int nt = elementTags.size();
-		t = Eigen::MatrixXi::Zero(3, nt);
+		mesh.t = Eigen::MatrixXi::Zero(3, nt);
 		int n = 0;
 		for(int k = 0; k<nt; k++){ // For each element
 			for(int i = 0; i<3; i++){ // For each node
-				t(i, k) = elementNodeTags[n];
+				mesh.t(i, k) = elementNodeTags[n];
 				n++;
 			}
 		}
-	}
+	} // Mesh connectivity (3 by nt)
 	
 
 	println("Opening Gmsh GUI");
