@@ -9,6 +9,9 @@ struct MESH2D
 
 	std::vector<int> InsideElements; // Elements tags for the volumes in 'cells'
 	int nInside; // Number of elements in 'InsideElements'
+
+	std::vector<double> VE; // Volume of each element (triangle area in 2D)
+	std::vector<double> AE; // Area of each element (line length in 2D)
 };
 
 
