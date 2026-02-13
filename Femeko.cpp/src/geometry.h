@@ -54,3 +54,22 @@ int addDisk(std::vector<double> &position, double radius){
 	gmsh::model::occ::synchronize(); // Sync kernel before exiting
 	return id;
 }
+
+// Fragment the geometry to make a conforming mesh
+void unifyModel(std::vector<std::pair<int, int>> &cells,
+				int box)
+{ 
+
+	int dim = cells[0].first; // Get dimension of the model
+
+    // Unify model by fragment()
+    std::vector<std::pair<int, int> > outDimTags;
+    std::vector<std::vector<std::pair<int, int> > > tagsMap;
+
+    gmsh::model::occ::fragment(cells, {{dim, box}}, outDimTags, tagsMap);
+    gmsh::model::occ::synchronize();
+    println("Fragmented geometry to create conforming mesh");
+
+    // Update the cells to the new IDs
+    cells = tagsMap[0];
+}

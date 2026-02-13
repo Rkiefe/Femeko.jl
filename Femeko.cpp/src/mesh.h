@@ -9,6 +9,72 @@ struct MESH2D
 };
 
 
+// Set mesh extension to on/off (default off)
+void extendLocalRefinement(double input){
+	// 0 -> Dont extend mesh size, to prevent over-refinement inside entity
+	// 1 -> Extend mesh refinement
+	gmsh::option::setNumber("Mesh.MeshSizeFromPoints", input);
+	gmsh::option::setNumber("Mesh.MeshSizeFromCurvature", input);
+	gmsh::option::setNumber("Mesh.MeshSizeExtendFromBoundary", input);
+}
+
+void setDistanceField(int distance_field, 
+					  double meshSize, double localSize, 
+					  double refineRange){
+
+	// Create a threshold field that defines the refinement region
+	int threshold_field = gmsh::model::mesh::field::add("Threshold");
+
+	gmsh::model::mesh::field::setNumber(threshold_field, "InField", distance_field);
+	gmsh::model::mesh::field::setNumber(threshold_field, "SizeMin", localSize);
+	gmsh::model::mesh::field::setNumber(threshold_field, "SizeMax", meshSize);
+	gmsh::model::mesh::field::setNumber(threshold_field, "DistMin", localSize);
+	gmsh::model::mesh::field::setNumber(threshold_field, "DistMax", refineRange);
+
+	// gmsh::model::mesh::field::setNumber(threshold_field, "Sigmoid", true);
+	gmsh::model::mesh::field::setAsBackgroundMesh(threshold_field);
+}
+
+void refineCell(std::vector<std::pair<int, int>> &cell,
+				double localSize, double meshSize){
+	
+	// Get the boundary of each cell
+	std::vector<std::pair<int, int>> cell_boundary;
+	gmsh::model::getBoundary(cell, cell_boundary, false, false, false);
+
+	// Create a distance field for local refinement
+	int distance_field = gmsh::model::mesh::field::add("Distance");
+
+	if (cell_boundary[0].first < 2){ // 1 -> curves
+
+		// Get the ID of each boundary
+        std::vector<double> curves(cell_boundary.size()); // gmsh::...:setNumbers expects <double> for some reason
+        for (int i = 0; i<cell_boundary.size(); i++){
+            curves[i] = cell_boundary[i].second;
+        }
+
+        gmsh::model::mesh::field::setNumbers(distance_field, "CurvesList", curves);
+    
+    } else { // 2 -> faces
+        
+        // Get the ID of each boundary
+        std::vector<double> faces(cell_boundary.size()); // gmsh::...:setNumbers expects <double> for some reason
+        for (int i = 0; i<cell_boundary.size(); i++) {
+            faces[i] = cell_boundary[i].second;
+        }
+
+        gmsh::model::mesh::field::setNumbers(distance_field, "FacesList", faces);
+    }
+    
+    // Set number of sampling points over the surfaces
+    gmsh::model::mesh::field::setNumber(distance_field, "Sampling", 500); // default is 100
+    
+    // Enforce the distance field by a threshold field
+    setDistanceField(distance_field, meshSize, localSize, 2 * meshSize);
+
+} // Local mesh refinement on target cells
+
+// Generate 2D mesh
 void Mesh2D(MESH2D& mesh, // Populate this mesh struct
 			  double meshSize, 
 			  double localSize){
