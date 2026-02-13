@@ -54,6 +54,8 @@ int main()
 	println(mesh.nt);
 	print("Number of nodes: ");
 	println(mesh.nv);
+	print("Number of elements in 'cells': ");
+	println(mesh.nInside);
 
 	if(showGmsh){ gmsh::fltk::run(); }
 	gmsh::finalize();

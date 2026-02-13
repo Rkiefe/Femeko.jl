@@ -124,15 +124,37 @@ void Mesh2D(  MESH2D& mesh, // Populate this mesh struct
 		}
 
 		// Get the element tags in 'cells'
-		// if(cells.size>0){
-		// 	mesh.nInside = 0;
-		// 	for(int k = 0; k<mesh.nt; k++){
-		// 		std::vector<std::size_t> nodeTags;
-		// 		gmsh::model::mesh::getElement(elementTags[k], 2, nodeTags, 2);
-		// 	}
-		// }
+		mesh.nInside = 0;
+		mesh.InsideElements.reserve(mesh.nt); // At most this vector holds every tag
+
+		if(cells.size()>0){ // Check which elements belong to 'cells' 
+
+			for(int k = 0; k<mesh.nt; k++){
+				
+				size_t tag = elementTags[k]; // Input | element tag
+
+		        int elementType; // output | type of element
+		        std::vector<std::size_t> nodeTags; // Output | nodes of the element
+		        int dim; // Output: geometric dimension of the element
+		        int id; // Output: ID of the entity where element is classified
+		        
+		        // Get the cell ID of the current element 
+		        gmsh::model::mesh::getElement(tag, elementType, nodeTags, dim, id);
+
+		        // Sweep each cell ID and see if it matches
+		        for(int cell = 0; cell<cells.size(); cell++){
+					int cellID = cells[cell].second; // (dim, tag)
+					if(cellID == id){ // Found a cell with the element tag
+						mesh.InsideElements.push_back(k);
+						mesh.nInside++;
+					}
+		        }
+			
+			} // Loop over the elements
+
+		} // Check what element tags are in 'cells'
 	
 	} // Mesh connectivity (3 by nt)
 
-	// return mesh;
-}
+
+} // Mesh2D()
