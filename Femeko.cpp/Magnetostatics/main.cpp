@@ -1,16 +1,13 @@
-/* !! Read the readme.md for instructions on how to setup and compile
-
-	This creates a rectangle inside a disk and make a conforming mesh
-	with local refinement on the boundaries if the rectangle
-
+/* 
+	
 	- compile with
-	g++ mesh2Dexample.cpp -o mesh2Dexample.out -I gmsh-4.15.0-Linux64-sdk/include -L gmsh-4.15.0-Linux64-sdk/lib -l gmsh -Wl,-rpath,gmsh-4.15.0-Linux64-sdk/lib
+	g++ main.cpp -o main.out -I ../gmsh-4.15.0-Linux64-sdk/include -L ../gmsh-4.15.0-Linux64-sdk/lib -l gmsh -Wl,-rpath,../gmsh-4.15.0-Linux64-sdk/lib
 	
 	- run with
-	./mesh2Dexample.out
+	./main.out
 */
 
-#include "src/femeko.h"
+#include "../src/femeko.h"
 
 int main()
 {
@@ -42,19 +39,20 @@ int main()
 		println(cell.second);
 	}
 	
+	// Add local refinement
+	refineCell(cells, localSize, meshSize);
+
 	// Create the mesh
 	extendLocalRefinement(0.0);
+
 	MESH2D mesh;
-	Mesh2D(mesh, meshSize, localSize, cells);
+	Mesh2D(mesh, meshSize, localSize);
 
 	// println("Opening Gmsh GUI");
 	gmsh::fltk::run();
 	gmsh::finalize();
 
 
-	// Print some mesh properties
-
-
-
+	
 	return 0;
 }

@@ -75,17 +75,23 @@ void refineCell(std::vector<std::pair<int, int>> &cell,
 } // Local mesh refinement on target cells
 
 // Generate 2D mesh
-void Mesh2D(MESH2D& mesh, // Populate this mesh struct
+void Mesh2D(  MESH2D& mesh, // Populate this mesh struct
 			  double meshSize, 
-			  double localSize){
+			  double localSize,
+			  std::vector<std::pair<int, int>> &cells){
 
-	{ // Mesh
-		// Set maximum element size
-		gmsh::option::setNumber("Mesh.MeshSizeMax", meshSize);
-
-	    gmsh::model::mesh::generate(2);
-	    gmsh::model::mesh::optimize();
+	// Set maximum element size
+	gmsh::option::setNumber("Mesh.MeshSizeMax", meshSize);
+	
+	// Add local refinement
+	if(cells.size()>0){
+		refineCell(cells, localSize, meshSize);
 	}
+	
+	// Generate the mesh
+    gmsh::model::mesh::generate(2);
+    gmsh::model::mesh::optimize();
+
 	println("\nFinished generating the mesh and optimizing it.");
 	println("Extracting mesh info into Femeko format...");
 
