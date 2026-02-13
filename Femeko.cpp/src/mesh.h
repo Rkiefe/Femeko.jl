@@ -6,6 +6,9 @@ struct MESH2D
 	int nt; // Number of elements
 	Eigen::MatrixXd p; // Mesh node coordinates | 3 by nv
 	Eigen::MatrixXi t; // Mesh node connectivity| 3 by nt
+
+	std::vector<int> InsideElements; // Elements tags for the volumes in 'cells'
+	int nInside; // Number of elements in 'InsideElements'
 };
 
 
@@ -87,7 +90,7 @@ void Mesh2D(  MESH2D& mesh, // Populate this mesh struct
 	if(cells.size()>0){
 		refineCell(cells, localSize, meshSize);
 	}
-	
+
 	// Generate the mesh
     gmsh::model::mesh::generate(2);
     gmsh::model::mesh::optimize();
@@ -101,8 +104,8 @@ void Mesh2D(  MESH2D& mesh, // Populate this mesh struct
 		std::vector<double> coord, coordParam;
 		gmsh::model::mesh::getNodes(nodes, coord, coordParam);
 		
-		int nv = nodes.size();
-		mesh.p = Eigen::Map<Eigen::MatrixXd>(coord.data(), 3, nv);
+		mesh.nv = nodes.size();
+		mesh.p = Eigen::Map<Eigen::MatrixXd>(coord.data(), 3, mesh.nv);
 	} // Get mesh node coordinates (x,y,z) by nv
 
 	// Get mesh connectivity:
@@ -110,15 +113,25 @@ void Mesh2D(  MESH2D& mesh, // Populate this mesh struct
 		std::vector<std::size_t> elementTags, elementNodeTags;
 		gmsh::model::mesh::getElementsByType(2, elementTags, elementNodeTags); // is type 2 for p1 triangles?
 
-		int nt = elementTags.size();
-		mesh.t = Eigen::MatrixXi::Zero(3, nt);
+		mesh.nt = elementTags.size();
+		mesh.t = Eigen::MatrixXi::Zero(3, mesh.nt);
 		int n = 0;
-		for(int k = 0; k<nt; k++){ // For each element
+		for(int k = 0; k<mesh.nt; k++){ // For each element
 			for(int i = 0; i<3; i++){ // For each node
-				mesh.t(i, k) = elementNodeTags[n];
+				mesh.t(i, k) = elementNodeTags[n]-1; // Gmsh node labels start at 1
 				n++;
 			}
 		}
+
+		// Get the element tags in 'cells'
+		// if(cells.size>0){
+		// 	mesh.nInside = 0;
+		// 	for(int k = 0; k<mesh.nt; k++){
+		// 		std::vector<std::size_t> nodeTags;
+		// 		gmsh::model::mesh::getElement(elementTags[k], 2, nodeTags, 2);
+		// 	}
+		// }
+	
 	} // Mesh connectivity (3 by nt)
 
 	// return mesh;

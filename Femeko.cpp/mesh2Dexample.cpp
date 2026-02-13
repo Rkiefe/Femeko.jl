@@ -18,6 +18,7 @@ int main()
 
 	double meshSize = 1.0; 	// Maximum mesh size
 	double localSize = 0.1; // Local element size
+	bool showGmsh = false; // Open gmsh GUI ?
 
 	// Hold the label of each cell added
 	std::vector<std::pair<int, int>> cells;
@@ -37,6 +38,7 @@ int main()
 
 	unifyModel(cells, shellID);
 
+	// Show the cells that are inside the disk
 	println("Cells inside the bounding shell:");
 	for(std::pair<int, int> cell : cells){
 		println(cell.second);
@@ -47,14 +49,14 @@ int main()
 	MESH2D mesh;
 	Mesh2D(mesh, meshSize, localSize, cells);
 
-	// println("Opening Gmsh GUI");
-	gmsh::fltk::run();
-	gmsh::finalize();
-
-
 	// Print some mesh properties
+	print("\nNumber of elements: ");
+	println(mesh.nt);
+	print("Number of nodes: ");
+	println(mesh.nv);
 
-
+	if(showGmsh){ gmsh::fltk::run(); }
+	gmsh::finalize();
 
 	return 0;
 }
