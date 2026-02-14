@@ -16,7 +16,7 @@ Here is an example of how easy it is to create a model and mesh to simulate a ma
     # or import your own model with
     importCAD("STEP_Models/Fennec_Fox.step")
 ```
-Then, you can access the 3 nodes of the first element by `nodes = mesh.t[:, 1]`, and the x,y coordinates of each node of that element with `xy = mesh.p[:, nodes]`. You also have access to the boundary elements and their respect boundary ID with `mesh.surfaceT[1:3, elementTag]`, this would output the 2 nodes + boundary ID (in 2D) or 3 nodes + boundary ID (in 3D).
+Then, you can access the 3 nodes of the first element by `nodes = mesh.t[:, 1]`, and the x,y coordinates of each node of that element with `xy = mesh.p[:, nodes]`. You also have access to the boundary elements and their respective boundary ID with `mesh.surfaceT[:, elementTag]`, this would output the 2 nodes + boundary ID (in 2D) or 3 nodes + boundary ID (in 3D).
 
 ## Femeko.jl currently has full fledged implementations for
 - Magnetostatics (non-linear magnetic materials under applied fields, permanent magnets, etc)
