@@ -1,4 +1,5 @@
 /* 
+	Calculates the demagnetizing field of a given magnetization field M
 	
 	- compile with
 	g++ main.cpp -o main.out -I ../gmsh-4.15.0-Linux64-sdk/include -L ../gmsh-4.15.0-Linux64-sdk/lib -l gmsh -Wl,-rpath,../gmsh-4.15.0-Linux64-sdk/lib
