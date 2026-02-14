@@ -19,7 +19,7 @@ int main()
 	// Mesh settings
 	double meshSize = 1.0; 	// Maximum mesh size
 	double localSize = 0.1; // Local element size
-	bool showGmsh = false; // Open gmsh GUI ?
+	bool showGmsh = true; // Open gmsh GUI ?
 
 	// Applied field
 	double mu0 = pi*4e-7; // Vacuum magnetic permeability
@@ -45,6 +45,8 @@ int main()
 	}
 
 	unifyModel(cells, shellID);
+
+	int shellBoundary = 1; // Boundary of the bounding shell
 
 	// Show the cells that are inside the disk
 	println("Cells inside the bounding shell:");
@@ -81,11 +83,8 @@ int main()
 
 	// Magnetic permeability
 	std::vector<double> mu(mesh.nt, 1.0);
-
-	// Magnetization field
-	Eigen::MatrixXd M = Eigen::MatrixXd::Zero(2, mesh.nt);
 	for(int k : mesh.InsideElements){
-		M(0, k) = 1.0;
+		mu[k] = 2.0;
 	}
 
 	print("\nBuilding the P1 coefficients for each node of each element... ");	
@@ -155,34 +154,48 @@ int main()
 		A.setFromTriplets(triplets.begin(), triplets.end());
 	}
 
-
 	// Load vector
+	Eigen::VectorXd RHS = Eigen::VectorXd::Zero(mesh.nv+1);
+	for(int s = 0; s<mesh.ns; s++){ // each boundary element
 
+		int ID = mesh.surfaceT(2, s);
+		if(ID != shellBoundary){
+			continue;
+		}
 
+		double bc = Bext[0]*mesh.normal(0, s) + 
+					Bext[1]*mesh.normal(1, s);
 
-	// // Solve for the magnetic scalar potential
-	// print("Calculating the magnetostatic potential by the Conjugate Gradient method... ");
-	// Eigen::VectorXd u = solver.compute(A) .solve(RHS);
-	// println("Done.");
+		// bc /= mu0;
+
+		for(int i = 0; i<2; i++){ // Each node of the boundary element
+			RHS(mesh.surfaceT(i, s)) += 0.5*bc *mesh.AE[s];
+		}
+	} // Boundary conditions
+
+	// Solve for the magnetic scalar potential
+	print("Calculating the magnetostatic potential by the Conjugate Gradient method... ");
+	Eigen::VectorXd u = solver.compute(A) .solve(RHS);
+	println("Done.");
 
 	// Calculate the magnetic field from the scalar potential
-	Eigen::MatrixXd Hd = Eigen::MatrixXd::Zero(2, mesh.nt);
+	Eigen::MatrixXd H = Eigen::MatrixXd::Zero(2, mesh.nt);
 	for(int k = 0; k<mesh.nt; k++){
 
 		// Sum contributions
 		for(int i = 0; i<3; i++){
 			int nd = mesh.t(i, k);
 
-			Hd(0, k) -= u[nd]*P1b(i, k);
-			Hd(1, k) -= u[nd]*P1c(i, k);
+			H(0, k) -= u[nd]*P1b(i, k);
+			H(1, k) -= u[nd]*P1c(i, k);
 		}
 	}
 
 	print("Saving to .txt files... ");
-	{ // Magnetization
-		std::ofstream file("M.txt");
+	{ // Magnetic field H
+		std::ofstream file("H.txt");
 		if (file.is_open()) {
-		    file << M << std::endl;
+		    file << H << std::endl;
 		    file.close();
 		}
 	}
@@ -190,13 +203,6 @@ int main()
 		std::ofstream file("centers.txt");
 		if (file.is_open()) {
 		    file << centers << std::endl;
-		    file.close();
-		}
-	}
-	{ // Magnetic field
-		std::ofstream file("Hd.txt");
-		if (file.is_open()) {
-		    file << Hd << std::endl;
 		    file.close();
 		}
 	}
