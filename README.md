@@ -2,20 +2,21 @@
 
 # Femeko.jl
 
-Creating a Finite Element simulation from scratch is unnecessarily complicated. From mesh generation, mesh quality, geometry handling, data structures, when does your FEM implementation start?
+Using Gmsh, Femeko simplifies the model creation and mesh generation, and provides the relevant data in a digested and simple structure.
 
-Femeko is my answer to "I want to make my own FEM, have full control over my implementation, but I want everything else related to FEM to be as easy as possible" (mesh generation, model handling and data structures).
-
-Femeko streamlines Gmsh functionality, making geometry handling and mesh generation more straightforward
-
+Here is an example of how easy it is to create a model and mesh to simulate a magnet in free space with Femeko:
 ```julia
-    # Import cad file 
-    importCAD("STEP_Models/Fennec_Fox.step")
+    cells = [] # Holds each entity (dim, tag) property     
+    addRectangle([0.0,  0.0], [2.0, 1.0], cells) # 2 by 1 magnet
+    ID = addDisk([0.0, 0.0], 10.0) # Disk of radius 10 with tag 'ID'
+    unifyModel(cells, ID) # Combine the geometries to create a conforming mesh
+    mesh = Mesh2D(cells, 2.0, 0.1) # Create a mesh with maximum element size 2.0
+                                   # and with local 0.1 size mesh refinement on the magnet's boundary
 
-    # Generate a tetrahedral mesh
-    mesh = Mesh(cells, meshSize, localSize, saveMesh) # typeof(mesh) -> struct
+    # or import your own model with
+    importCAD("STEP_Models/Fennec_Fox.step")
 ```
-The `mesh` struct holds the mesh information in a digested format, such as node connectivity and node coordinates, element volume and surface element area, etc. For example, you can access the 4 nodes of the first tetrahedron with `mesh.t[:, 1]`, which would output a vector of 4 integers; access the 3 nodes of the 2nd surface triangle with `mesh.surfaceT[1:3, 2]` and its corresponding boundary ID with `mesh.surfaceT[4, 2]` (the 4th row stores the IDs of each triangle).
+Then, you can access the 3 nodes of the first element by `nodes = mesh.t[:, 1]`, and the x,y coordinates of each node of that element with `xy = mesh.p[:, nodes]`. You also have access to the boundary elements and their respect boundary ID with `mesh.surfaceT[1:3, elementTag]`, this would output the 2 nodes + boundary ID (in 2D) or 3 nodes + boundary ID (in 3D).
 
 ## Femeko.jl currently has full fledged implementations for
 - Magnetostatics (non-linear magnetic materials under applied fields, permanent magnets, etc)
@@ -32,7 +33,6 @@ Femeko has implementations for both 3D and 2D in most physics packages.
 
 ## Table of Contents
 - [Fully featured examples](#examples)
-- [Basic model creation and mesh gen](#functionality)
 - [Installation](#installation)
 - [C++ available implementations](#current-c-alternatives-covered)
 
@@ -66,38 +66,6 @@ The Micromagnetics package has two distinct functionalities, based on the Landau
 <img width="551" height="443" alt="M_time_permalloy" src="https://github.com/user-attachments/assets/5434942c-a6dd-4444-aadf-c945c17e593b" />
 
 
-## Functionality
-Make a high quality 3D mesh of your model and get all the properties you need, easily accessible in a simple MESH() object, powered by Gmsh. Make a local mesh refinement, based on the volume ID, or just set a target mesh size.
-
-Automatically create a bounding shell for your 3D model, simplifying magnetic field simulations. You can define the scale of your bounding shell directly in import phase of your .step file, or keep the default "5x larger". The local refinement is automatically set for every cell that isn't the container volume.
-
-You can import your geometry (and automatically create a bounding shell for open boundary problems) with
-```
-importCAD(fileName)
-```
-
-Or make your own geometry with cuboids
-```
-box = addCuboid([X, Y, Z], [W, D, H], cells)
-```
-And/or spheres as
-```
-addSphere([X, Y, Z], radius, cells)
-```
-where `cells` is an array of all current volume ID's. Each cell ID you add is tracked for you.
-You can generate a mesh for your model simply by
-```
-mesh = Mesh(cells, meshSize, localSize, saveMesh)
-```
-
-`meshSize` sets the overall target element size, and `localSize` sets a target local element size, automatically defined for every volume ID in `cells`.
-
-![twoBalls](https://github.com/user-attachments/assets/3b9549ba-3968-40f1-94a4-5c21ce37ca9e)
-
-Both internal and bounding shell surfaces are preserved. You can neatly access the nodes of any surface element of your mesh directly: `mesh.surfaceT[:, i]` outputs a vector of length 3 with the node labels that make the `i` surface element. You also have direct access to mesh element volumes, surface triangle normals and the area of each surface triangle.
-
-The output mesh object is optimized for Finite-Element simulations, see `meshExample.jl` for two simple examples of a) importing a cad file and b) making your own model with simple shapes.
-
 ### Installation
 Main install:
 - Open the Repl
@@ -114,8 +82,14 @@ Compiling C++ alternative implementations:
 
 ### Current C++ alternatives covered
 
+Femeko has two types of C++ implementations. A full 100% rewrite to C++ and a mix between Julia and C++ with Julia's `ccall()`.
+The mixed language use has:
 - Magnetostatics has a complete C++ alternative available.
-- Micromagnetics has a full implementation based on FEM and an older implementation based on FEM-BEM.
+- Micromagnetics has a full implementation with FEM and an older implementation with FEM-BEM.
+
+The 100% rewrite has:
+- Magnetostatics
+
 
 ### Source code organization
 Femeko is organized as:
@@ -127,7 +101,8 @@ Femeko is organized as:
 | `Magnetostatics/` | Magnetostatics simulation implementation                         |
 | `Micromagnetics/` | Micromagnetics simulation implementation                         |
 | `STEP_Models/`    | Example .STEP files to import 3D models                          |
-| `cFemeko/`        | C++ variants of Femeko for increased performance                 |
+| `cFemeko/`        | Combined use of C++ and Julia                 |
+| `Femeko.cpp/`     | 100% rewrite to C++               |
 | `extern/`         | external libraries needed for C++ implementations                |
 
 ### License
