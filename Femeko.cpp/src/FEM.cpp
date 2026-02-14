@@ -1,7 +1,7 @@
 #define pi 3.14159265358979311600
 
 // FEM basis function
-Eigen::Vector4d abcd(Eigen::Ref<Eigen::MatrixXd> p,Eigen::Vector4i nodes,int nd){
+Eigen::Vector4d abcd(Eigen::Ref<Eigen::MatrixXd> p, Eigen::Vector4i nodes,int nd){
 	
 	int nds[3] = {0,0,0};		// All other nodes of the element
 	{ // Get nodes different than nd
@@ -26,18 +26,6 @@ Eigen::Vector4d abcd(Eigen::Ref<Eigen::MatrixXd> p,Eigen::Vector4i nodes,int nd)
 
 	return r;
 } // FEM basis function
-
-// Area of surface triangle
-double areaTriangle(Eigen::Ref<Eigen::MatrixXd> p, int i0, int i1, int i2){
-	// Area by cross product 
-	Eigen::Vector3d AB = p.col(i1) - p.col(i0);
-	Eigen::Vector3d AC = p.col(i2) - p.col(i0);
-
-	Eigen::Vector3d cross = AB.cross(AC);
-	double area = 0.5 * cross.norm();
-
-    return area;
-} // Area of the 3D triangle
 
 // Lagrange multiplier technique | Volume integral of basis function
 Eigen::VectorXd lagrange(

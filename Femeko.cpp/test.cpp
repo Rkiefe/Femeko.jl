@@ -1,5 +1,4 @@
-#include <iostream>
-#include "../extern/eigen/Eigen/Dense"
+#include "src/femeko.h"
 
 int main(int argc, char const *argv[])
 {

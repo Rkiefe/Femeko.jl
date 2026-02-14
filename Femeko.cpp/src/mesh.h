@@ -80,6 +80,18 @@ void refineCell(std::vector<std::pair<int, int>> &cell,
 
 } // Local mesh refinement on target cells
 
+// Area of surface triangle
+double areaTriangle(Eigen::Ref<Eigen::MatrixXd> p, int i0, int i1, int i2){
+	// Area by cross product 
+	Eigen::Vector3d AB = p.col(i1) - p.col(i0);
+	Eigen::Vector3d AC = p.col(i2) - p.col(i0);
+
+	Eigen::Vector3d cross = AB.cross(AC);
+	double area = 0.5 * cross.norm();
+
+    return area;
+} // Area of the 3D triangle
+
 // Generate 2D mesh
 void Mesh2D(  MESH2D& mesh, // Populate this mesh struct
 			  double meshSize, 
@@ -159,5 +171,13 @@ void Mesh2D(  MESH2D& mesh, // Populate this mesh struct
 	
 	} // Mesh connectivity (3 by nt)
 
+	// Area of each element
+	mesh.VE.assign(mesh.nt, 0.0); 
+	for(int k = 0; k<mesh.nt; k++){
+		mesh.VE[k] = areaTriangle(mesh.p, 
+								  mesh.t(0, k), 
+								  mesh.t(1, k),
+								  mesh.t(2, k));
+	}
 
 } // Mesh2D()
