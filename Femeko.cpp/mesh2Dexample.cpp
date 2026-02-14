@@ -52,8 +52,13 @@ int main()
 	// Print some mesh properties
 	print("\nNumber of elements: ");
 	println(mesh.nt);
+	
 	print("Number of nodes: ");
 	println(mesh.nv);
+
+	print("Number of boundary elements: ");
+	println(mesh.ns);
+
 	print("Number of elements in 'cells': ");
 	println(mesh.nInside);
 

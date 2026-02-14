@@ -7,6 +7,9 @@ struct MESH2D
 	Eigen::MatrixXd p; // Mesh node coordinates | 3 by nv
 	Eigen::MatrixXi t; // Mesh node connectivity| 3 by nt
 
+	int ns; // Number of boundary elements
+	Eigen::MatrixXi surfaceT; // Boundary elements connectivity (3 by ns)
+
 	std::vector<int> InsideElements; // Elements tags for the volumes in 'cells'
 	int nInside; // Number of elements in 'InsideElements'
 
@@ -126,7 +129,7 @@ void Mesh2D(  MESH2D& mesh, // Populate this mesh struct
 	// Get mesh connectivity:
 	{
 		std::vector<std::size_t> elementTags, elementNodeTags;
-		gmsh::model::mesh::getElementsByType(2, elementTags, elementNodeTags); // is type 2 for p1 triangles?
+		gmsh::model::mesh::getElementsByType(2, elementTags, elementNodeTags); // type 2 for p1 triangles
 
 		mesh.nt = elementTags.size();
 		mesh.t = Eigen::MatrixXi::Zero(3, mesh.nt);
@@ -171,6 +174,32 @@ void Mesh2D(  MESH2D& mesh, // Populate this mesh struct
 	
 	} // Mesh connectivity (3 by nt)
 
+	// Get the boundary connectivity (edges)
+	{
+		// Get the boundary element tags
+		std::vector<std::size_t> elementTags, elementNodeTags;
+		gmsh::model::mesh::getElementsByType(1, elementTags, elementNodeTags); // type 1 for p1 edges
+
+		mesh.ns = elementTags.size();
+		mesh.surfaceT = Eigen::MatrixXi::Zero(3, mesh.ns);
+		for(int s = 0; s<mesh.ns; s++){
+			size_t tag = elementTags[s]; // Input | element tag
+
+			int elementType; // output | type of element
+			std::vector<std::size_t> nodeTags; // Output | nodes of the element
+			int dim; // Output: geometric dimension of the element
+			int id; // Output: ID of the entity where element is classified
+
+			// Get the cell ID of the current element 
+			gmsh::model::mesh::getElement(tag, elementType, nodeTags, dim, id);
+
+			// Store the nodes and the boundary ID in mesh.surfaceT
+			mesh.surfaceT(0, s) = nodeTags[0]-1; // Gmsh labels starts at 1
+			mesh.surfaceT(1, s) = nodeTags[1]-1; // ...
+			mesh.surfaceT(2, s) = id;
+		}
+	}
+
 	// Area of each element
 	mesh.VE.assign(mesh.nt, 0.0); 
 	for(int k = 0; k<mesh.nt; k++){
@@ -178,6 +207,19 @@ void Mesh2D(  MESH2D& mesh, // Populate this mesh struct
 								  mesh.t(0, k), 
 								  mesh.t(1, k),
 								  mesh.t(2, k));
+	}
+
+	// Length of each boundary element
+	mesh.AE.assign(mesh.ns, 0.0);
+	for(int s = 0; s<mesh.ns; s++){
+
+		int i = mesh.surfaceT(0, s);
+		int j = mesh.surfaceT(1, s);
+
+		double dx = mesh.p(0, j) - mesh.p(0, i);
+		double dy = mesh.p(1, j) - mesh.p(1, i);
+
+		mesh.AE[s] = std::sqrt(dx*dx + dy*dy); 
 	}
 
 } // Mesh2D()
