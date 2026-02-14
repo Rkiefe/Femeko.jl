@@ -3,10 +3,10 @@
 	and a source field
 	
 	- compile with
-	g++ test.cpp -o test.out -I ../gmsh-4.15.0-Linux64-sdk/include -L ../gmsh-4.15.0-Linux64-sdk/lib -l gmsh -Wl,-rpath,../gmsh-4.15.0-Linux64-sdk/lib
+	g++ permeable2D.cpp -o permeable2D.out -I ../gmsh-4.15.0-Linux64-sdk/include -L ../gmsh-4.15.0-Linux64-sdk/lib -l gmsh -Wl,-rpath,../gmsh-4.15.0-Linux64-sdk/lib
 	
 	- run with
-	./test.out
+	./permeable2D.out
 */
 
 #include "../src/femeko.h"
@@ -19,11 +19,11 @@ int main()
 	// Mesh settings
 	double meshSize = 1.0; 	// Maximum mesh size
 	double localSize = 0.1; // Local element size
-	bool showGmsh = true; // Open gmsh GUI ?
+	bool showGmsh = false; // Open gmsh GUI ?
 
 	// Applied field
 	double mu0 = pi*4e-7; // Vacuum magnetic permeability
-	Eigen::Vector2d Bext = {1.0, 0.0}; // Not used in this simulation
+	Eigen::Vector2d Hext = {1.0/mu0, 0.0}; // Not used in this simulation
 
 	// Linear solver
 	Eigen::ConjugateGradient<Eigen::SparseMatrix<double>> solver;
@@ -82,9 +82,9 @@ int main()
 	}
 
 	// Magnetic permeability
-	std::vector<double> mu(mesh.nt, 1.0);
-	for(int k : mesh.InsideElements){
-		mu[k] = 2.0;
+	std::vector<double> mu(mesh.nt, mu0); // Free space
+	for(int k : mesh.InsideElements){ // Magnetic region
+		mu[k] = mu0*(1.0 + 2.0);
 	}
 
 	print("\nBuilding the P1 coefficients for each node of each element... ");	
@@ -163,10 +163,10 @@ int main()
 			continue;
 		}
 
-		double bc = Bext[0]*mesh.normal(0, s) + 
-					Bext[1]*mesh.normal(1, s);
+		double bc = Hext[0]*mesh.normal(0, s) + 
+					Hext[1]*mesh.normal(1, s);
 
-		// bc /= mu0;
+		bc *= mu0;
 
 		for(int i = 0; i<2; i++){ // Each node of the boundary element
 			RHS(mesh.surfaceT(i, s)) += 0.5*bc *mesh.AE[s];
