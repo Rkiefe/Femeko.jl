@@ -15,6 +15,7 @@ int main()
 
 	double meshSize = 1.0; 	// Maximum mesh size
 	double localSize = 0.1; // Local element size
+	bool showGmsh = false; // Open gmsh GUI ?
 
 	// Hold the label of each cell added
 	std::vector<std::pair<int, int>> cells;
@@ -34,25 +35,32 @@ int main()
 
 	unifyModel(cells, shellID);
 
+	// Show the cells that are inside the disk
 	println("Cells inside the bounding shell:");
 	for(std::pair<int, int> cell : cells){
 		println(cell.second);
 	}
 	
-	// Add local refinement
-	refineCell(cells, localSize, meshSize);
-
 	// Create the mesh
 	extendLocalRefinement(0.0);
-
 	MESH2D mesh;
-	Mesh2D(mesh, meshSize, localSize);
+	Mesh2D(mesh, meshSize, localSize, cells);
 
-	// println("Opening Gmsh GUI");
-	gmsh::fltk::run();
+	// Print some mesh properties
+	print("\nNumber of elements: ");
+	println(mesh.nt);
+	print("Number of nodes: ");
+	println(mesh.nv);
+	print("Number of elements in 'cells': ");
+	println(mesh.nInside);
+
+	if(showGmsh){ gmsh::fltk::run(); }
 	gmsh::finalize();
 
-
+	// Build the stiffness matrix
 	
+
+
+
 	return 0;
 }

@@ -15,3 +15,6 @@
 
 // Handles mesh generation
 #include "mesh.h"
+
+// Handles the Finite Element Method logic
+#include "FEM.cpp"
