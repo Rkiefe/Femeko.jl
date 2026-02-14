@@ -13,6 +13,8 @@ struct MESH2D
 	std::vector<int> InsideElements; // Elements tags for the volumes in 'cells'
 	int nInside; // Number of elements in 'InsideElements'
 
+	Eigen::MatrixXd normal; // Normal to boundary element
+
 	std::vector<double> VE; // Volume of each element (triangle area in 2D)
 	std::vector<double> AE; // Area of each element (line length in 2D)
 };
@@ -94,6 +96,19 @@ double areaTriangle(Eigen::Ref<Eigen::MatrixXd> p, int i0, int i1, int i2){
 
     return area;
 } // Area of the 3D triangle
+
+Eigen::Vector2d normalEdge(Eigen::Ref<Eigen::MatrixXd> p, 
+						   Eigen::Vector3i nds){ // size 3 because an edge holds the Boundary ID
+
+	double x = p(0, nds[1]) - p(0, nds[0]);
+	double y = p(1, nds[1]) - p(1, nds[0]);
+
+	double norm = std::sqrt(x*x + y*y);
+
+	Eigen::Vector2d n = {-y/norm, x/norm}; // normal to edge
+	return n;
+}
+
 
 // Generate 2D mesh
 void Mesh2D(  MESH2D& mesh, // Populate this mesh struct
@@ -209,7 +224,8 @@ void Mesh2D(  MESH2D& mesh, // Populate this mesh struct
 								  mesh.t(2, k));
 	}
 
-	// Length of each boundary element
+	// Length and normal of each boundary element
+	mesh.normal = Eigen::MatrixXd::Zero(2, mesh.ns);
 	mesh.AE.assign(mesh.ns, 0.0);
 	for(int s = 0; s<mesh.ns; s++){
 
@@ -219,7 +235,8 @@ void Mesh2D(  MESH2D& mesh, // Populate this mesh struct
 		double dx = mesh.p(0, j) - mesh.p(0, i);
 		double dy = mesh.p(1, j) - mesh.p(1, i);
 
-		mesh.AE[s] = std::sqrt(dx*dx + dy*dy); 
+		mesh.AE[s] = std::sqrt(dx*dx + dy*dy);
+		mesh.normal.col(s) = normalEdge(mesh.p, mesh.surfaceT.col(s)); 
 	}
 
 } // Mesh2D()
