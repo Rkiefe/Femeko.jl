@@ -1,11 +1,12 @@
 /* 
-	Calculates the demagnetizing field of a given magnetization field M
+	Calculates the magnetostatic interaction between a magnetic material
+	and a source field
 	
 	- compile with
-	g++ 2Dmagnet.cpp -o 2Dmagnet.out -I ../gmsh-4.15.0-Linux64-sdk/include -L ../gmsh-4.15.0-Linux64-sdk/lib -l gmsh -Wl,-rpath,../gmsh-4.15.0-Linux64-sdk/lib
+	g++ test.cpp -o test.out -I ../gmsh-4.15.0-Linux64-sdk/include -L ../gmsh-4.15.0-Linux64-sdk/lib -l gmsh -Wl,-rpath,../gmsh-4.15.0-Linux64-sdk/lib
 	
 	- run with
-	./main.out
+	./test.out
 */
 
 #include "../src/femeko.h"
@@ -30,7 +31,7 @@ int main()
 	// Hold the label of each cell added
 	std::vector<std::pair<int, int>> cells;
 
-	{ // Add a rectangle
+	{ // Add a rectangle (magnetic material)
 		std::vector<double> position = {0.0, 0.0};
 		std::vector<double> dimensions = {2.0, 1.0};
 		addRectangle(position, dimensions, cells);
