@@ -9,37 +9,6 @@
 
 #include "../src/femeko.h"
 
-Eigen::Vector3d linearBasis(Eigen::Ref<Eigen::MatrixXd> p,
-							Eigen::Vector3i nodes,
-							int nd){
-
-
-
-	int nd1 = -1;
-	int nd2 = -1;
-	for(int i : nodes){
-		if(i != nd){
-			if(nd1<0){
-				nd1 = i;
-			}else if(nd2<0){
-				nd2 = i;
-			}
-		}
-	} // Find the nodes that are not 'nd'
-
-	// Build the matrix equation for the a b c d
-	Eigen::Matrix3d M(3, 3);
-	M.row(0) << 1.0, p(0, nd),  p(1, nd);
-	M.row(1) << 1.0, p(0, nd1), p(1, nd1);
-	M.row(2) << 1.0, p(0, nd2), p(1, nd2);
-
-	Eigen::Vector3d b(1.0, 0.0, 0.0);
-	Eigen::Vector3d r = M.colPivHouseholderQr().solve(b);
-
-	return r;
-}
-
-
 int main()
 {
 	gmsh::initialize();
@@ -88,9 +57,9 @@ int main()
 	if(showGmsh){ gmsh::fltk::run(); }
 	gmsh::finalize();
 
-	// int k = 0;
-	// Eigen::Vector3d abc = linearBasis(mesh.p, mesh.t.col(k), mesh.t(0, k));
-	
+	// Magnetic permeability
+	std::vector<double> mu(mesh.nt, 1.0);
+
 	// Get the linear basis function for each node of each element
 	Eigen::MatrixXd P1a(3, mesh.nt);
 	Eigen::MatrixXd P1b(3, mesh.nt);
@@ -98,7 +67,7 @@ int main()
 
 	for(int k = 0; k<mesh.nt; k++){ // Each element
 		for(int i = 0; i<3; i++){ // Each node of current element
-			Eigen::Vector3d abc = linearBasis(mesh.p, mesh.t.col(k), mesh.t(i, k));
+			Eigen::Vector3d abc = linearBasis2D(mesh.p, mesh.t.col(k), mesh.t(i, k));
 			
 			P1a(i, k) = abc(0);
 			P1b(i, k) = abc(1);
@@ -106,14 +75,12 @@ int main()
 		}
 	}
 
-	// Build the stiffness matrix
-	Eigen::MatrixXd Ak(9, mesh.nt); // Local stiffness matrix
-	for(int k = 0; k<mesh.nt; k++){
-		Eigen::Matrix3d aux = mesh.VE[k]*(P1b.col(k) * P1b.col(k).transpose() + 
-										  P1c.col(k) * P1c.col(k).transpose());
+	// Local stiffness matrix (dense)
+	Eigen::MatrixXd Ak = localStiffnessMatrix2D(mesh, P1b, P1c);
 
-		Ak.col(k) = Eigen::Map<Eigen::VectorXd>(aux.data(), 9);
-	}
+	// Global stiffness matrix (sparse)
+	Eigen::SparseMatrix<double> A = stiffnessMatrix2D(mesh, Ak, mu);
+
 
 
 

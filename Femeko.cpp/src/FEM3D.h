@@ -1,7 +1,13 @@
-#define pi 3.14159265358979311600
+/*
+		Logic for 3D FEM 
+
+	Requirements: 
+		Eigen
+		mesh.h
+*/
 
 // FEM basis function
-Eigen::Vector4d abcd(Eigen::Ref<Eigen::MatrixXd> p, Eigen::Vector4i nodes,int nd){
+Eigen::Vector4d linearBasis3D(Eigen::Ref<Eigen::MatrixXd> p, Eigen::Vector4i nodes,int nd){
 	
 	int nds[3] = {0,0,0};		// All other nodes of the element
 	{ // Get nodes different than nd
@@ -60,7 +66,7 @@ Eigen::MatrixXd localStiffnessMatrix(
     for(int k = 0; k<t.cols(); k++){
         Eigen::Vector4d b,c,d;
         for(int i = 0; i<4; i++){
-            Eigen::Vector4d r = abcd(p,t.col(k),t(i,k));
+            Eigen::Vector4d r = linearBasis3D(p,t.col(k),t(i,k));
             b(i) = r[1];
             c(i) = r[2];
             d(i) = r[3]; 
