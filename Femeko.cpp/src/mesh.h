@@ -293,87 +293,113 @@ void Mesh( MESH& mesh, // Populate this mesh struct
 			}
 		}
 
-	// 	// Get the element tags in 'cells'
-	// 	mesh.nInside = 0;
-	// 	mesh.InsideElements.reserve(mesh.nt); // At most this vector holds every tag
+		// Get the element tags in 'cells'
+		mesh.nInside = 0;
+		mesh.InsideElements.reserve(mesh.nt); // At most this vector holds every tag
 
-	// 	if(cells.size()>0){ // Check which elements belong to 'cells' 
+		if(cells.size()>0){ // Check which elements belong to 'cells' 
 
-	// 		for(int k = 0; k<mesh.nt; k++){
+			for(int k = 0; k<mesh.nt; k++){
 				
-	// 			size_t tag = elementTags[k]; // Input | element tag
+				size_t tag = elementTags[k]; // Input | element tag
 
-	// 	        int elementType; // output | type of element
-	// 	        std::vector<std::size_t> nodeTags; // Output | nodes of the element
-	// 	        int dim; // Output: geometric dimension of the element
-	// 	        int id; // Output: ID of the entity where element is classified
+		        int elementType; // output | type of element
+		        std::vector<std::size_t> nodeTags; // Output | nodes of the element
+		        int dim; // Output: geometric dimension of the element
+		        int id; // Output: ID of the entity where element is classified
 		        
-	// 	        // Get the cell ID of the current element 
-	// 	        gmsh::model::mesh::getElement(tag, elementType, nodeTags, dim, id);
+		        // Get the cell ID of the current element 
+		        gmsh::model::mesh::getElement(tag, elementType, nodeTags, dim, id);
 
-	// 	        // Sweep each cell ID and see if it matches
-	// 	        for(int cell = 0; cell<cells.size(); cell++){
-	// 				int cellID = cells[cell].second; // (dim, tag)
-	// 				if(cellID == id){ // Found a cell with the element tag
-	// 					mesh.InsideElements.push_back(k);
-	// 					mesh.nInside++;
-	// 				}
-	// 	        }
+		        // Sweep each cell ID and see if it matches
+		        for(int cell = 0; cell<cells.size(); cell++){
+					int cellID = cells[cell].second; // (dim, tag)
+					if(cellID == id){ // Found a cell with the element tag
+						mesh.InsideElements.push_back(k);
+						mesh.nInside++;
+					}
+		        }
 			
-	// 		} // Loop over the elements
+			} // Loop over the elements
 
-	// 	} // Check what element tags are in 'cells'
+		} // Check what element tags are in 'cells'
 	
 	} // Mesh connectivity (3 by nt)
 
-	// // Get the boundary connectivity (edges)
-	// {
-	// 	// Get the boundary element tags
-	// 	std::vector<std::size_t> elementTags, elementNodeTags;
-	// 	gmsh::model::mesh::getElementsByType(1, elementTags, elementNodeTags); // type 1 for p1 edges
+	// Get the boundary connectivity (triangles)
+	{
+		// Get the boundary element tags
+		std::vector<std::size_t> elementTags, elementNodeTags;
+		gmsh::model::mesh::getElementsByType(2, elementTags, elementNodeTags); // type 1 for p1 edges
 
-	// 	mesh.ns = elementTags.size();
-	// 	mesh.surfaceT = Eigen::MatrixXi::Zero(3, mesh.ns);
-	// 	for(int s = 0; s<mesh.ns; s++){
-	// 		size_t tag = elementTags[s]; // Input | element tag
+		mesh.ns = elementTags.size();
+		mesh.surfaceT = Eigen::MatrixXi::Zero(4, mesh.ns); // 3 nodes + boundary ID
+		for(int s = 0; s<mesh.ns; s++){
+			size_t tag = elementTags[s]; // Input | element tag
 
-	// 		int elementType; // output | type of element
-	// 		std::vector<std::size_t> nodeTags; // Output | nodes of the element
-	// 		int dim; // Output: geometric dimension of the element
-	// 		int id; // Output: ID of the entity where element is classified
+			int elementType; // output | type of element
+			std::vector<std::size_t> nodeTags; // Output | nodes of the element
+			int dim; // Output: geometric dimension of the element
+			int id; // Output: ID of the entity where element is classified
 
-	// 		// Get the cell ID of the current element 
-	// 		gmsh::model::mesh::getElement(tag, elementType, nodeTags, dim, id);
+			// Get the cell ID of the current element 
+			gmsh::model::mesh::getElement(tag, elementType, nodeTags, dim, id);
 
-	// 		// Store the nodes and the boundary ID in mesh.surfaceT
-	// 		mesh.surfaceT(0, s) = nodeTags[0]-1; // Gmsh labels starts at 1
-	// 		mesh.surfaceT(1, s) = nodeTags[1]-1; // ...
-	// 		mesh.surfaceT(2, s) = id;
-	// 	}
-	// }
+			// Store the nodes and the boundary ID in mesh.surfaceT
+			mesh.surfaceT(0, s) = nodeTags[0]-1; // Gmsh labels starts at 1
+			mesh.surfaceT(1, s) = nodeTags[1]-1; // ...
+			mesh.surfaceT(2, s) = nodeTags[2]-1; // ...
+			mesh.surfaceT(3, s) = id;
+		}
+	}
 
-	// // Area of each element
-	// mesh.VE.assign(mesh.nt, 0.0); 
-	// for(int k = 0; k<mesh.nt; k++){
-	// 	mesh.VE[k] = areaTriangle(mesh.p, 
-	// 							  mesh.t(0, k), 
-	// 							  mesh.t(1, k),
-	// 							  mesh.t(2, k));
-	// }
+	mesh.VE.assign(mesh.nt, 0.0); 
+	for(int k = 0; k<mesh.nt; k++){
+	    // A = p[:, nds[1]]
+	    // B = p[:, nds[2]]
+	    // C = p[:, nds[3]]
+	    // D = p[:, nds[4]]
 
-	// // Length and normal of each boundary element
-	// mesh.normal = Eigen::MatrixXd::Zero(2, mesh.ns);
-	// mesh.AE.assign(mesh.ns, 0.0);
-	// for(int s = 0; s<mesh.ns; s++){
+	    int nd1 = mesh.t(0, k);
+	    int nd2 = mesh.t(1, k);
+	    int nd3 = mesh.t(2, k);
+	    int nd4 = mesh.t(3, k);
 
-	// 	int i = mesh.surfaceT(0, s);
-	// 	int j = mesh.surfaceT(1, s);
+	    // Compute vectors AB, AC, AD
+	    std::vector<double> AB = {mesh.p(0, nd2) - mesh.p(0, nd1), 
+	    					      mesh.p(1, nd2) - mesh.p(1, nd1),
+	    					      mesh.p(2, nd2) - mesh.p(2, nd1)}; // B - A
+	    
+	    std::vector<double> AC = {mesh.p(0, nd3) - mesh.p(0, nd1), 
+	    					      mesh.p(1, nd3) - mesh.p(1, nd1),
+	    					      mesh.p(2, nd3) - mesh.p(2, nd1)};  // C - A
+	    
+		std::vector<double> AD = {mesh.p(0, nd4) - mesh.p(0, nd1), 
+							      mesh.p(1, nd4) - mesh.p(1, nd1),
+							      mesh.p(2, nd4) - mesh.p(2, nd1)};  // D - A
 
-	// 	double dx = mesh.p(0, j) - mesh.p(0, i);
-	// 	double dy = mesh.p(1, j) - mesh.p(1, i);
+	    // Compute AB ⋅ (AC × AD)
+	    std::vector<double> cross_AC_AD = {AC[1]*AD[2] - AC[2]*AD[1],
+	                   					   AC[2]*AD[0] - AC[0]*AD[2],
+	                   					   AC[0]*AD[1] - AC[1]*AD[0]}; 
 
-	// 	mesh.AE[s] = std::sqrt(dx*dx + dy*dy);
-	// 	mesh.normal.col(s) = normalEdge(mesh.p, mesh.surfaceT.col(s)); 
-	// }
+	    double aux = AB[0] * cross_AC_AD[0] + AB[1] * cross_AC_AD[1] + AB[2] * cross_AC_AD[2];
+
+	    // Volume = (1/6) * |aux|
+	    mesh.VE[k] = std::abs(aux)/6.0;
+	} // Volume of each element
+
+	// Area and normal of each boundary element
+	mesh.normal = Eigen::MatrixXd::Zero(2, mesh.ns);
+	mesh.AE.assign(mesh.ns, 0.0);
+	for(int s = 0; s<mesh.ns; s++){
+
+		mesh.AE[s] = areaTriangle(mesh.p, 
+								  mesh.surfaceT(0, s), 
+								  mesh.surfaceT(1, s),
+								  mesh.surfaceT(2, s));
+
+		// mesh.normal.col(s) = normalEdge(mesh.p, mesh.surfaceT.col(s)); 
+	}
 
 } // Mesh2D()

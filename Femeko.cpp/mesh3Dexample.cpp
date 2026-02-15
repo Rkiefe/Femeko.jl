@@ -56,13 +56,20 @@ int main()
 	print("Number of nodes: ");
 	println(mesh.nv);
 
-	// print("Number of boundary elements: ");
-	// println(mesh.ns);
+	print("Number of boundary elements: ");
+	println(mesh.ns);
 
-	// print("Number of elements in 'cells': ");
-	// println(mesh.nInside);
+	print("Number of elements in 'cells': ");
+	println(mesh.nInside);
 
-	if(showGmsh){ gmsh::fltk::run(); }
+	if(showGmsh){ 
+		// Clip the mesh to make it easier to see
+		gmsh::option::setNumber("Mesh.Clip", 1.0);
+		gmsh::option::setNumber("General.ClipWholeElements", 1.0);
+		gmsh::option::setNumber("Mesh.VolumeFaces", 1.0);
+		
+		gmsh::fltk::run(); // Open GMSH GUI
+	}
 	gmsh::finalize();
 
 	return 0;
