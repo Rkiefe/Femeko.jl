@@ -56,7 +56,7 @@ int main()
 	
 	// Create the mesh
 	extendLocalRefinement(0.0);
-	MESH2D mesh;
+	MESH mesh;
 	Mesh2D(mesh, meshSize, localSize, cells);
 
 	// Print some mesh properties

@@ -1,6 +1,6 @@
 // Creates a mesh and outputs a struct with the data in a more familiar format
 
-struct MESH2D
+struct MESH
 {
 	int nv; // Number of nodes
 	int nt; // Number of elements
@@ -111,7 +111,7 @@ Eigen::Vector2d normalEdge(Eigen::Ref<Eigen::MatrixXd> p,
 
 
 // Generate 2D mesh
-void Mesh2D(  MESH2D& mesh, // Populate this mesh struct
+void Mesh2D(  MESH& mesh, // Populate this mesh struct
 			  double meshSize, 
 			  double localSize,
 			  std::vector<std::pair<int, int>> &cells){
@@ -240,3 +240,7 @@ void Mesh2D(  MESH2D& mesh, // Populate this mesh struct
 	}
 
 } // Mesh2D()
+
+void Mesh3D(MESH &mesh){
+	
+}

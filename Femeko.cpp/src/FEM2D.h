@@ -41,7 +41,7 @@ Eigen::Vector3d linearBasis2D(Eigen::Ref<Eigen::MatrixXd> p,
 
 // Build the local stiffness matrix
 // Requires the pre-computed linear basis coefficients P1b and P1c (does not need P1a)
-Eigen::MatrixXd localStiffnessMatrix2D(MESH2D &mesh,
+Eigen::MatrixXd localStiffnessMatrix2D(MESH &mesh,
 									   Eigen::Ref<Eigen::MatrixXd> P1b,
 									   Eigen::Ref<Eigen::MatrixXd> P1c){
 	
@@ -58,7 +58,7 @@ Eigen::MatrixXd localStiffnessMatrix2D(MESH2D &mesh,
 
 // Build the sparse stiffness matrix 
 // Requires the pre-computed local stiffness matrix
-Eigen::SparseMatrix<double> stiffnessMatrix2D(MESH2D &mesh,
+Eigen::SparseMatrix<double> stiffnessMatrix2D(MESH &mesh,
 											  Eigen::Ref<Eigen::MatrixXd> Ak,
 											  std::vector<double> &mu){
 
