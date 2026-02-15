@@ -5,7 +5,7 @@
 	g++ 2Dmagnet.cpp -o 2Dmagnet.out -I ../gmsh-4.15.0-Linux64-sdk/include -L ../gmsh-4.15.0-Linux64-sdk/lib -l gmsh -Wl,-rpath,../gmsh-4.15.0-Linux64-sdk/lib
 	
 	- run with
-	./main.out
+	./2Dmagnet.out
 */
 
 #include "../src/femeko.h"
