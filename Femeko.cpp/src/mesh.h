@@ -241,6 +241,139 @@ void Mesh2D(  MESH& mesh, // Populate this mesh struct
 
 } // Mesh2D()
 
-void Mesh3D(MESH &mesh){
+// Generate 2D mesh
+void Mesh( MESH& mesh, // Populate this mesh struct
+		   double meshSize, 
+		   double localSize,
+		   std::vector<std::pair<int, int>> &cells){
+
+	// Verify the dimension of the model
+	if(cells.size()>0 && cells[0].first < 3){ // It is a 2D geometry
+		Mesh2D(mesh, meshSize, localSize, cells);
+		return;		
+	}
+
+	// Set maximum element size
+	gmsh::option::setNumber("Mesh.MeshSizeMax", meshSize);
 	
-}
+	// Add local refinement
+	if(cells.size()>0){
+		refineCell(cells, localSize, meshSize);
+	}
+
+	// Generate the mesh
+    gmsh::model::mesh::generate(3);
+    gmsh::model::mesh::optimize();
+
+	println("\nFinished generating the mesh and optimizing it.");
+	println("Extracting mesh info into Femeko format...");
+
+	// Get the mesh nodes:
+	{
+		std::vector<std::size_t> nodes;
+		std::vector<double> coord, coordParam;
+		gmsh::model::mesh::getNodes(nodes, coord, coordParam);
+		
+		mesh.nv = nodes.size();
+		mesh.p = Eigen::Map<Eigen::MatrixXd>(coord.data(), 3, mesh.nv);
+	} // Get mesh node coordinates (x,y,z) by nv
+
+	// Get mesh connectivity:
+	{
+		std::vector<std::size_t> elementTags, elementNodeTags;
+		gmsh::model::mesh::getElementsByType(4, elementTags, elementNodeTags); // type 4 for p1 tetrahedrons
+
+		mesh.nt = elementTags.size();
+		mesh.t = Eigen::MatrixXi::Zero(4, mesh.nt);
+		int n = 0;
+		for(int k = 0; k<mesh.nt; k++){ // For each element
+			for(int i = 0; i<4; i++){ // For each node
+				mesh.t(i, k) = elementNodeTags[n]-1; // Gmsh node labels start at 1
+				n++;
+			}
+		}
+
+	// 	// Get the element tags in 'cells'
+	// 	mesh.nInside = 0;
+	// 	mesh.InsideElements.reserve(mesh.nt); // At most this vector holds every tag
+
+	// 	if(cells.size()>0){ // Check which elements belong to 'cells' 
+
+	// 		for(int k = 0; k<mesh.nt; k++){
+				
+	// 			size_t tag = elementTags[k]; // Input | element tag
+
+	// 	        int elementType; // output | type of element
+	// 	        std::vector<std::size_t> nodeTags; // Output | nodes of the element
+	// 	        int dim; // Output: geometric dimension of the element
+	// 	        int id; // Output: ID of the entity where element is classified
+		        
+	// 	        // Get the cell ID of the current element 
+	// 	        gmsh::model::mesh::getElement(tag, elementType, nodeTags, dim, id);
+
+	// 	        // Sweep each cell ID and see if it matches
+	// 	        for(int cell = 0; cell<cells.size(); cell++){
+	// 				int cellID = cells[cell].second; // (dim, tag)
+	// 				if(cellID == id){ // Found a cell with the element tag
+	// 					mesh.InsideElements.push_back(k);
+	// 					mesh.nInside++;
+	// 				}
+	// 	        }
+			
+	// 		} // Loop over the elements
+
+	// 	} // Check what element tags are in 'cells'
+	
+	} // Mesh connectivity (3 by nt)
+
+	// // Get the boundary connectivity (edges)
+	// {
+	// 	// Get the boundary element tags
+	// 	std::vector<std::size_t> elementTags, elementNodeTags;
+	// 	gmsh::model::mesh::getElementsByType(1, elementTags, elementNodeTags); // type 1 for p1 edges
+
+	// 	mesh.ns = elementTags.size();
+	// 	mesh.surfaceT = Eigen::MatrixXi::Zero(3, mesh.ns);
+	// 	for(int s = 0; s<mesh.ns; s++){
+	// 		size_t tag = elementTags[s]; // Input | element tag
+
+	// 		int elementType; // output | type of element
+	// 		std::vector<std::size_t> nodeTags; // Output | nodes of the element
+	// 		int dim; // Output: geometric dimension of the element
+	// 		int id; // Output: ID of the entity where element is classified
+
+	// 		// Get the cell ID of the current element 
+	// 		gmsh::model::mesh::getElement(tag, elementType, nodeTags, dim, id);
+
+	// 		// Store the nodes and the boundary ID in mesh.surfaceT
+	// 		mesh.surfaceT(0, s) = nodeTags[0]-1; // Gmsh labels starts at 1
+	// 		mesh.surfaceT(1, s) = nodeTags[1]-1; // ...
+	// 		mesh.surfaceT(2, s) = id;
+	// 	}
+	// }
+
+	// // Area of each element
+	// mesh.VE.assign(mesh.nt, 0.0); 
+	// for(int k = 0; k<mesh.nt; k++){
+	// 	mesh.VE[k] = areaTriangle(mesh.p, 
+	// 							  mesh.t(0, k), 
+	// 							  mesh.t(1, k),
+	// 							  mesh.t(2, k));
+	// }
+
+	// // Length and normal of each boundary element
+	// mesh.normal = Eigen::MatrixXd::Zero(2, mesh.ns);
+	// mesh.AE.assign(mesh.ns, 0.0);
+	// for(int s = 0; s<mesh.ns; s++){
+
+	// 	int i = mesh.surfaceT(0, s);
+	// 	int j = mesh.surfaceT(1, s);
+
+	// 	double dx = mesh.p(0, j) - mesh.p(0, i);
+	// 	double dy = mesh.p(1, j) - mesh.p(1, i);
+
+	// 	mesh.AE[s] = std::sqrt(dx*dx + dy*dy);
+	// 	mesh.normal.col(s) = normalEdge(mesh.p, mesh.surfaceT.col(s)); 
+	// }
+
+} // Mesh2D()

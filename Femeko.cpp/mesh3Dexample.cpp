@@ -4,10 +4,10 @@
 	with local refinement on the boundaries if the rectangle
 
 	- compile with
-	g++ mesh2Dexample.cpp -o mesh2Dexample.out -I gmsh-4.15.0-Linux64-sdk/include -L gmsh-4.15.0-Linux64-sdk/lib -l gmsh -Wl,-rpath,gmsh-4.15.0-Linux64-sdk/lib
+	g++ mesh3Dexample.cpp -o mesh3Dexample.out -I gmsh-4.15.0-Linux64-sdk/include -L gmsh-4.15.0-Linux64-sdk/lib -l gmsh -Wl,-rpath,gmsh-4.15.0-Linux64-sdk/lib
 	
 	- run with
-	./mesh2Dexample.out
+	./mesh3Dexample.out
 */
 
 #include "src/femeko.h"
@@ -18,25 +18,25 @@ int main()
 
 	double meshSize = 1.0; 	// Maximum mesh size
 	double localSize = 0.1; // Local element size
-	bool showGmsh = false; // Open gmsh GUI ?
+	bool showGmsh = true; // Open gmsh GUI ?
 
 	// Hold the label of each cell added
 	std::vector<std::pair<int, int>> cells;
 
-	{ // Add a rectangle
-		std::vector<double> position = {0.0, 0.0};
-		std::vector<double> dimensions = {2.0, 1.0};
-		addRectangle(position, dimensions, cells);
+	{ // Add a prism
+		std::vector<double> position = {0.0, 0.0, 0.0};
+		std::vector<double> dimensions = {2.0, 1.0, 1.0};
+		addCuboid(position, dimensions, cells);
 	}
 
 	// Add a disk as bounding shell
-	int shellID;
+	int box;
 	{ 
-		std::vector<double> position = {0.0, 0.0};
-		shellID = addDisk(position, 4.0);
+		std::vector<double> position = {0.0, 0.0, 0.0};
+		box = addSphere(position, 4.0);
 	}
 
-	unifyModel(cells, shellID);
+	unifyModel(cells, box);
 
 	// Show the cells that are inside the disk
 	println("Cells inside the bounding shell:");
@@ -45,9 +45,9 @@ int main()
 	}
 	
 	// Create the mesh
-	extendLocalRefinement(0.0);
+	// extendLocalRefinement(0.0);
 	MESH mesh;
-	Mesh(mesh, meshSize, localSize, cells); // will call the Mesh2D() automatically
+	Mesh(mesh, meshSize, localSize, cells);
 
 	// Print some mesh properties
 	print("\nNumber of elements: ");
@@ -56,11 +56,11 @@ int main()
 	print("Number of nodes: ");
 	println(mesh.nv);
 
-	print("Number of boundary elements: ");
-	println(mesh.ns);
+	// print("Number of boundary elements: ");
+	// println(mesh.ns);
 
-	print("Number of elements in 'cells': ");
-	println(mesh.nInside);
+	// print("Number of elements in 'cells': ");
+	// println(mesh.nInside);
 
 	if(showGmsh){ gmsh::fltk::run(); }
 	gmsh::finalize();
