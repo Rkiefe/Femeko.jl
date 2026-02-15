@@ -109,6 +109,38 @@ Eigen::Vector2d normalEdge(Eigen::Ref<Eigen::MatrixXd> p,
 	return n;
 }
 
+// Volume of the tetrahedron devined by 4 points
+double elementVolume(Eigen::Ref<Eigen::MatrixXd> p, 
+					 Eigen::Vector4i nds){
+
+	    // A = p[:, nds[0]]
+	    // B = p[:, nds[1]]
+	    // C = p[:, nds[2]]
+	    // D = p[:, nds[3]]
+
+	    // Compute vectors AB, AC, AD
+	    std::vector<double> AB = {p(0, nds[1]) - p(0, nds[0]), 
+	    					      p(1, nds[1]) - p(1, nds[0]),
+	    					      p(2, nds[1]) - p(2, nds[0])}; // B - A
+	    
+	    std::vector<double> AC = {p(0, nds[2]) - p(0, nds[0]), 
+	    					      p(1, nds[2]) - p(1, nds[0]),
+	    					      p(2, nds[2]) - p(2, nds[0])};  // C - A
+	    
+		std::vector<double> AD = {p(0, nds[3]) - p(0, nds[0]), 
+							      p(1, nds[3]) - p(1, nds[0]),
+							      p(2, nds[3]) - p(2, nds[0])};  // D - A
+
+	    // Compute AB ⋅ (AC × AD)
+	    std::vector<double> cross_AC_AD = {AC[1]*AD[2] - AC[2]*AD[1],
+	                   					   AC[2]*AD[0] - AC[0]*AD[2],
+	                   					   AC[0]*AD[1] - AC[1]*AD[0]}; 
+
+	    double aux = AB[0] * cross_AC_AD[0] + AB[1] * cross_AC_AD[1] + AB[2] * cross_AC_AD[2];
+
+	    // Volume = (1/6) * |aux|
+	    return std::abs(aux)/6.0;
+} // Volume of tetrahedron
 
 // Generate 2D mesh
 void Mesh2D(  MESH& mesh, // Populate this mesh struct
@@ -355,38 +387,7 @@ void Mesh( MESH& mesh, // Populate this mesh struct
 
 	mesh.VE.assign(mesh.nt, 0.0); 
 	for(int k = 0; k<mesh.nt; k++){
-	    // A = p[:, nds[1]]
-	    // B = p[:, nds[2]]
-	    // C = p[:, nds[3]]
-	    // D = p[:, nds[4]]
-
-	    int nd1 = mesh.t(0, k);
-	    int nd2 = mesh.t(1, k);
-	    int nd3 = mesh.t(2, k);
-	    int nd4 = mesh.t(3, k);
-
-	    // Compute vectors AB, AC, AD
-	    std::vector<double> AB = {mesh.p(0, nd2) - mesh.p(0, nd1), 
-	    					      mesh.p(1, nd2) - mesh.p(1, nd1),
-	    					      mesh.p(2, nd2) - mesh.p(2, nd1)}; // B - A
-	    
-	    std::vector<double> AC = {mesh.p(0, nd3) - mesh.p(0, nd1), 
-	    					      mesh.p(1, nd3) - mesh.p(1, nd1),
-	    					      mesh.p(2, nd3) - mesh.p(2, nd1)};  // C - A
-	    
-		std::vector<double> AD = {mesh.p(0, nd4) - mesh.p(0, nd1), 
-							      mesh.p(1, nd4) - mesh.p(1, nd1),
-							      mesh.p(2, nd4) - mesh.p(2, nd1)};  // D - A
-
-	    // Compute AB ⋅ (AC × AD)
-	    std::vector<double> cross_AC_AD = {AC[1]*AD[2] - AC[2]*AD[1],
-	                   					   AC[2]*AD[0] - AC[0]*AD[2],
-	                   					   AC[0]*AD[1] - AC[1]*AD[0]}; 
-
-	    double aux = AB[0] * cross_AC_AD[0] + AB[1] * cross_AC_AD[1] + AB[2] * cross_AC_AD[2];
-
-	    // Volume = (1/6) * |aux|
-	    mesh.VE[k] = std::abs(aux)/6.0;
+	    mesh.VE[k] = elementVolume(mesh.p, mesh.t.col(k));
 	} // Volume of each element
 
 	// Area and normal of each boundary element
