@@ -1,4 +1,11 @@
+// g++ test.cpp -o test.out -I gmsh-4.15.0-Linux64-sdk/include -L gmsh-4.15.0-Linux64-sdk/lib -l gmsh -Wl,-rpath,gmsh-4.15.0-Linux64-sdk/lib
+
 #include "src/femeko.h"
+
+template<typename T>
+void fun(T &arr){
+	arr(0) = 0.1;
+}
 
 int main(int argc, char const *argv[])
 {
@@ -19,6 +26,10 @@ int main(int argc, char const *argv[])
 	}
 
 	std::cout << pManual << std::endl; // Also correct format
+
+	Eigen::VectorXd vec(10);
+	fun(vec);
+	println(vec);
 
 	return 0;
 }
