@@ -1,3 +1,8 @@
+# Update:
+`Development migrated to` [Femeko.jl]{https://codeberg.org/rkiefe/Femeko.jl}
+All future updates will only be available at codeberg. 
+
+
 <img width="720" height="258" alt="femeko_logo_v2" src="https://github.com/user-attachments/assets/2bb8ad52-ff73-4182-86b5-ddcad3cd55a4" />
 
 # Femeko.jl
