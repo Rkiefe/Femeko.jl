@@ -1,5 +1,5 @@
 # Update:
-`Development migrated to` [Femeko.jl]{https://codeberg.org/rkiefe/Femeko.jl}
+`Development migrated to` [Femeko.jl](https://codeberg.org/rkiefe/Femeko.jl)
 All future updates will only be available at codeberg. 
 
 
